@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         NICO SHELF Direct Bridge (v0.6.1)
+// @name         NICO SHELF Direct Bridge (v0.6.2)
 // @namespace    nico-shelf.direct
-// @version      0.6.1
+// @version      0.6.2
 // @description  NICO SHELFで確認した動画を、ニコニコのログイン済みタブから登録します。Cookieを外部送信しません。
 // @match        https://www.nicovideo.jp/*
 // @match        https://nico-shelf.shiokara-lab.workers.dev/*
@@ -19,8 +19,15 @@
   const validNonce=s=>typeof s==='string'&&/^[a-f0-9-]{36}$/.test(s);
   const PAGE_CHANNEL='nico-shelf-page-v06';
   const BRIDGE_CHANNEL='nico-shelf-bridge-v06';
+  const APP_EVENT='nico-shelf-page-dom-v062';
+  const SCRIPT_EVENT='nico-shelf-script-dom-v062';
+  function sendToPage(message){
+    document.dispatchEvent(new CustomEvent(SCRIPT_EVENT,{detail:JSON.stringify(message)}));
+    window.postMessage(message,location.origin);
+  }
   if(ALLOWED.has(location.origin)){
-    document.documentElement.setAttribute('data-nico-shelf-direct-bridge','0.6.1');
+    // This marker is a diagnostic: it means this exact version executed here.
+    document.documentElement.setAttribute('data-nico-shelf-direct-bridge','0.6.2');
     // The app page cannot access NicoNico cookies. It only exchanges JSON
     // with the separately running userscript on the user's NicoNico tab.
     let activeNonce='',listenerIds=[],pollTimer=null,acknowledgedReady=false;
@@ -35,16 +42,16 @@
       // Do not accept old responses, even though the nonce is unique per click.
       if(!Number.isFinite(value.timestamp)||Math.abs(Date.now()-value.timestamp)>120000)return;
       acknowledgedReady=true;
-      window.postMessage({channel:BRIDGE_CHANNEL,type:'ready',nonce:activeNonce},location.origin);
+      sendToPage({channel:BRIDGE_CHANNEL,type:'ready',nonce:activeNonce});
     }
     function receiveResult(value){
       if(value?.nonce!==activeNonce||!validNonce(value.requestId))return;
       if(!Number.isFinite(value.timestamp)||Math.abs(Date.now()-value.timestamp)>120000)return;
-      window.postMessage({channel:BRIDGE_CHANNEL,type:'result',...value},location.origin);
+      sendToPage({channel:BRIDGE_CHANNEL,type:'result',...value});
     }
     function begin(nonce){
       if(activeNonce===nonce){
-        window.postMessage({channel:BRIDGE_CHANNEL,type:'page-bridge-ready',nonce},location.origin);
+        sendToPage({channel:BRIDGE_CHANNEL,type:'page-bridge-ready',nonce});
         if(!acknowledgedReady)receiveReady(GM_getValue(`nico_shelf_ready_${nonce}`,null));
         return;
       }
@@ -62,21 +69,29 @@
           latestResultId=result.requestId;receiveResult(result);
         }
       },500);
-      window.postMessage({channel:BRIDGE_CHANNEL,type:'page-bridge-ready',nonce},location.origin);
+      sendToPage({channel:BRIDGE_CHANNEL,type:'page-bridge-ready',nonce});
       receiveReady(GM_getValue(readyKey,null));
     }
-    window.addEventListener('message',event=>{
-      if((event.source&&event.source!==window)||event.origin!==location.origin||event.data?.channel!==PAGE_CHANNEL)return;
-      const {type,nonce}=event.data;
+    function handleAppMessage(data){
+      if(data?.channel!==PAGE_CHANNEL)return;
+      const {type,nonce}=data;
       if(!validNonce(nonce))return;
       if(type==='init')begin(nonce);
       else if(type==='request'&&nonce===activeNonce){
-        if(!['inspect','register'].includes(event.data.action)||!validNonce(event.data.requestId))return;
+        if(!['inspect','register'].includes(data.action)||!validNonce(data.requestId))return;
         GM_setValue(`nico_shelf_request_${nonce}`,{
-          nonce,requestId:event.data.requestId,action:event.data.action,
-          payload:event.data.payload,timestamp:Date.now()
+          nonce,requestId:data.requestId,action:data.action,
+          payload:data.payload,timestamp:Date.now()
         });
       }
+    }
+    document.addEventListener(APP_EVENT,event=>{
+      let data;try{data=JSON.parse(event.detail)}catch{return}
+      handleAppMessage(data);
+    });
+    window.addEventListener('message',event=>{
+      if((event.source&&event.source!==window)||event.origin!==location.origin)return;
+      handleAppMessage(event.data);
     });
     return;
   }
@@ -91,7 +106,7 @@
   const header={'X-Frontend-Id':'6','X-Frontend-Version':'0','X-Request-With':'https://www.nicovideo.jp'};
   const ui=document.createElement('section');
   ui.style.cssText='position:fixed;z-index:2147483647;right:20px;bottom:20px;width:min(390px,calc(100vw - 40px));box-sizing:border-box;background:#0d2238;color:#f7fcff;border:1px solid #85e3da;border-radius:15px;padding:18px;box-shadow:0 8px 28px #0008;font:14px/1.55 system-ui,sans-serif';
-  const headerEl=document.createElement('strong');headerEl.textContent='♫ NICO SHELF · 直接登録';headerEl.style.cssText='font-size:17px;color:#85e3da';
+  const headerEl=document.createElement('strong');headerEl.textContent='♫ NICO SHELF · 直接登録 v0.6.2';headerEl.style.cssText='font-size:17px;color:#85e3da';
   const note=document.createElement('p');note.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';
   const buttons=document.createElement('div');buttons.style.cssText='display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end';
   ui.append(headerEl,note,buttons);document.body.appendChild(ui);

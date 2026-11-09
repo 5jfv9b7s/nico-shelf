@@ -1,6 +1,11 @@
-/** NICO SHELF 0.6.1: Tampermonkey tab bridge with explicit diagnostics and retry.
+/** NICO SHELF 0.6.2: Cross-world DOM event + postMessage bridge with diagnostics.
  *  NicoNico cookies stay within the authenticated NicoNico tab.
  */
+// DOM CustomEvents cross Chrome extension's isolated world and page world.
+// Only JSON text passes across the boundary, avoiding cross-world object wrappers.
+const APP_EVENT = 'nico-shelf-page-dom-v062';
+const SCRIPT_EVENT = 'nico-shelf-script-dom-v062';
+
 export class NicoTabBridge {
   constructor() {
     this.nonce = '';
@@ -11,19 +16,31 @@ export class NicoTabBridge {
     this.initTimer = null;
     this.pageBridgeAcknowledged = false;
     this.onMessage = this.onMessage.bind(this);
+    this.onDomMessage = this.onDomMessage.bind(this);
     window.addEventListener('message', this.onMessage);
+    document.addEventListener(SCRIPT_EVENT, this.onDomMessage);
   }
 
   onMessage(event) {
-    // A content-script message may have a null source depending on injection mode.
-    if ((event.source && event.source !== window) ||
-        event.origin !== location.origin ||
-        event.data?.channel !== 'nico-shelf-bridge-v06' ||
-        event.data?.nonce !== this.nonce) return;
+    // The extension sandbox may use a different origin, so postMessage is a
+    // secondary path. We do not weaken the origin validation here.
+    if ((event.source && event.source !== window) || event.origin !== location.origin) return;
+    this.onPayload(event.data);
+  }
 
-    if (event.data.type === 'page-bridge-ready') {
+  onDomMessage(event) {
+    // CustomEvent.detail is a JSON string so isolated-world boundaries do not
+    // need to exchange realm-specific JS objects.
+    let data;
+    try { data = JSON.parse(event.detail); } catch { return; }
+    this.onPayload(data);
+  }
+
+  onPayload(data) {
+    if (data?.channel !== 'nico-shelf-bridge-v06' || data.nonce !== this.nonce) return;
+    if (data.type === 'page-bridge-ready') {
       this.pageBridgeAcknowledged = true;
-    } else if (event.data.type === 'ready') {
+    } else if (data.type === 'ready') {
       this.connected = true;
       this.clearInitTimer();
       if (this.handshake) {
@@ -31,14 +48,19 @@ export class NicoTabBridge {
         this.handshake.resolve();
         this.handshake = null;
       }
-    } else if (event.data.type === 'result') {
-      const waiter = this.pending.get(event.data.requestId);
+    } else if (data.type === 'result') {
+      const waiter = this.pending.get(data.requestId);
       if (!waiter) return;
       clearTimeout(waiter.timer);
-      this.pending.delete(event.data.requestId);
-      if (event.data.ok) waiter.resolve(event.data.payload);
-      else waiter.reject(new Error(event.data.error || 'ニコニコ側で処理できませんでした'));
+      this.pending.delete(data.requestId);
+      if (data.ok) waiter.resolve(data.payload);
+      else waiter.reject(new Error(data.error || 'ニコニコ側で処理できませんでした'));
     }
+  }
+
+  sendToScript(message) {
+    document.dispatchEvent(new CustomEvent(APP_EVENT, {detail:JSON.stringify(message)}));
+    window.postMessage(message, location.origin);
   }
 
   clearInitTimer() {
@@ -52,8 +74,8 @@ export class NicoTabBridge {
 
     // Makes missing/disabled site userscripts visible immediately instead of
     // showing a seemingly perpetual "unconnected" state.
-    if (document.documentElement.getAttribute('data-nico-shelf-direct-bridge') !== '0.6.1') {
-      throw new Error('NICO SHELF側で連携スクリプトv0.6.1が検出できません。Tampermonkeyでこの公開サイトへのアクセスを許可し、アプリのタブを再読み込みしてください');
+    if (document.documentElement.getAttribute('data-nico-shelf-direct-bridge') !== '0.6.2') {
+      throw new Error('NICO SHELF側で連携スクリプトv0.6.2が検出できません。Tampermonkeyでこの公開サイトへのアクセスを許可し、アプリのタブを再読み込みしてください');
     }
 
     this.nonce = crypto.randomUUID();
@@ -71,7 +93,7 @@ export class NicoTabBridge {
     const nonce = this.nonce;
     const sendInit = () => {
       if (this.nonce === nonce && !this.connected) {
-        window.postMessage({channel:'nico-shelf-page-v06', type:'init', nonce}, location.origin);
+        this.sendToScript({channel:'nico-shelf-page-v06', type:'init', nonce});
       }
     };
     const promise = new Promise((resolve, reject) => {
@@ -79,8 +101,8 @@ export class NicoTabBridge {
         this.handshake = null;
         this.clearInitTimer();
         const detail = this.pageBridgeAcknowledged
-          ? 'NICO SHELF側のスクリプトは動作していますが、ニコニコ側から接続応答が届いていません。ニコニコ側のパネルで許可を押したか、同じTampermonkeyスクリプトが両サイトで動いているか確認してください。'
-          : 'NICO SHELF側スクリプトとの通信に失敗しています。両サイトのTampermonkeyの有効状態、Chromeの「ユーザースクリプトを許可」、拡張機能のサイトアクセス権限を確認してください。';
+          ? 'NICO SHELF側の連携は動作していますが、ニコニコ側からの許可通知が届きません。同じv0.6.2スクリプトが両サイトで動いているか確認してください。'
+          : 'アプリ側スクリプトから応答がありません。Tampermonkeyにv0.6.2を上書き保存し、NICO SHELFのタブを再読み込みしてください。';
         reject(new Error(detail));
       }, 30000);
       this.handshake = {resolve, reject, timer};
@@ -101,7 +123,7 @@ export class NicoTabBridge {
       }, timeout);
       this.pending.set(requestId, {resolve, reject, timer});
     });
-    window.postMessage({channel:'nico-shelf-page-v06', type:'request', nonce:this.nonce, requestId, action, payload}, location.origin);
+    this.sendToScript({channel:'nico-shelf-page-v06', type:'request', nonce:this.nonce, requestId, action, payload});
     return promise;
   }
 
