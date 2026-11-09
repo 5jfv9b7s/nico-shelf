@@ -1,9 +1,10 @@
 import './style.css';
 import {client,configured,loadLibrary,importRows} from './supabase.js';
 import {esc,videoId,array,formatCount,formatDate,formatDuration,membershipMap,sortRows,singerStats,autoPlaylist,normalizeImport,csvToImport} from './lib.js';
+import {diffSnapshot,normalizeSnapshot,toRpcPayload,snapshotUrl} from './sync.js';
 
 const root=document.querySelector('#app');
-const state={user:null,library:{playlists:[],videos:[],entries:[],meta:[]},view:'dashboard',filters:{q:'',playlist:'',sort:'views',order:'desc'},page:1,dialog:null,preview:null,busy:false,error:'',toastTimer:null};
+const state={user:null,library:{playlists:[],videos:[],entries:[],meta:[]},view:'dashboard',filters:{q:'',playlist:'',sort:'views',order:'desc'},page:1,dialog:null,preview:null,sync:null,busy:false,error:'',toastTimer:null};
 const VIEWS={dashboard:'ダッシュボード',library:'ライブラリ',duplicates:'重複した動画',favorites:'お気に入り',settings:'データと設定'};
 const SORTS={views:'再生数',published_at:'投稿日',duration:'動画時間',comments:'コメント数',mylists:'マイリスト数',title:'タイトル',registration:'リスト内順番'};
 const icon={dashboard:'▦',library:'≡',duplicates:'◈',favorites:'♡',settings:'⚙'};
@@ -29,7 +30,7 @@ function shell(){
       <nav>${['dashboard','library','duplicates','favorites'].map(x=>navItem(x,VIEWS[x],icon[x],state.view===x)).join('')}</nav>
       <div class="menu-label playlist-head">MY LISTS <span>${p.length}</span></div>
       <nav class="playlist-menu">${p.map(x=>`<button class="nav-item ${state.view===`playlist:${x.id}`?'is-active':''}" data-view="playlist:${esc(x.id)}"><span class="playlist-dot"></span><span class="text-ellipsis">${esc(x.name)}</span><small>${all.filter(e=>e.playlist_id===x.id).length}</small></button>`).join('')||'<p class="nav-help">インポートすると表示されます</p>'}</nav>
-      <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v0.4</b><br>クラウド管理・非公式アプリ</div></div>
+      <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v0.5</b><br>クラウド管理・非公式アプリ</div></div>
     </aside>
     <div class="workspace">
       <header class="topbar"><div class="mobile-logo">♫ <b>NICO SHELF</b></div><div class="top-center"><span class="online-indicator"></span>プライベートライブラリ</div>
@@ -72,7 +73,7 @@ function dashboard(rows){
   const creators=new Map();for(const r of rows)for(const x of new Set(array(r.producers).filter(Boolean)))creators.set(x,(creators.get(x)||0)+1);
   const topCreators=[...creators].sort((a,b)=>b[1]-a[1]).slice(0,7);
   const c=counts();const p=state.library.playlists;
-  return `${hero('OVERVIEW','あなたの音楽の棚','好きな曲を、探して、整理して、もっと知る。',`<button class="btn primary" data-action="import">⇩ データを取り込む</button>`)}
+  return `${hero('OVERVIEW','あなたの音楽の棚','好きな曲を、探して、整理して、もっと知る。',`<div class="inline-actions"><button class="btn primary" data-action="sync">↻ ニコニコとの差分同期</button><button class="btn subtle" data-action="import">⇩ インポート</button></div>`)}
     ${statsCards()}
     ${c.videos===0?`<div class="welcome-banner"><div class="welcome-icon">♫</div><div><h2>最初のライブラリを作りましょう</h2><p>v0.3のJSONバックアップ、またはCSVから取り込めます。あなたのデータはGoogleアカウントごとに分離して保存されます。</p><div class="inline-actions"><button class="btn primary" data-action="import">インポートする</button><button class="btn subtle" data-action="playlist">空のリストを作る</button></div></div></div>`:''}
     <div class="two-cols">
@@ -128,11 +129,11 @@ function settings(){return `${hero('SETTINGS','データと設定','マイリス
   <section class="settings-grid"><div class="panel setting-panel"><div class="setting-icon">⇩</div><h2>データをインポート</h2><p>v0.3のJSONバックアップ、またはCSVをSupabaseへ取り込みます。同じIDは上書き更新されます。</p><button class="btn primary" data-action="import">インポート</button></div>
   <div class="panel setting-panel"><div class="setting-icon">⇧</div><h2>バックアップ</h2><p>動画・マイリスト・メモ・評価などを、自分のPCにJSON形式で保存します。</p><button class="btn subtle" id="export">JSONバックアップを保存</button></div>
   <div class="panel setting-panel"><div class="setting-icon">≡</div><h2>マイリストを作成</h2><p>アプリ内の管理用リストを追加します。ニコニコ本体には作成されません。</p><button class="btn subtle" data-action="playlist">新しいリスト</button></div>
-  <div class="panel setting-panel"><div class="setting-icon">☁</div><h2>ニコニコとの同期</h2><p>現在のクラウド版は、インポートとDB内の管理が対象です。実際のニコニコ登録・自動同期はv0.5で別途対応予定です。</p><span class="tag-grey">未対応</span></div>
+  <div class="panel setting-panel"><div class="setting-icon">↻</div><h2>ニコニコとの差分同期</h2><p>ログイン済みニコニコの一覧を取得して、登録漏れや削除済み動画を確認できます。差分を確認してからDBへ反映します。</p><button class="btn primary" data-action="sync">差分を確認する</button></div>
   </section><div class="danger-zone"><div><h2>ライブラリを削除</h2><p>このアカウントの動画・マイリスト・メモを削除します。Googleアカウント自体は削除しません。</p></div><button class="btn danger" id="erase">全データを削除</button></div>`;}
 function content(){const rows=makeRows();return state.view==='dashboard'?dashboard(rows):state.view==='settings'?settings():listing(rows);}
-function loginScreen(){return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">♫</span><span>NICO SHELF</span><span class="version">BETA / 0.4</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">♫</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;}
-function missingConfig(){return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v0.4</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;}
+function loginScreen(){return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">♫</span><span>NICO SHELF</span><span class="version">BETA / 0.5</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">♫</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;}
+function missingConfig(){return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v0.5</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;}
 function modal(){
   const d=state.dialog,lib=state.library;
   let contents='';
@@ -141,6 +142,26 @@ function modal(){
    <p class="modal-note">個人データはログイン中のアカウントに保存され、他のユーザーからはアクセスできません。</p>
    <a class="link-text" href="/import-example.csv" download>CSVテンプレートをダウンロード ↗</a>
    ${state.preview?`<div class="preview-data"><b>読み込み内容</b><span>${formatCount(state.preview.playlists.length)} リスト · ${formatCount(state.preview.videos.length)} 動画 · ${formatCount(state.preview.entries.length)} 件の登録</span><small>同じIDの情報は上書きされます。途中で失敗した場合、一部だけ反映されることがあります。</small></div><button class="btn primary full" id="run-import" ${state.busy?'disabled':''}>${state.busy?'インポート中…':'Supabaseにインポート'}</button>`:''}<div id="import-status" class="modal-note" role="status"></div>`;
+  else if(d.kind==='sync') {
+    let url='';try{url=snapshotUrl(lib);}catch{}
+    const diff=state.sync;
+    const age=diff?Math.round((Date.now()-Date.parse(diff.snapshot.captured_at))/60000):0;
+    const changes=diff?diff.added+diff.removed+diff.reordered:0;
+    contents=`<div class="modal-head"><div class="eyebrow">SYNC / REVIEW FIRST</div><h2>ニコニコとの差分同期</h2><p>同期前に差分を確認できます。削除候補の動画・個人メモは物理削除しません。</p></div>
+      <ol class="sync-steps"><li>先にニコニコ側に <b>v0.5の取得用Tampermonkeyスクリプト</b>を登録</li><li>下のボタンからニコニコを開き、一覧を取得してJSONを保存</li><li>保存したJSONをここで読み込み、差分を確認して反映</li></ol>
+      ${url?`<a class="btn primary full sync-export" href="${esc(url)}" target="_blank" rel="noopener noreferrer">↗ ニコニコで一覧を取得する</a>`:'<p class="inline-hint">数値のマイリストIDがありません。先にニコニコのリストをインポートしてください。</p>'}
+      <label class="file-drop">⇩<strong>ニコニコから取得したJSONを選択</strong><small>nico-shelf-snapshot-*.json</small><input type="file" id="file-sync" accept=".json,application/json" /></label>
+      ${diff?`<div class="sync-summary"><b>取得日時：${esc(new Date(diff.snapshot.captured_at).toLocaleString('ja-JP'))}</b>${age>60?'<p class="sync-warning">取得から1時間以上経過しています。最新の一覧を再取得することを推奨します。</p>':''}
+        <div class="sync-totals"><span>追加候補 <b>${diff.added}</b></span><span>削除候補 <b>${diff.removed}</b></span><span>順番変更 <b>${diff.reordered}</b></span></div>
+        ${diff.rows.map(row=>`<div class="sync-list"><h3>${esc(row.name)} <small>ニコニコ ${row.remoteCount} / DB ${row.localCount}</small></h3>
+          <p class="sync-list-count">追加 ${row.added.length}・削除 ${row.removed.length}・並び順の差 ${row.reordered.length}</p>
+          ${row.added.length?`<div class="sync-detail"><b class="sync-add">＋ ニコニコにあってDBにないもの</b>${row.added.slice(0,40).map(x=>`<div><a href="https://www.nicovideo.jp/watch/${encodeURIComponent(x.video_id)}" target="_blank" rel="noopener noreferrer">${esc(x.title||x.video_id)}</a> <small>(${esc(x.video_id)})</small></div>`).join('')}${row.added.length>40?`<small>ほか ${row.added.length-40} 件</small>`:''}</div>`:''}
+          ${row.removed.length?`<div class="sync-detail"><b class="sync-remove">− DBにあってニコニコにないもの</b>${row.removed.slice(0,40).map(x=>`<div><a href="https://www.nicovideo.jp/watch/${encodeURIComponent(x.video_id)}" target="_blank" rel="noopener noreferrer">${esc(x.title||x.video_id)}</a> <small>(${esc(x.video_id)})</small></div>`).join('')}${row.removed.length>40?`<small>ほか ${row.removed.length-40} 件</small>`:''}</div>`:''}
+        </div>`).join('')}
+        <p class="modal-note">反映は選択したリストの所属と表示順のみ更新。個人的な評価・メモ・お気に入り、他の未選択リストは変更しません。</p>
+        <div class="inline-actions"><button class="btn subtle" id="export">事前にバックアップ</button><button class="btn primary" id="apply-sync" ${state.busy?'disabled':''}>${state.busy?'反映中…':changes?'確認して差分を反映':'同期日時・登録順を更新'}</button></div>
+       </div>`:''}`;
+  }
   else if(d.kind==='playlist') contents=`<div class="modal-head"><div class="eyebrow">CREATE LIST</div><h2>マイリストを作成</h2><p>NICO SHELF内の管理用リストを作ります。</p></div><label class="field-label">名前<input id="playlist-name" placeholder="例：好きな曲" maxlength="90" /></label><button class="btn primary full" id="save-playlist">リストを作成（DBのみ）</button>`;
   else if(d.kind==='add'){
     const id=videoId(d.vid),matches=id?lib.entries.filter(x=>x.video_id===id&&x.present!==false):[];
@@ -173,7 +194,7 @@ function render(){
 }
 function rerenderContent(){const el=document.querySelector('#main-content');if(el)el.innerHTML=content();}
 function rerenderSidebar(){render();}
-function showDialog(kind,extra={}){state.preview=null;state.dialog={kind,...extra};render();}
+function showDialog(kind,extra={}){state.preview=null;if(kind==='sync')state.sync=null;state.dialog={kind,...extra};render();}
 function closeDialog(){state.dialog=null;state.preview=null;render();}
 function refreshMembership(){
   const el=document.querySelector('#membership-preview'),id=videoId(document.querySelector('#video-id')?.value);
@@ -247,6 +268,40 @@ async function runImport(){
     state.preview=null;state.dialog=null;await refresh();toast(`${rows.videos.length}動画のインポートが完了しました`);
   }finally{state.busy=false;if(document.querySelector('#run-import'))document.querySelector('#run-import').disabled=false;}
 }
+async function handleSyncFile(file){
+  if(!file)return;
+  if(file.size>4*1024*1024)throw new Error('同期ファイルが大きすぎます（4MB以下）');
+  const snapshot=normalizeSnapshot(JSON.parse(await file.text()));
+  state.sync=diffSnapshot(snapshot,state.library);
+  state.dialog={kind:'sync'};render();
+  toast(`差分を確認しました：追加${state.sync.added}件・削除${state.sync.removed}件`);
+}
+async function applySync(){
+  if(state.busy||!state.sync)return;
+  const snapshot=state.sync.snapshot;
+  if(Date.now()-Date.parse(snapshot.captured_at)>24*3600*1000)throw new Error('取得から24時間を超えています。新しい一覧を取得してください。');
+  // Prevent confirming a stale diff against local data changed on another device.
+  const current=await loadLibrary(state.user.id);
+  const latest=diffSnapshot(snapshot,current);
+  if(latest.added!==state.sync.added||latest.removed!==state.sync.removed||latest.reordered!==state.sync.reordered){
+    state.library=current;state.sync=latest;render();
+    throw new Error('他の端末でDBが更新されました。差分を再確認してください。');
+  }
+  const highRemoval=latest.rows.filter(r=>r.removed.length>=10&&r.removed.length>=Math.max(1,r.localCount)*0.2);
+  if(highRemoval.length){
+    const input=prompt(`大量の削除候補があります（${highRemoval.map(r=>`${r.name}: ${r.removed.length}件`).join(' / ')}）。\n取得元のニコニコアカウントとリストを再確認してください。\n続行する場合のみ「大量削除」と入力してください。`);
+    if(input!=='大量削除')return;
+  }
+  if(!confirm(`選択した${latest.rows.length}リストを同期します。\n追加${latest.added}件・削除扱い${latest.removed}件・並び順変更${latest.reordered}件\n\n削除扱いの動画・メモはDBから物理削除しません。続けますか？`))return;
+  state.busy=true;render();
+  try{
+    const {data,error}=await client.rpc('apply_mylist_snapshot',{p_snapshot:toRpcPayload(snapshot)});
+    if(error)throw new Error(`Supabaseの同期に失敗: ${error.message}。SQLマイグレーションの適用も確認してください。`);
+    if(!data?.ok)throw new Error('同期処理から正常な完了応答がありません');
+    state.sync=null;state.dialog=null;await refresh();
+    toast(`同期成功：${latest.added}件追加・${latest.removed}件を削除済み扱い`);
+  }finally{state.busy=false;render();}
+}
 async function eraseData(){
   if(!confirm('このアカウントのライブラリをすべて削除します。元に戻せません。よろしいですか？'))return;
   const answer=prompt('誤操作防止のため「削除」と入力してください');if(answer!=='削除')return;
@@ -275,11 +330,13 @@ root.addEventListener('click',e=>{
   if(target.id==='save-playlist')return guard(savePlaylist);
   if(target.id==='save-video')return guard(saveVideo);
   if(target.id==='run-import')return guard(runImport);
+  if(target.id==='apply-sync')return guard(applySync);
   if(target.id==='export')return exportJson();
   if(target.id==='erase')return guard(eraseData);
 });
 root.addEventListener('change',e=>{
   if(e.target.id==='file-import')return guard(()=>handleFile(e.target.files[0]));
+  if(e.target.id==='file-sync')return guard(()=>handleSyncFile(e.target.files[0]));
   if(e.target.id==='list-filter'){state.filters.playlist=e.target.value;state.page=1;rerenderContent();}
   if(e.target.id==='sort-field'){
     state.filters.sort=e.target.value;
