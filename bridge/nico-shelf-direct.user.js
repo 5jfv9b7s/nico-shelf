@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         NICO SHELF Direct Bridge (v0.6 experimental)
+// @name         NICO SHELF Direct Bridge (v0.6.1)
 // @namespace    nico-shelf.direct
-// @version      0.6.0
+// @version      0.6.1
 // @description  NICO SHELFで確認した動画を、ニコニコのログイン済みタブから登録します。Cookieを外部送信しません。
 // @match        https://www.nicovideo.jp/*
 // @match        https://nico-shelf.shiokara-lab.workers.dev/*
@@ -10,6 +10,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addValueChangeListener
+// @grant        GM_removeValueChangeListener
 // @run-at       document-end
 // ==/UserScript==
 (() => {
@@ -19,27 +20,57 @@
   const PAGE_CHANNEL='nico-shelf-page-v06';
   const BRIDGE_CHANNEL='nico-shelf-bridge-v06';
   if(ALLOWED.has(location.origin)){
+    document.documentElement.setAttribute('data-nico-shelf-direct-bridge','0.6.1');
     // The app page cannot access NicoNico cookies. It only exchanges JSON
     // with the separately running userscript on the user's NicoNico tab.
-    let activeNonce='',listenerIds=[];
+    let activeNonce='',listenerIds=[],pollTimer=null,acknowledgedReady=false;
+    function clearListeners(){
+      for(const id of listenerIds){try{GM_removeValueChangeListener(id);}catch{}}
+      listenerIds=[];
+      if(pollTimer)clearInterval(pollTimer);
+      pollTimer=null;
+    }
+    function receiveReady(value){
+      if(value?.nonce!==activeNonce||!value.ready||acknowledgedReady)return;
+      // Do not accept old responses, even though the nonce is unique per click.
+      if(!Number.isFinite(value.timestamp)||Math.abs(Date.now()-value.timestamp)>120000)return;
+      acknowledgedReady=true;
+      window.postMessage({channel:BRIDGE_CHANNEL,type:'ready',nonce:activeNonce},location.origin);
+    }
+    function receiveResult(value){
+      if(value?.nonce!==activeNonce||!validNonce(value.requestId))return;
+      if(!Number.isFinite(value.timestamp)||Math.abs(Date.now()-value.timestamp)>120000)return;
+      window.postMessage({channel:BRIDGE_CHANNEL,type:'result',...value},location.origin);
+    }
+    function begin(nonce){
+      if(activeNonce===nonce){
+        window.postMessage({channel:BRIDGE_CHANNEL,type:'page-bridge-ready',nonce},location.origin);
+        if(!acknowledgedReady)receiveReady(GM_getValue(`nico_shelf_ready_${nonce}`,null));
+        return;
+      }
+      clearListeners();activeNonce=nonce;acknowledgedReady=false;
+      const readyKey=`nico_shelf_ready_${nonce}`,resultKey=`nico_shelf_result_${nonce}`;
+      listenerIds.push(GM_addValueChangeListener(readyKey,(_k,_old,value)=>receiveReady(value)));
+      listenerIds.push(GM_addValueChangeListener(resultKey,(_k,_old,value)=>receiveResult(value)));
+      // Some browser/extension configurations miss cross-tab change notifications.
+      // Poll the same storage as a fallback (no data leaves this browser).
+      let latestResultId='';
+      pollTimer=setInterval(()=>{
+        if(!acknowledgedReady)receiveReady(GM_getValue(readyKey,null));
+        const result=GM_getValue(resultKey,null);
+        if(result?.requestId&&result.requestId!==latestResultId){
+          latestResultId=result.requestId;receiveResult(result);
+        }
+      },500);
+      window.postMessage({channel:BRIDGE_CHANNEL,type:'page-bridge-ready',nonce},location.origin);
+      receiveReady(GM_getValue(readyKey,null));
+    }
     window.addEventListener('message',event=>{
-      if(event.source!==window||event.origin!==location.origin||event.data?.channel!==PAGE_CHANNEL)return;
+      if((event.source&&event.source!==window)||event.origin!==location.origin||event.data?.channel!==PAGE_CHANNEL)return;
       const {type,nonce}=event.data;
       if(!validNonce(nonce))return;
-      if(type==='init'){
-        activeNonce=nonce;
-        // Every connection has fresh storage keys; late packets cannot reach a newer session.
-        GM_addValueChangeListener(`nico_shelf_ready_${nonce}`,(_k,_old,value,remote)=>{
-          if(remote&&activeNonce===nonce&&value?.nonce===nonce&&value.ready){
-            window.postMessage({channel:BRIDGE_CHANNEL,type:'ready',nonce},location.origin);
-          }
-        });
-        GM_addValueChangeListener(`nico_shelf_result_${nonce}`,(_k,_old,value,remote)=>{
-          if(remote&&activeNonce===nonce&&value?.nonce===nonce){
-            window.postMessage({channel:BRIDGE_CHANNEL,type:'result',...value},location.origin);
-          }
-        });
-      }else if(type==='request'&&nonce===activeNonce){
+      if(type==='init')begin(nonce);
+      else if(type==='request'&&nonce===activeNonce){
         if(!['inspect','register'].includes(event.data.action)||!validNonce(event.data.requestId))return;
         GM_setValue(`nico_shelf_request_${nonce}`,{
           nonce,requestId:event.data.requestId,action:event.data.action,
@@ -130,8 +161,8 @@
     return {videoId:data.videoId,listId:target.id,listName:target.name,title:verified.title||data.videoId,confirmed:true,already:false,remoteCount:verified.count};
   }
   const processed=new Set();
-  GM_addValueChangeListener(`nico_shelf_request_${nonce}`,async(_key,_old,message,remote)=>{
-    if(!remote||!approved||processing||message?.nonce!==nonce||!validNonce(message.requestId))return;
+  async function handleRequest(message){
+    if(!approved||processing||message?.nonce!==nonce||!validNonce(message.requestId))return;
     const {requestId,action,payload,timestamp}=message;
     if(processed.has(requestId)||!Number.isFinite(timestamp)||Math.abs(Date.now()-timestamp)>120000)return;
     if(action!=='inspect'&&action!=='register')return;
@@ -142,5 +173,8 @@
       setText(action==='inspect'?`確認完了。${payload.videoId}の所属と空き件数をNICO SHELFへ送信しました。`:`ニコニコへの登録を確認しました：\n${result.videoId} → ${result.listName}\n\nNICO SHELF側のDB更新結果も確認してください。`);
     }catch(err){send('result',{requestId,ok:false,error:String(err.message||err).slice(0,400)});setText(`処理を完了できませんでした：\n${err.message}`);}
     finally{processing=false;}
-  });
+  }
+  const requestKey=`nico_shelf_request_${nonce}`;
+  GM_addValueChangeListener(requestKey,(_key,_old,message)=>{void handleRequest(message);});
+  setInterval(()=>{const message=GM_getValue(requestKey,null);if(message)void handleRequest(message);},500);
 })();

@@ -33,7 +33,7 @@ function shell(){
       <nav>${['dashboard','library','duplicates','favorites'].map(x=>navItem(x,VIEWS[x],icon[x],state.view===x)).join('')}</nav>
       <div class="menu-label playlist-head">MY LISTS <span>${p.length}</span></div>
       <nav class="playlist-menu">${p.map(x=>`<button class="nav-item ${state.view===`playlist:${x.id}`?'is-active':''}" data-view="playlist:${esc(x.id)}"><span class="playlist-dot"></span><span class="text-ellipsis">${esc(x.name)}</span><small>${all.filter(e=>e.playlist_id===x.id).length}</small></button>`).join('')||'<p class="nav-help">インポートすると表示されます</p>'}</nav>
-      <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v0.6 β</b><br>クラウド管理・非公式アプリ</div></div>
+      <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v0.6.1 β</b><br>クラウド管理・非公式アプリ</div></div>
     </aside>
     <div class="workspace">
       <header class="topbar"><div class="mobile-logo">♫ <b>NICO SHELF</b></div><div class="top-center"><span class="online-indicator"></span>プライベートライブラリ</div>
@@ -136,7 +136,7 @@ function settings(){return `${hero('SETTINGS','データと設定','マイリス
   </section><div class="danger-zone"><div><h2>ライブラリを削除</h2><p>このアカウントの動画・マイリスト・メモを削除します。Googleアカウント自体は削除しません。</p></div><button class="btn danger" id="erase">全データを削除</button></div>`;}
 function content(){const rows=makeRows();return state.view==='dashboard'?dashboard(rows):state.view==='settings'?settings():listing(rows);}
 function loginScreen(){return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">♫</span><span>NICO SHELF</span><span class="version">BETA / 0.6</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">♫</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;}
-function missingConfig(){return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v0.6</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;}
+function missingConfig(){return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v0.6.1</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;}
 function modal(){
   const d=state.dialog,lib=state.library;
   let contents='';
@@ -171,6 +171,7 @@ function modal(){
     const p=registrationLists(lib.playlists);
     const probe=d.probe?.videoId===id?d.probe:null;
     const isConnected=nicoBridge.connected;
+    const isConnecting=Boolean(state.connectingNico);
     let decision=null,warning='';
     if(probe){try{decision=registrationDecision(probe.lists,id,d.target||'auto',Boolean(d.allowDuplicate));}catch(e){warning=e.message;}}
     const remoteMemberships=probe?probe.lists.filter(x=>x.hasVideoIds.includes(id)):[];
@@ -181,7 +182,7 @@ function modal(){
       <label class="field-label">登録先<select id="target-playlist"><option value="auto" ${!d.target||d.target==='auto'?'selected':''}>自動：ぼかうた1 → 2 → 3（空き優先）</option>${p.map(x=>`<option value="${esc(x.id)}" ${d.target===x.id?'selected':''}>手動：${esc(x.name)}（DB上 ${lib.entries.filter(e=>e.playlist_id===x.id&&e.present!==false).length}/500）</option>`).join('')}</select></label>
       ${p.length?'':'<div class="inline-hint">先に数値IDのニコニコマイリストをインポートしてください。</div>'}
       <label class="check-field"><input type="checkbox" id="allow-duplicate" ${d.allowDuplicate?'checked':''} /> ほかのマイリストと重複しても登録を許可する</label>
-      <div class="nico-connect-panel"><b>ニコニコ連携：${isConnected?'接続中':'未接続'}</b><p>初回だけニコニコのタブで「接続を許可」。タブは閉じずにおいてください。Cookie・パスワードは送信しません。</p>
+      <div class="nico-connect-panel"><b>ニコニコ連携：${isConnected?'接続中':isConnecting?'接続待ち（ニコニコのタブで接続許可を押してください）':'未接続'}</b><p>初回だけニコニコのタブで「接続を許可」。タブは閉じずにおいてください。Cookie・パスワードは送信しません。</p>
         <div class="inline-actions"><button class="btn subtle" id="nico-connect" ${state.busy?'disabled':''}>${isConnected?'再接続':'① ニコニコと接続'}</button><button class="btn subtle" id="nico-inspect" ${!isConnected||!id||!p.length||state.busy?'disabled':''}>② 登録状況を確認</button></div>
         ${probe?`<div class="nico-check-results"><b>ニコニコ側の登録状況</b>${probe.lists.map(x=>`<div class="nico-check-line"><span>${esc(x.name)}</span><span>${x.count}/500 ${x.hasVideoIds.includes(id)?'・登録済み':''}</span></div>`).join('')}
            <div class="inline-hint">${remoteMemberships.length?'所属：'+esc(remoteMemberships.map(x=>x.name).join('・')):'ニコニコ側では未登録'}</div>
@@ -250,9 +251,9 @@ function captureAddForm(){
 }
 async function connectNico(){
   if(state.busy)return;
-  captureAddForm();state.busy=true;render();
+  captureAddForm();state.busy=true;state.connectingNico=true;render();
   try{nicoBridge.disconnect();await nicoBridge.connect();toast('ニコニコのタブに接続できました');}
-  finally{state.busy=false;render();}
+  finally{state.busy=false;state.connectingNico=false;render();}
 }
 async function probeNico(){
   if(state.busy)return;
