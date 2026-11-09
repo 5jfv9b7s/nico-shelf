@@ -2,8 +2,11 @@ import './style.css';
 import {client,configured,loadLibrary,importRows} from './supabase.js';
 import {esc,videoId,array,formatCount,formatDate,formatDuration,membershipMap,sortRows,singerStats,autoPlaylist,normalizeImport,csvToImport} from './lib.js';
 import {diffSnapshot,normalizeSnapshot,toRpcPayload,snapshotUrl} from './sync.js';
+import {NicoTabBridge} from './bridge.js';
+import {registrationLists,registrationDecision} from './registration.js';
 
 const root=document.querySelector('#app');
+const nicoBridge=new NicoTabBridge();
 const state={user:null,library:{playlists:[],videos:[],entries:[],meta:[]},view:'dashboard',filters:{q:'',playlist:'',sort:'views',order:'desc'},page:1,dialog:null,preview:null,sync:null,busy:false,error:'',toastTimer:null};
 const VIEWS={dashboard:'ダッシュボード',library:'ライブラリ',duplicates:'重複した動画',favorites:'お気に入り',settings:'データと設定'};
 const SORTS={views:'再生数',published_at:'投稿日',duration:'動画時間',comments:'コメント数',mylists:'マイリスト数',title:'タイトル',registration:'リスト内順番'};
@@ -30,7 +33,7 @@ function shell(){
       <nav>${['dashboard','library','duplicates','favorites'].map(x=>navItem(x,VIEWS[x],icon[x],state.view===x)).join('')}</nav>
       <div class="menu-label playlist-head">MY LISTS <span>${p.length}</span></div>
       <nav class="playlist-menu">${p.map(x=>`<button class="nav-item ${state.view===`playlist:${x.id}`?'is-active':''}" data-view="playlist:${esc(x.id)}"><span class="playlist-dot"></span><span class="text-ellipsis">${esc(x.name)}</span><small>${all.filter(e=>e.playlist_id===x.id).length}</small></button>`).join('')||'<p class="nav-help">インポートすると表示されます</p>'}</nav>
-      <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v0.5</b><br>クラウド管理・非公式アプリ</div></div>
+      <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v0.6 β</b><br>クラウド管理・非公式アプリ</div></div>
     </aside>
     <div class="workspace">
       <header class="topbar"><div class="mobile-logo">♫ <b>NICO SHELF</b></div><div class="top-center"><span class="online-indicator"></span>プライベートライブラリ</div>
@@ -73,7 +76,7 @@ function dashboard(rows){
   const creators=new Map();for(const r of rows)for(const x of new Set(array(r.producers).filter(Boolean)))creators.set(x,(creators.get(x)||0)+1);
   const topCreators=[...creators].sort((a,b)=>b[1]-a[1]).slice(0,7);
   const c=counts();const p=state.library.playlists;
-  return `${hero('OVERVIEW','あなたの音楽の棚','好きな曲を、探して、整理して、もっと知る。',`<div class="inline-actions"><button class="btn primary" data-action="sync">↻ ニコニコとの差分同期</button><button class="btn subtle" data-action="import">⇩ インポート</button></div>`)}
+  return `${hero('OVERVIEW','あなたの音楽の棚','好きな曲を、探して、整理して、もっと知る。',`<div class="inline-actions"><button class="btn primary" data-action="add">＋ 動画を登録</button><button class="btn subtle" data-action="sync">↻ ニコニコとの差分同期</button><button class="btn subtle" data-action="import">⇩ インポート</button></div>`)}
     ${statsCards()}
     ${c.videos===0?`<div class="welcome-banner"><div class="welcome-icon">♫</div><div><h2>最初のライブラリを作りましょう</h2><p>v0.3のJSONバックアップ、またはCSVから取り込めます。あなたのデータはGoogleアカウントごとに分離して保存されます。</p><div class="inline-actions"><button class="btn primary" data-action="import">インポートする</button><button class="btn subtle" data-action="playlist">空のリストを作る</button></div></div></div>`:''}
     <div class="two-cols">
@@ -113,7 +116,7 @@ function listing(rows){
   const pageRows=sorted.slice((state.page-1)*35,state.page*35);
   const heading=inPlaylist?(state.library.playlists.find(x=>x.id===forced)?.name||'マイリスト'):duplicate?'重複した動画':favorite?'お気に入り':'すべての動画';
   const help=inPlaylist?'このマイリストに登録されている動画':duplicate?'2つ以上のマイリストに所属している動画':favorite?'自分でお気に入りにした動画':'あなたのライブラリ全体を検索・並び替え';
-  return `${hero('LIBRARY',heading,help,`<button class="btn primary" data-action="add">＋ 動画を登録（DBのみ）</button>`)}
+  return `${hero('LIBRARY',heading,help,`<button class="btn primary" data-action="add">＋ 動画を登録</button>`)}
   <div class="toolbar"><label class="search-field"><span>⌕</span><input id="search" type="search" placeholder="曲名・動画ID・歌唱者・タグ・メモを検索" value="${esc(state.filters.q)}" autocomplete="off" /></label>
     ${!inPlaylist?`<label class="control-label">マイリスト<select id="list-filter"><option value="">すべて</option>${state.library.playlists.map(p=>`<option value="${esc(p.id)}" ${playlist===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`:''}
     <label class="control-label">並び替え<select id="sort-field">${Object.entries(SORTS).map(([key,val])=>`<option value="${key}" ${state.filters.sort===key?'selected':''}>${esc(val)}</option>`).join('')}</select></label>
@@ -132,8 +135,8 @@ function settings(){return `${hero('SETTINGS','データと設定','マイリス
   <div class="panel setting-panel"><div class="setting-icon">↻</div><h2>ニコニコとの差分同期</h2><p>ログイン済みニコニコの一覧を取得して、登録漏れや削除済み動画を確認できます。差分を確認してからDBへ反映します。</p><button class="btn primary" data-action="sync">差分を確認する</button></div>
   </section><div class="danger-zone"><div><h2>ライブラリを削除</h2><p>このアカウントの動画・マイリスト・メモを削除します。Googleアカウント自体は削除しません。</p></div><button class="btn danger" id="erase">全データを削除</button></div>`;}
 function content(){const rows=makeRows();return state.view==='dashboard'?dashboard(rows):state.view==='settings'?settings():listing(rows);}
-function loginScreen(){return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">♫</span><span>NICO SHELF</span><span class="version">BETA / 0.5</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">♫</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;}
-function missingConfig(){return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v0.5</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;}
+function loginScreen(){return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">♫</span><span>NICO SHELF</span><span class="version">BETA / 0.6</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">♫</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;}
+function missingConfig(){return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v0.6</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;}
 function modal(){
   const d=state.dialog,lib=state.library;
   let contents='';
@@ -165,16 +168,28 @@ function modal(){
   else if(d.kind==='playlist') contents=`<div class="modal-head"><div class="eyebrow">CREATE LIST</div><h2>マイリストを作成</h2><p>NICO SHELF内の管理用リストを作ります。</p></div><label class="field-label">名前<input id="playlist-name" placeholder="例：好きな曲" maxlength="90" /></label><button class="btn primary full" id="save-playlist">リストを作成（DBのみ）</button>`;
   else if(d.kind==='add'){
     const id=videoId(d.vid),matches=id?lib.entries.filter(x=>x.video_id===id&&x.present!==false):[];
-    const suggestion=autoPlaylist(lib.playlists,lib.entries);
-    const p=lib.playlists;
-    contents=`<div class="modal-head"><div class="eyebrow">ADD VIDEO</div><h2>動画をDBに仮登録</h2><p>ニコニコ本体への追加は行いません。クラウドDBだけを更新します。</p></div>
-    <label class="field-label">動画ID / URL<input id="video-id" placeholder="sm12345678" value="${esc(d.vid||'')}" autocomplete="off" /></label>
-    <div id="membership-preview" class="inline-hint">${id?(matches.length?`所属済み：${esc(matches.map(e=>p.find(x=>x.id===e.playlist_id)?.name||e.playlist_id).join('・'))}`:'どのリストにも未登録'): '入力すると重複を確認できます'}</div>
-    <label class="field-label">動画タイトル（任意）<input id="video-title" placeholder="未入力なら動画IDを表示" value="${esc(d.title||'')}" maxlength="220" /></label>
-    <label class="field-label">登録先<select id="target-playlist">${p.map(x=>`<option value="${esc(x.id)}" ${d.target?d.target===x.id?'selected':'':suggestion?.id===x.id?'selected':''}>${esc(x.name)} (${lib.entries.filter(e=>e.playlist_id===x.id&&e.present!==false).length}/500)</option>`).join('')}</select></label>
-    ${!p.length?'<div class="inline-hint">先にマイリストを作成してください。</div>':''}
-    <label class="check-field"><input type="checkbox" id="allow-duplicate" /> 別リストに同じ動画があっても追加する</label>
-    <button class="btn primary full" id="save-video" ${!p.length||state.busy?'disabled':''}>DBに登録（ニコニコには反映しない）</button>`;
+    const p=registrationLists(lib.playlists);
+    const probe=d.probe?.videoId===id?d.probe:null;
+    const isConnected=nicoBridge.connected;
+    let decision=null,warning='';
+    if(probe){try{decision=registrationDecision(probe.lists,id,d.target||'auto',Boolean(d.allowDuplicate));}catch(e){warning=e.message;}}
+    const remoteMemberships=probe?probe.lists.filter(x=>x.hasVideoIds.includes(id)):[];
+    contents=`<div class="modal-head"><div class="eyebrow">ADD TO NICONICO / BETA</div><h2>動画をマイリストへ登録</h2><p>ニコニコで所属を確認してから本体に追加。成功確認後にSupabaseにも保存します。</p></div>
+      <label class="field-label">動画ID / URL<input id="video-id" placeholder="sm12345678" value="${esc(d.vid||'')}" autocomplete="off" /></label>
+      <div id="membership-preview" class="inline-hint">${id?(matches.length?`DBでの所属：${esc(matches.map(e=>lib.playlists.find(x=>x.id===e.playlist_id)?.name||e.playlist_id).join('・'))}`:'DB内では未登録'):'入力するとDB内の重複を確認できます'}</div>
+      <label class="field-label">動画タイトル（任意・DB保存時に利用）<input id="video-title" placeholder="未入力ならニコニコから取得" value="${esc(d.title||'')}" maxlength="220" /></label>
+      <label class="field-label">登録先<select id="target-playlist"><option value="auto" ${!d.target||d.target==='auto'?'selected':''}>自動：ぼかうた1 → 2 → 3（空き優先）</option>${p.map(x=>`<option value="${esc(x.id)}" ${d.target===x.id?'selected':''}>手動：${esc(x.name)}（DB上 ${lib.entries.filter(e=>e.playlist_id===x.id&&e.present!==false).length}/500）</option>`).join('')}</select></label>
+      ${p.length?'':'<div class="inline-hint">先に数値IDのニコニコマイリストをインポートしてください。</div>'}
+      <label class="check-field"><input type="checkbox" id="allow-duplicate" ${d.allowDuplicate?'checked':''} /> ほかのマイリストと重複しても登録を許可する</label>
+      <div class="nico-connect-panel"><b>ニコニコ連携：${isConnected?'接続中':'未接続'}</b><p>初回だけニコニコのタブで「接続を許可」。タブは閉じずにおいてください。Cookie・パスワードは送信しません。</p>
+        <div class="inline-actions"><button class="btn subtle" id="nico-connect" ${state.busy?'disabled':''}>${isConnected?'再接続':'① ニコニコと接続'}</button><button class="btn subtle" id="nico-inspect" ${!isConnected||!id||!p.length||state.busy?'disabled':''}>② 登録状況を確認</button></div>
+        ${probe?`<div class="nico-check-results"><b>ニコニコ側の登録状況</b>${probe.lists.map(x=>`<div class="nico-check-line"><span>${esc(x.name)}</span><span>${x.count}/500 ${x.hasVideoIds.includes(id)?'・登録済み':''}</span></div>`).join('')}
+           <div class="inline-hint">${remoteMemberships.length?'所属：'+esc(remoteMemberships.map(x=>x.name).join('・')):'ニコニコ側では未登録'}</div>
+           ${decision?`<p>追加先：<b>${esc(decision.target.name)}</b></p>`:`<p class="sync-warning">${esc(warning)}</p>`}</div>`:''}
+      </div>
+      <button class="btn primary full" id="nico-register" ${!decision||!isConnected||state.busy?'disabled':''}>③ ニコニコ本体に登録する</button>
+      <div class="inline-hint">非公式APIのため登録できない場合があります。処理中に通信が切れた場合はニコニコで結果を確認し、再送信せず差分同期してください。</div>
+      <button class="btn subtle full" id="save-video" ${!p.length||state.busy||d.target==='auto'||!d.target?'disabled':''}>DBのみへ仮登録（本体には登録しない）</button>`;
   }
   else if(d.kind==='detail'){
     const v=lib.videos.find(x=>x.id===d.id),m=lib.meta.find(x=>x.video_id===d.id);
@@ -225,9 +240,77 @@ async function savePlaylist(){
   const {error}=await client.from('playlists').insert({owner_id:state.user.id,id,name});if(error)throw error;
   closeDialog();await refresh();toast('マイリストを作成しました（DBのみ）');
 }
+function captureAddForm(){
+  if(state.dialog?.kind!=='add')return;
+  const d=state.dialog;
+  d.vid=document.querySelector('#video-id')?.value||d.vid||'';
+  d.title=document.querySelector('#video-title')?.value||'';
+  d.target=document.querySelector('#target-playlist')?.value||'auto';
+  d.allowDuplicate=Boolean(document.querySelector('#allow-duplicate')?.checked);
+}
+async function connectNico(){
+  if(state.busy)return;
+  captureAddForm();state.busy=true;render();
+  try{nicoBridge.disconnect();await nicoBridge.connect();toast('ニコニコのタブに接続できました');}
+  finally{state.busy=false;render();}
+}
+async function probeNico(){
+  if(state.busy)return;
+  captureAddForm();
+  const id=videoId(state.dialog.vid);if(!id)throw new Error('正しい動画IDを入力してください');
+  const lists=registrationLists(state.library.playlists);
+  if(!lists.length)throw new Error('同期対象のニコニコマイリストがありません');
+  state.busy=true;render();
+  try{
+    const result=await nicoBridge.request('inspect',{videoId:id,lists:lists.map(p=>({id:p.id,name:p.name}))},85000);
+    if(!Array.isArray(result)||result.length!==lists.length)throw new Error('不完全な登録状況です。再取得してください');
+    if(state.dialog?.kind==='add')state.dialog.probe={videoId:id,lists:result};
+    toast('ニコニコの登録状況を確認しました');
+  }finally{state.busy=false;render();}
+}
+async function writeConfirmedRegistration(vid,remote){
+  if(!remote?.confirmed || remote.videoId!==vid)throw new Error('ニコニコ登録結果を確認できません');
+  const pl=state.library.playlists.find(p=>p.id===remote.listId);
+  if(!pl)throw new Error('登録先がDBにありません。差分同期してください');
+  if(!state.library.videos.some(v=>v.id===vid)){
+    const title=String(state.dialog?.title||remote.title||vid).slice(0,220);
+    const {error}=await client.from('videos').insert({owner_id:state.user.id,id:vid,title:title||vid});
+    if(error && error.code!=='23505')throw error;
+  }
+  const numbers=state.library.entries.filter(e=>e.playlist_id===pl.id&&e.present!==false).map(e=>Number(e.position)).filter(Number.isFinite);
+  const position=(numbers.length?Math.min(...numbers):1)-1;
+  const {error}=await client.from('entries').upsert({owner_id:state.user.id,playlist_id:pl.id,video_id:vid,position,present:true},{onConflict:'owner_id,playlist_id,video_id'});
+  if(error)throw error;
+}
+async function registerInNico(){
+  if(state.busy)return;
+  captureAddForm();
+  const d=state.dialog,id=videoId(d?.vid);
+  if(!id)throw new Error('正しい動画IDを入力してください');
+  if(!d.probe||d.probe.videoId!==id)throw new Error('先に登録状況を確認してください');
+  const decision=registrationDecision(d.probe.lists,id,d.target||'auto',d.allowDuplicate);
+  if(!confirm(`ニコニコ動画 ${id} を「${decision.target.name}」へ登録します。\n\nログイン中のニコニコアカウントと登録先が正しいことを確認してください。`))return;
+  state.busy=true;render();
+  try{
+    let remote;
+    try{
+      remote=await nicoBridge.request('register',{
+        videoId:id,lists:registrationLists(state.library.playlists).map(p=>({id:p.id,name:p.name})),
+        targetId:d.target||'auto',allowDuplicate:d.allowDuplicate
+      },105000);
+    }catch(err){throw new Error(`${err.message}。ニコニコ側の登録を確認するまで再操作しないでください`);}
+    try{
+      await writeConfirmedRegistration(id,remote);
+      state.dialog=null;await refresh();
+      toast(`「${remote.listName}」に登録し、DBにも反映しました`);
+    }catch(err){
+      throw new Error(`ニコニコには登録できましたが、Supabaseの更新に失敗しました：${err.message}。差分同期でDBを更新してください（再登録しないでください）`);
+    }
+  }finally{state.busy=false;render();}
+}
 async function saveVideo(){
   const id=videoId(document.querySelector('#video-id')?.value);if(!id)throw new Error('正しい動画IDまたはURLを入力してください');
-  const playlist_id=document.querySelector('#target-playlist')?.value;if(!playlist_id)throw new Error('登録先を選んでください');
+  const playlist_id=document.querySelector('#target-playlist')?.value;if(!playlist_id||playlist_id==='auto')throw new Error('DBだけに登録する場合は登録先を手動で選んでください');
   const current=state.library.entries.filter(x=>x.video_id===id&&x.present!==false);
   if(current.some(x=>x.playlist_id===playlist_id))throw new Error('このマイリストにはすでに登録されています');
   if(current.length&&!document.querySelector('#allow-duplicate').checked)throw new Error(`別リストに登録済みです：${current.map(x=>state.library.playlists.find(p=>p.id===x.playlist_id)?.name||x.playlist_id).join('・')}（重複許可が必要）`);
@@ -329,12 +412,16 @@ root.addEventListener('click',e=>{
   if(target.id==='save-meta')return guard(saveMeta);
   if(target.id==='save-playlist')return guard(savePlaylist);
   if(target.id==='save-video')return guard(saveVideo);
+  if(target.id==='nico-connect')return guard(connectNico);
+  if(target.id==='nico-inspect')return guard(probeNico);
+  if(target.id==='nico-register')return guard(registerInNico);
   if(target.id==='run-import')return guard(runImport);
   if(target.id==='apply-sync')return guard(applySync);
   if(target.id==='export')return exportJson();
   if(target.id==='erase')return guard(eraseData);
 });
 root.addEventListener('change',e=>{
+  if((e.target.id==='target-playlist'||e.target.id==='allow-duplicate')&&state.dialog?.kind==='add'){captureAddForm();render();return;}
   if(e.target.id==='file-import')return guard(()=>handleFile(e.target.files[0]));
   if(e.target.id==='file-sync')return guard(()=>handleSyncFile(e.target.files[0]));
   if(e.target.id==='list-filter'){state.filters.playlist=e.target.value;state.page=1;rerenderContent();}
@@ -350,7 +437,7 @@ let composing=false;
 root.addEventListener('compositionstart',e=>{if(e.target.id==='search')composing=true;});
 root.addEventListener('compositionend',e=>{if(e.target.id==='search'){composing=false;state.filters.q=e.target.value;state.page=1;rerenderContent();document.querySelector('#search')?.focus();}});
 root.addEventListener('input',e=>{
-  if(e.target.id==='video-id'){state.dialog.vid=e.target.value;refreshMembership();return;}
+  if(e.target.id==='video-id'){if(state.dialog?.kind==='add'){state.dialog.vid=e.target.value;state.dialog.probe=null;refreshMembership();const b=document.querySelector('#nico-register');if(b)b.disabled=true;const p=document.querySelector('#nico-inspect');if(p)p.disabled=!videoId(e.target.value)||!nicoBridge.connected;}return;}
   if(e.target.id==='search'){
     if(composing||e.isComposing)return;
     state.filters.q=e.target.value;state.page=1;

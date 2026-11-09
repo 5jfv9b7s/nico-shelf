@@ -24,3 +24,11 @@
 .sync-detail small {color:#9bb6c8}
 .sync-add {color:#80e3c5}
 .sync-remove {color:#ffc59f}
+
+/* v0.6: separate NicoNico registration from DB-only registration. */
+.nico-connect-panel {margin:14px 0;padding:14px;border:1px solid #36556b;border-radius:12px;background:#132a3c}
+.nico-connect-panel p {margin:6px 0 10px;color:#bdd7e5;font-size:13px;line-height:1.6}
+.nico-check-results {border-top:1px solid #395b70;margin-top:12px;padding-top:10px}
+.nico-check-results>b {display:block;margin-bottom:8px}
+.nico-check-line {display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #263e52;color:#dceaf4;font-size:13px}
+.nico-check-line span:last-child {font-variant-numeric:tabular-nums;white-space:nowrap;color:#83ded1}
