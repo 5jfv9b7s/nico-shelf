@@ -1,0 +1,4 @@
+playlist_id,playlist_name,video_id,position,title,uploader,voices,views
+mylist-one,好きな曲,sm12345678,1,テスト曲A,サンプル作者,音街ウナ,1200
+mylist-one,好きな曲,sm87654321,2,テスト曲B,サンプル作者,初音ミク,800
+mylist-two,最近のお気に入り,sm12345678,1,テスト曲A,サンプル作者,音街ウナ,1200
