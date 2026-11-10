@@ -239,7 +239,7 @@ function modal(){
     <label class="field-label">お気に入り<select id="meta-fav"><option value="0" ${!m?.favorite?'selected':''}>通常</option><option value="1" ${m?.favorite?'selected':''}>♥ お気に入り</option></select></label>
     <label class="field-label">評価<select id="meta-rating">${[0,1,2,3,4,5].map(x=>`<option value="${x}" ${Number(m?.rating||0)===x?'selected':''}>${x===0?'未評価':`★ ${x} / 5`}</option>`).join('')}</select></label>
     <label class="field-label">歌唱者を自分で修正（空欄なら元データを使用）<input id="meta-voice" value="${esc(m?.verified_voice||'')}" placeholder="例：音街ウナ、足立レイ" maxlength="500" /></label>
-    <label class="field-label">作者を自分で修正（空欄なら元データを使用）<input id="meta-composer" value="${esc(m?.verified_composer||'')}" placeholder="例：カルロス袴田" maxlength="500" /></label>
+    <label class="field-label">作者を自分で修正（空欄なら元データを使用）<input id="meta-composer" value="${esc(m?.verified_composer||'')}" placeholder="" maxlength="500" /></label>
     <label class="field-label">自分用タグ<input id="meta-tags" value="${esc(m?.personal_tags||'')}" placeholder="例：お気に入り、夜、発掘" maxlength="500" /></label>
     <label class="field-label">メモ<textarea id="meta-memo" rows="5" placeholder="この曲の好きなところなど">${esc(m?.memo||'')}</textarea></label>
     <button class="btn primary full" id="save-meta">保存する</button>`;
