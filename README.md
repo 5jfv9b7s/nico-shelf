@@ -1,8 +1,35 @@
-# NICO SHELF v0.8.0 β — 楽曲発掘・メタデータ補完
+# NICO SHELF v0.8.1 β — 可読性・保守性の改善
 
 Googleログイン + Supabase + Cloudflare Workers で動くニコニコ動画マイリスト管理アプリです。**v0.7の直接登録・差分同期を引き継ぎつつ、4つの新機能を追加**しています。元のSQLite/JSONをGitHubへ置く必要はありません。
 
-## 新機能
+
+## v0.8.1 の変更点（リファクタリング）
+
+**新機能の追加ではなく、v0.8.0 の動作を維持しながらコードを整理した版です。**
+
+- `src/main.js` から **画面表示（`src/ui/views.js`）・ダイアログ（`src/ui/dialogs.js`）・UIイベント（`src/app/events.js`）** を分離。
+- 状態の初期値とラベルを `src/app/state.js` に集約。
+- マイリスト件数、重複件数、動画・メモの結合を `src/app/library.js` に切り出し。
+- サムネイルの許可ドメイン判定を `src/ui/media.js` に分離。
+- UI・重複集計に関する回帰テスト5件を追加（合計44件）。
+- コーディングルール・構成図・Prettierの設定を追加。
+- **DBスキーマ、Tampermonkeyスクリプト、利用方法は変更していません。**
+
+### v0.8.0 → v0.8.1 の更新方法
+
+1. アプリの「データと設定」からJSONバックアップを取る。
+2. このZIP（v0.8.1更新版）を展開し、**新規の `src/app/` と `src/ui/` を含めて** GitHubリポジトリの同名パスへアップロード・上書きする。
+3. Cloudflareの自動デプロイ成功を確認する。既存の `wrangler.jsonc`・環境変数は変更不要。
+4. アプリを再読み込みし、検索・登録・差分同期の画面を確認する。
+
+**Tampermonkeyはv0.8.0のDirect Bridgeをそのまま使ってください。SupabaseのSQL追加も不要です。**
+
+ソースを理解する際は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)、開発ルールは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を参照してください。
+
+---
+
+## v0.8.0で追加した機能（引き続き利用可能）
+### 新機能
 
 **1. 歌唱者の名寄せ（表示・検索）**
 - 歌唱キャラクター名での統計を追加。例：`音街ウナ-SV`、`音街ウナ Spicy`、`Synthesizer V AI 音街ウナ`、`音街ウナ (Unknown)` は「音街ウナ」に統合。
@@ -28,7 +55,7 @@ Googleログイン + Supabase + Cloudflare Workers で動くニコニコ動画�
 - `▦ ジャケット表示` と `≡ リスト表示` を切替。リスト内にジャンル・雰囲気・名寄せした歌唱者を表示。
 - 動画詳細でもサムネイル・元の歌唱者情報・タグを見られます。
 
-## 更新方法（v0.7 → v0.8）
+## 参考：旧v0.7 → v0.8 の更新手順
 
 1. **NICO SHELF → データと設定 → JSONバックアップを保存**。ニコニコに登録済みの動画は変更されません。
 2. 更新用ZIPを展開し、**`src/main.js`、`src/bridge.js`、新規の`src/discovery.js`、`src/style.css`、`bridge/nico-shelf-direct.user.js` など**を、GitHub `5jfv9b7s/nico-shelf` の同じ位置に置いてコミットします。リポジトリのルートに `package.json` を配置。
@@ -39,12 +66,14 @@ Googleログイン + Supabase + Cloudflare Workers で動くニコニコ動画�
 
 **SupabaseのSQL追加は不要です。** 既存の `videos` の `metadata_updated_at`・`thumb`・`tags`・`voices` と、`user_meta` の `verified_voice`・`verified_composer` を利用します。すでに v0.5 の `202611090002_sync_snapshot.sql` を適用済みであることが前提です。
 
-## 実装ファイル
+## 主な実装ファイル
 
 | ファイル | 役割 |
 |---|---|
 | `src/discovery.js` | 名寄せ・ジャンル／雰囲気推定・複合フィルタ・安全な部分補完の純粋関数 |
-| `src/main.js` | 画面、検索、動画登録後・同期後の補完、手動修正、一覧／ジャケット切替 |
+| `src/main.js` | 起動・操作・Supabaseとの連携を調整するコントローラー |
+| `src/app/` | 初期状態、ライブラリ集計、DOMイベントの振り分け |
+| `src/ui/` | 画面・ダイアログ・サムネイルURL検証 |
 | `src/style.css` | 検索パネル、サムネイル、ジャケット表示のレスポンシブUI |
 | `src/bridge.js` | v0.7で動作確認済みのタブ間通信を継承（v0.8版検出） |
 | `bridge/nico-shelf-direct.user.js` | `inspect`、`register`、`snapshot-list`、新規`metadata`の4操作 |
@@ -53,7 +82,7 @@ Googleログイン + Supabase + Cloudflare Workers で動くニコニコ動画�
 
 ## 確認状況・制限
 
-- Node.js標準 `node --test` でテスト確認済み。`node --check` で主なJavaScriptファイルを構文検査。
+- Node.js標準 `node --test` による自動テスト44件が成功。`node --check` で主なJavaScriptファイルを構文検査。
 - 本環境のnpm依存パッケージ取得がタイムアウトしたため、**Vite本番ビルド・Supabaseでの実書き込み・Chrome＋Tampermonkeyでの実機検証は未確認**。更新後のCloudflareデプロイと自分のニコニコアカウントでの動作を確認してください。
 - getthumbinfoは外部APIであり、今後の変更・HTTPエラー・動画非公開によって補完が失敗することがあります。歌唱者の推定はタグの内容に依存し、正解を保証しません。
 - NICO SHELFにGoogleログインするだけでは、ニコニコに自動ログインしません。Cookieやパスワードはクラウドへ保存しません。
@@ -71,3 +100,12 @@ npm run build
 本番公開URL: https://nico-shelf.shiokara-lab.workers.dev
 
 `VITE_SUPABASE_URL` と `VITE_SUPABASE_PUBLISHABLE_KEY` のみフロントエンド用環境変数として設定し、`service_role` 等の秘密鍵は絶対に設定しないでください。
+
+## 今回の検証状況（v0.8.1）
+
+- **44件のテスト成功**：既存39件 + 新規5件。
+- 元のv0.8と6種類の画面・6種類のダイアログを比較し、意図したバージョン表記と既存入力欄の違いを除いてHTML出力が一致。
+- JavaScriptの構文確認済み。
+- npmレジストリへ接続できない環境のため、**本番Viteビルド・Cloudflareへのデプロイ・ニコニコ実接続は未検証**。
+
+初回のコード整形は大きな差分になるので、`npm run format` は機能変更とは別コミットで実行することを推奨します。
