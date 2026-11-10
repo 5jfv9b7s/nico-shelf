@@ -42,3 +42,39 @@
 .sync-fallback{margin:14px 0;border:1px solid #2c4558;border-radius:9px;padding:11px 14px;color:#b9cfde}
 .sync-fallback summary{cursor:pointer;font-size:12px;font-weight:700}
 .sync-fallback .file-drop{margin-top:10px}
+
+/* v0.8 — faceted discovery and media-rich library; no network images are proxied. */
+.facet-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:-2px 0 9px;padding:15px;border-radius:12px;background:#112035;border:1px solid #29445b}
+.facet-toolbar .control-label{min-width:145px;flex:1 1 155px}
+.facet-toolbar .control-label select,.facet-toolbar .control-label input{width:100%;max-width:none;height:40px;min-width:0;background:#0d1a2b;border:1px solid #344b60;border-radius:8px;padding:0 10px;color:#e0eaf4;font-size:12px}
+.facet-toolbar .control-label select:disabled{color:#6d8297;opacity:.55}
+.facet-toolbar .creator-control{flex:1.2 1 185px}
+.facet-toolbar button{height:40px;flex:none}
+.facet-disclaimer{font-size:10px;color:#8ba6b5;line-height:1.6;margin:2px 6px 16px}
+.control-label.compact{align-items:flex-end;flex-direction:row;gap:7px;font-size:10px}
+.control-label.compact select{height:32px;max-width:158px;padding:0 8px}
+.facet-chip,.mood-chip{font-size:9px;padding:3px 6px;border-radius:5px;border:1px solid #3a6472;background:#203d53;color:#95d9da}
+.mood-chip{border-color:#60537f;background:#322b49;color:#cdb9ed}
+.cover{isolation:isolate;text-decoration:none;cursor:pointer}
+.cover .cover-fallback{position:absolute;inset:0;display:grid;place-items:center}
+.cover img{position:relative;z-index:1;transition:transform .2s ease}
+.cover:hover img{transform:scale(1.04)}
+.cover .duration{z-index:2}
+.cover:focus-visible{outline:2px solid #82e5da;outline-offset:3px}
+.detail-hero-thumb{display:block;width:100%;max-height:210px;overflow:hidden;border:1px solid #35516a;border-radius:10px;margin:12px 0 15px;background:#172d42}
+.detail-hero-thumb img{display:block;width:100%;max-height:210px;object-fit:contain}
+.metadata-settings{margin-top:2px}
+.metadata-settings p{max-width:550px}
+@media(max-width:600px){.facet-toolbar{padding:10px;gap:8px}.facet-toolbar .control-label{min-width:calc(50% - 5px);flex:1 1 calc(50% - 5px)}.facet-toolbar .creator-control{flex:1 1 100%}.facet-toolbar button{width:100%}.control-label.compact{align-items:start;flex-direction:column}.control-label.compact select{max-width:none}}
+/* Optional gallery view with clickable covers; the original dense list remains default. */
+.video-list.as-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:17px;margin-top:16px}
+.video-list.as-grid .video-card{display:flex;flex-direction:column;align-items:stretch;background:#14253c;border:1px solid #2b425a;border-radius:13px;padding:12px;gap:10px;min-width:0;transition:border-color .15s,transform .15s}
+.video-list.as-grid .video-card:hover{border-color:#70cabe;transform:translateY(-2px)}
+.video-list.as-grid .cover{width:100%;height:auto;aspect-ratio:16/9;border-radius:9px}
+.video-list.as-grid .video-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;overflow:hidden;line-height:1.5;min-height:2.8em}
+.video-list.as-grid .video-sub{margin:6px 0}
+.video-list.as-grid .video-info{flex:1}
+.video-list.as-grid .video-tags{align-items:start}
+.video-list.as-grid .video-stat{display:flex;flex-direction:row;text-align:left;min-width:0;gap:18px}
+.video-list.as-grid .video-buttons{align-self:flex-end;margin-top:-34px;z-index:1}
+@media(max-width:600px){.video-list.as-grid{grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px}.video-list.as-grid .video-card{padding:9px}.video-list.as-grid .video-buttons{margin-top:0;flex-direction:row}.video-list.as-grid .video-stat{display:flex}}

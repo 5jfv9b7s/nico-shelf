@@ -1,4 +1,4 @@
-/** NICO SHELF 0.7.0: Cross-world DOM event + postMessage bridge with diagnostics.
+/** NICO SHELF 0.8.0: Cross-world DOM event + postMessage bridge with diagnostics.
  *  NicoNico cookies stay within the authenticated NicoNico tab.
  */
 // DOM CustomEvents cross Chrome extension's isolated world and page world.
@@ -74,8 +74,8 @@ export class NicoTabBridge {
 
     // Makes missing/disabled site userscripts visible immediately instead of
     // showing a seemingly perpetual "unconnected" state.
-    if (document.documentElement.getAttribute('data-nico-shelf-direct-bridge') !== '0.7.0') {
-      throw new Error('NICO SHELF側で連携スクリプトv0.7.0が検出できません。Tampermonkeyでこの公開サイトへのアクセスを許可し、アプリのタブを再読み込みしてください');
+    if (document.documentElement.getAttribute('data-nico-shelf-direct-bridge') !== '0.8.0') {
+      throw new Error('NICO SHELF側で連携スクリプトv0.8.0が検出できません。Tampermonkeyでこの公開サイトへのアクセスを許可し、アプリのタブを再読み込みしてください');
     }
 
     this.nonce = crypto.randomUUID();
