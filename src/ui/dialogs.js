@@ -16,7 +16,7 @@ function modal(){
    <label class="file-drop">⇩<strong>ここを押してファイルを選択</strong><small>.json / .csv（自動同期ではありません）</small><input type="file" id="file-import" accept=".json,.csv,application/json,text/csv" /></label>
    <p class="modal-note">個人データはログイン中のアカウントに保存され、他のユーザーからはアクセスできません。</p>
    <a class="link-text" href="/import-example.csv" download>CSVテンプレートをダウンロード ↗</a>
-   ${state.preview?`<div class="preview-data"><b>読み込み内容</b><span>${formatCount(state.preview.playlists.length)} リスト · ${formatCount(state.preview.videos.length)} 動画 · ${formatCount(state.preview.entries.length)} 件の登録</span><small>同じIDの情報は上書きされます。途中で失敗した場合、一部だけ反映されることがあります。</small></div><button class="btn primary full" id="run-import" ${state.busy?'disabled':''}>${state.busy?'インポート中…':'Supabaseにインポート'}</button>`:''}<div id="import-status" class="modal-note" role="status"></div>`;
+   ${state.preview?`<div class="preview-data"><b>読み込み内容</b><span>${formatCount(state.preview.playlists.length)} リスト · ${formatCount(state.preview.videos.length)} 動画 · ${formatCount(state.preview.entries.length)} 件の登録${state.preview.savedSearches?.length?` · 保存検索${state.preview.savedSearches.length}件`:''}</span><small>同じIDの情報は上書きされます。途中で失敗した場合、一部だけ反映されることがあります。</small></div><button class="btn primary full" id="run-import" ${state.busy?'disabled':''}>${state.busy?'インポート中…':'Supabaseにインポート'}</button>`:''}<div id="import-status" class="modal-note" role="status"></div>`;
   else if(d.kind==='sync') {
     let url='';try{url=snapshotUrl(lib);}catch{}
     const diff=state.sync;
@@ -54,6 +54,14 @@ function modal(){
       ${state.metadataProgress?`<p class="sync-progress" role="status">${esc(state.metadataProgress)}</p>`:''}
       <button class="btn primary full" id="enrich-batch" ${state.busy||!pending.length?'disabled':''}>${state.busy?'取得中…':nicoBridge.connected?'不足情報を15件まで取得':'ニコニコに接続して補完'}</button>
       <p class="modal-note">非公開・削除済み動画やAPI制限により取得できない場合があります。作者・雰囲気の推定はタグに依存します。</p>`;
+  }
+  else if(d.kind==='save-search') {
+    contents=`<div class="modal-head"><div class="eyebrow">SAVE SEARCH / PRESET</div><h2>現在の検索条件を保存</h2><p>検索キーワード、絞り込み、並び替え、表示モードを自分のGoogleアカウントに保存します。PC・スマホで共有できます。</p></div>
+      <label class="field-label">保存する名前
+        <input id="saved-search-name" placeholder="例：音街ウナの未評価曲" value="" maxlength="80" autocomplete="off" />
+      </label>
+      <p class="modal-note">同じ名前で保存すると、確認後に検索条件を更新します。保存できる条件は最大20件です。曲やマイリストのデータは変更しません。</p>
+      <button class="btn primary full" id="save-search-confirm" ${state.busy?'disabled':''}>この条件を保存</button>`;
   }
   else if(d.kind==='playlist') contents=`<div class="modal-head"><div class="eyebrow">CREATE LIST</div><h2>マイリストを作成</h2><p>NICO SHELF内の管理用リストを作ります。</p></div><label class="field-label">名前<input id="playlist-name" placeholder="例：好きな曲" maxlength="90" /></label><button class="btn primary full" id="save-playlist">リストを作成（DBのみ）</button>`;
   else if(d.kind==='add'){

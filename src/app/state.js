@@ -1,5 +1,5 @@
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.8.1';
+export const APP_VERSION = '0.9.0';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
@@ -33,8 +33,12 @@ export function createInitialState() {
     view: 'dashboard',
     filters: {
       q: '', playlist: '', sort: 'views', order: 'desc',
-      voice: '', variant: '', genre: '', mood: '', year: '', creator: '',
+      voice: '', variant: '', genre: '', mood: '', year: '', creator: '', status: '',
     },
+    savedSearches: [],
+    savedSearchesLoaded: false,
+    savedSearchesError: '',
+    activeSavedSearchId: '',
     voiceMode: 'canonical',
     cardMode: 'list',
     page: 1,

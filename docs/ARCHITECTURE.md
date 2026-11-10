@@ -13,6 +13,9 @@ nico-shelf/
 │   ├── app/
 │   │   ├── state.js               # UIの初期状態とラベル・バージョン
 │   │   ├── library.js             # 所属情報・動画一覧・件数の計算
+│   │   ├── saved-searches.js      # 検索条件の保存／復元形式
+│   │   ├── search.js              # 検索結果の共通選択処理・ランダム選曲
+│   │   ├── csv-export.js          # CSV出力とセルの安全処理
 │   │   └── events.js              # HTMLのイベントをコントローラーに振り分ける
 │   ├── ui/
 │   │   ├── views.js               # ダッシュボード・一覧・設定画面
@@ -55,6 +58,8 @@ src/ui/views.js / dialogs.js
 - **UIの処理はクライアント側**：検索・ランキングの演算はクライアントで実行する。動画数が大幅に増えた場合は改善が必要。
 - **UI状態の共有**：`createInitialState()` が返したstateをビューとイベント処理へ注入し、同一オブジェクトを参照する。
 - **ログインセッション**：GoogleログインはSupabase Authが担当。ニコニコのCookieはクラウドDBに保存しない。
+- **検索プリセットはユーザー別**：Supabase `saved_searches` テーブルのRLSで本人の保存条件だけを取得／編集。動画や個人メモの実データはプリセットに複製しない。
+- **検索結果は一元化**：画面・CSV出力・ランダム選曲は `selectLibraryResults()` を共用し、フィルタ結果の食い違いを防止。
 
 ## 変更すべきファイルの目安
 
@@ -68,6 +73,8 @@ src/ui/views.js / dialogs.js
 | ボタン押下時の処理を追加 | `src/app/events.js` と `src/main.js` |
 | Supabaseのクエリを変更 | `src/supabase.js` と関連処理 |
 | ライブラリの件数を変更 | `src/app/library.js` |
+| 保存検索を変更 | `src/app/saved-searches.js`、`src/main.js`、`supabase/migrations/` |
+| 検索結果・CSV出力を変更 | `src/app/search.js`、`src/app/csv-export.js` |
 
 ## 今後の整理余地
 

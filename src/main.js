@@ -9,6 +9,9 @@ import { NicoTabBridge } from './bridge.js';
 import { registrationLists, registrationDecision } from './registration.js';
 import { needsMetadata, mergeMetadata, inferredVoicesFromTags } from './discovery.js';
 import { createInitialState } from './app/state.js';
+import { createSearchPreset, applySearchPreset, MAX_SAVED_SEARCHES } from './app/saved-searches.js';
+import { selectLibraryResults, chooseRandomVideo } from './app/search.js';
+import { makeLibraryCsv } from './app/csv-export.js';
 import { registerEventHandlers } from './app/events.js';
 import { createViewRenderer } from './ui/views.js';
 import { createDialogRenderer } from './ui/dialogs.js';
@@ -41,7 +44,110 @@ function refreshMembership(){
   const e=state.library.entries.filter(x=>x.video_id===id&&x.present!==false);
   el.textContent=id?(e.length?`所属済み：${e.map(x=>state.library.playlists.find(p=>p.id===x.playlist_id)?.name||x.playlist_id).join('・')}`:'どのリストにも未登録'):'正しい動画IDを入力してください';
 }
-async function refresh(){state.library=await loadLibrary(state.user.id);render();}
+/** Load presets separately: a missing v0.9 SQL migration must not hide the library. */
+async function reloadSavedSearches() {
+  const { data, error } = await client.from('saved_searches')
+    .select('id,name,view,filters,card_mode,created_at')
+    .eq('owner_id', state.user.id)
+    .order('created_at', { ascending: false })
+    .limit(MAX_SAVED_SEARCHES + 1);
+
+  if (error) throw error;
+  state.savedSearches = data || [];
+  state.savedSearchesError = '';
+  state.savedSearchesLoaded = true;
+}
+
+async function refresh() {
+  state.library = await loadLibrary(state.user.id);
+  if (!state.savedSearchesLoaded) {
+    try {
+      await reloadSavedSearches();
+    } catch (error) {
+      console.warn('検索条件の読み込みに失敗:', error);
+      state.savedSearchesError = '検索条件の保存にはv0.9のSQL適用が必要です';
+      state.savedSearchesLoaded = true;
+    }
+  }
+  render();
+}
+
+/** Save the current listing as one authenticated user's reusable search. */
+async function saveSearchPreset() {
+  if (state.busy) return;
+  const preset = createSearchPreset({
+    name: document.querySelector('#saved-search-name')?.value,
+    view: state.view,
+    filters: state.filters,
+    cardMode: state.cardMode,
+  });
+  const sameName = state.savedSearches.find((item) => item.name === preset.name);
+  if (sameName && !confirm(`「${preset.name}」を現在の条件で上書きしますか？`)) return;
+  if (!sameName && state.savedSearches.length >= MAX_SAVED_SEARCHES) {
+    throw new Error(`保存条件は最大${MAX_SAVED_SEARCHES}件です。古い条件を削除してください。`);
+  }
+
+  state.busy = true;
+  try {
+    const row = { ...preset, owner_id: state.user.id, updated_at: new Date().toISOString() };
+    const query = sameName
+      ? client.from('saved_searches').update(row).eq('id', sameName.id).eq('owner_id', state.user.id)
+      : client.from('saved_searches').insert(row);
+    const { error } = await query;
+    if (error) throw new Error(`検索条件を保存できません: ${error.message}`);
+    await reloadSavedSearches();
+    state.activeSavedSearchId = state.savedSearches.find((item) => item.name === preset.name)?.id || '';
+    closeDialog();
+    toast(`検索条件「${preset.name}」を保存しました`);
+  } finally {
+    state.busy = false;
+  }
+}
+
+function useSearchPreset(id) {
+  if (!id) {
+    state.activeSavedSearchId = '';
+    rerenderContent();
+    return;
+  }
+  const preset = state.savedSearches.find((item) => item.id === id);
+  if (!preset) return toast('保存条件が見つかりません。ページを再読み込みしてください', true);
+  applySearchPreset(state, preset);
+  render();
+}
+
+async function deleteSearchPreset() {
+  const preset = state.savedSearches.find((item) => item.id === state.activeSavedSearchId);
+  if (!preset) return;
+  if (!confirm(`保存検索「${preset.name}」を削除しますか？\n現在の検索結果や動画データは消えません。`)) return;
+  const { error } = await client.from('saved_searches')
+    .delete().eq('owner_id', state.user.id).eq('id', preset.id);
+  if (error) throw new Error(`保存条件を削除できません: ${error.message}`);
+  state.activeSavedSearchId = '';
+  await reloadSavedSearches();
+  rerenderContent();
+  toast('保存条件を削除しました');
+}
+
+function exportFilteredCsv() {
+  const { rows } = selectLibraryResults(state);
+  if (!rows.length) return toast('書き出す動画がありません', true);
+  const csv = makeLibraryCsv(rows);
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `nico-shelf-search-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast(`絞り込み結果 ${rows.length}件をCSVに書き出しました`);
+}
+
+function surpriseMe() {
+  const video = chooseRandomVideo(selectLibraryResults(state).rows);
+  if (!video) return toast('条件に合う動画がありません', true);
+  showDialog('detail', { id: video.id });
+}
+
 async function enrichOne(id,{refresh=false}={}) {
   if(!nicoBridge.connected)throw new Error('ニコニコのタブへ接続してください');
   const local=state.library.videos.find(x=>x.id===id);
@@ -209,7 +315,7 @@ async function saveVideo(){
 function exportJson(){
   const {playlists,videos,entries,meta}=state.library;
   const strip=x=>{const {owner_id,...data}=x;return data;};
-  const payload={format:'nico-shelf-v0.4',exported_at:new Date().toISOString(),playlists:playlists.map(strip),videos:videos.map(strip),entries:entries.map(strip),user_meta:meta.map(strip)};
+  const payload={format:'nico-shelf-v0.9',exported_at:new Date().toISOString(),playlists:playlists.map(strip),videos:videos.map(strip),entries:entries.map(strip),user_meta:meta.map(strip),saved_searches:state.savedSearches.map(({name,view,filters,card_mode})=>({name,view,filters,card_mode}))};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`nico-shelf-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
@@ -221,12 +327,20 @@ async function handleFile(file){
 async function runImport(){
   if(!state.preview||state.busy)return;
   const rows=state.preview;
-  const yes=confirm(`${rows.videos.length}動画・${rows.entries.length}件をSupabaseに保存します。\n同じ動画・リストは上書き更新されます。よろしいですか？`);if(!yes)return;
+  const yes=confirm(`${rows.videos.length}動画・${rows.entries.length}件${rows.savedSearches?.length?`・検索条件${rows.savedSearches.length}件`:''}をSupabaseに保存します。\n同じ動画・リストは上書き更新されます。よろしいですか？`);if(!yes)return;
   state.busy=true;document.querySelector('#run-import').disabled=true;
   const status=document.querySelector('#import-status');
   try{
     await importRows(state.user.id,rows,(table,n,total)=>{if(status)status.textContent=`インポート中：${table} ${n}/${total}`;});
-    state.preview=null;state.dialog=null;await refresh();toast(`${rows.videos.length}動画のインポートが完了しました`);
+    let presetError='';
+    if(rows.savedSearches?.length){
+      const presets=rows.savedSearches.map(preset=>({...preset,owner_id:state.user.id}));
+      const {error}=await client.from('saved_searches').upsert(presets,{onConflict:'owner_id,name'});
+      if(error)presetError=`検索条件の復元のみ失敗：${error.message}`;
+    }
+    state.preview=null;state.dialog=null;state.savedSearchesLoaded=false;
+    await refresh();
+    toast(presetError||`${rows.videos.length}動画のインポートが完了しました`,Boolean(presetError));
   }finally{state.busy=false;if(document.querySelector('#run-import'))document.querySelector('#run-import').disabled=false;}
 }
 /** One-click read-only sync, reusing the proven v0.7.0 bridge. */
@@ -308,10 +422,17 @@ async function applySync(){
 async function eraseData(){
   if(!confirm('このアカウントのライブラリをすべて削除します。元に戻せません。よろしいですか？'))return;
   const answer=prompt('誤操作防止のため「削除」と入力してください');if(answer!=='削除')return;
+  // Saved searches contain personal preferences and must be deleted too.
+  // Pre-migration installations have no saved_searches table, so skip it there.
+  if(!state.savedSearchesError){
+    const {error}=await client.from('saved_searches').delete().eq('owner_id',state.user.id);
+    if(error)throw new Error(`saved_searches: ${error.message}`);
+  }
   for(const table of ['user_meta','entries','videos','playlists']){
     const {error}=await client.from(table).delete().eq('owner_id',state.user.id);if(error)throw new Error(`${table}: ${error.message}`);
   }
-  await refresh();toast('このアカウントのライブラリを削除しました');
+  state.savedSearches=[];state.savedSearchesLoaded=false;state.activeSavedSearchId='';
+  await refresh();toast('このアカウントのライブラリと保存検索を削除しました');
 }
 async function guard(fn){
   try{await fn();}catch(e){console.error(e);toast(e.message||'処理に失敗しました',true);}
@@ -331,6 +452,7 @@ registerEventHandlers({
     saveMeta, savePlaylist, saveVideo, connectNico, syncFromNico,
     probeNico, registerInNico, runImport, applySync, exportJson,
     eraseData, captureAddForm, handleFile, handleSyncFile,
+    saveSearchPreset, deleteSearchPreset, useSearchPreset, exportFilteredCsv, surpriseMe,
   },
 });
 
@@ -343,7 +465,7 @@ async function start(){
     client.auth.onAuthStateChange(async(event,session)=>{
       // No awaited Supabase call here: avoids auth-lock deadlocks. Refresh later.
       const before=state.user?.id||null;state.user=session?.user||null;
-      if(before!==state.user?.id){state.library={playlists:[],videos:[],entries:[],meta:[]};state.view='dashboard';state.dialog=null;render();if(state.user)setTimeout(()=>guard(refresh),0);}
+      if(before!==state.user?.id){state.library={playlists:[],videos:[],entries:[],meta:[]};state.savedSearches=[];state.savedSearchesLoaded=false;state.savedSearchesError='';state.activeSavedSearchId='';state.view='dashboard';state.dialog=null;render();if(state.user)setTimeout(()=>guard(refresh),0);}
     });
   }catch(e){root.innerHTML=`<div class="setup-state"><h1>接続できませんでした</h1><p>${esc(e.message)}</p><button class="btn primary" id="retry">再読み込み</button></div>`;document.querySelector('#retry')?.addEventListener('click',()=>location.reload());}
 }

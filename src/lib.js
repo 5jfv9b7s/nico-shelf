@@ -1,3 +1,5 @@
+import { createSearchPreset, MAX_SAVED_SEARCHES } from './app/saved-searches.js';
+
 /** Helpers kept independent of browser/Supabase so they can be unit tested. */
 export const VIDEO_ID = /^(?:sm|nm|so)\d{1,12}$/i;
 export function videoId(value) {
@@ -100,7 +102,16 @@ export function normalizeImport(obj) {
   const videos=obj.videos.map(x=>({id:videoId(x.id),title:String(x.title||x.id||''),description:String(x.description||''),uploader:String(x.uploader||''),uploader_id:String(x.uploader_id||''),published_at:x.published_at||null,duration:x.duration==null?null:Number(x.duration),views:x.views==null?null:Number(x.views),comments:x.comments==null?null:Number(x.comments),mylists:x.mylists==null?null:Number(x.mylists),likes:x.likes==null?null:Number(x.likes),thumb:String(x.thumb||''),genre:x.genre||null,kind:x.kind||null,...Object.fromEntries(arrays.map(f=>[f,array(x[f])])),vocadb_id:x.vocadb_id||null,status:x.status||null,metadata_updated_at:x.metadata_updated_at||null}));
   const entries=obj.entries.map(x=>({playlist_id:String(x.playlist_id||''),video_id:videoId(x.video_id),position:Number(x.position)||0,added_at:x.added_at||null,present:x.present!==false&&x.present!==0&&x.present!=='0'}));
   const meta=(Array.isArray(obj.user_meta)?obj.user_meta:[]).map(x=>({video_id:videoId(x.video_id),rating:Math.min(5,Math.max(0,Number(x.rating)||0)),favorite:Boolean(x.favorite)&&x.favorite!=='0',memo:String(x.memo||''),personal_tags:String(x.personal_tags||''),verified_voice:String(x.verified_voice||''),verified_composer:String(x.verified_composer||''),updated_at:x.updated_at||null}));
-  validateImport({playlists,videos,entries,meta});return {playlists,videos,entries,meta};
+  const rawSavedSearches=Array.isArray(obj.saved_searches)?obj.saved_searches:[];
+  if(rawSavedSearches.length>MAX_SAVED_SEARCHES)throw new Error('保存検索の件数が上限を超えています');
+  const savedSearches=rawSavedSearches.map(item=>createSearchPreset({
+    name:item.name,view:item.view,filters:item.filters,cardMode:item.card_mode,
+  }));
+  if(new Set(savedSearches.map(item=>item.name)).size!==savedSearches.length){
+    throw new Error('インポート内に同名の保存検索があります');
+  }
+  validateImport({playlists,videos,entries,meta});
+  return {playlists,videos,entries,meta,savedSearches};
 }
 export function csvToImport(csv) {
   const rows=csvParse(csv);if(!rows.length)throw new Error('CSVにデータがありません');

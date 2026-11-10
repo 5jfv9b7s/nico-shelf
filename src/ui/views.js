@@ -1,11 +1,12 @@
 import { esc, array, formatCount, formatDate, formatDuration, sortRows } from '../lib.js';
 import {
   canonicalVoices, rawVoices, voiceStats, voiceVariants,
-  GENRE_LABELS, MOOD_LABELS, genreLabels, moodLabels, filteredDiscovery,
+  GENRE_LABELS, MOOD_LABELS, genreLabels, moodLabels,
 } from '../discovery.js';
 import { buildLibraryRows, countLibrary } from '../app/library.js';
 import { APP_VERSION, VIEWS, SORTS, NAV_ICONS } from '../app/state.js';
 import { safeThumb } from './media.js';
+import { selectLibraryResults } from '../app/search.js';
 
 /**
  * Pure-ish HTML templates: read the injected UI state, but never write to the DB.
@@ -103,8 +104,7 @@ function listing(rows){
   const inPlaylist=state.view.startsWith('playlist:');const forced=inPlaylist?state.view.slice(9):'';
   const playlist=forced||state.filters.playlist;
   const duplicate=state.view==='duplicates',favorite=state.view==='favorites';
-  const show=filteredDiscovery(rows,{...state.filters,playlist,duplicates:duplicate,favorites:favorite});
-  const sorted=sortRows(show,state.filters.sort,state.filters.order,playlist);
+  const { rows: sorted }=selectLibraryResults(state);
   const totalPages=Math.max(1,Math.ceil(sorted.length/35));state.page=Math.min(state.page,totalPages);
   const pageRows=sorted.slice((state.page-1)*35,state.page*35);
   const heading=inPlaylist?(state.library.playlists.find(x=>x.id===forced)?.name||'マイリスト'):duplicate?'重複した動画':favorite?'お気に入り':'すべての動画';
@@ -121,18 +121,38 @@ function listing(rows){
     <button class="btn subtle" id="sort-reset" title="ソートだけ初期化、絞り込みは維持">↺ リセット</button>
     <button class="btn subtle" id="toggle-card-mode" title="一覧とジャケット型表示を切り替え">${state.cardMode==='list'?'▦ ジャケット表示':'≡ リスト表示'}</button>
   </div>
+  <div class="preset-toolbar" aria-label="保存した検索条件">
+    <label class="control-label preset-picker">保存検索
+      <select id="saved-search-select" ${state.savedSearchesError?'disabled':''}>
+        <option value="">保存済みの検索条件を選択</option>
+        ${state.savedSearches.map(p=>`<option value="${esc(p.id)}" ${state.activeSavedSearchId===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+      </select>
+    </label>
+    <button class="btn subtle" id="save-search" ${state.savedSearchesError?'disabled':''}>＋ この条件を保存</button>
+    <button class="btn subtle" id="delete-search" ${!state.activeSavedSearchId||state.savedSearchesError?'disabled':''}>保存条件を削除</button>
+    ${state.savedSearchesError?`<span class="preset-warning">${esc(state.savedSearchesError)}</span>`:''}
+  </div>
   <div class="facet-toolbar" aria-label="詳細検索条件">
     <label class="control-label">歌唱キャラ<select id="voice-filter"><option value="">すべて</option>${selectOptions(voices,state.filters.voice)}</select></label>
     <label class="control-label">歌唱者の原表記<select id="variant-filter" ${state.filters.voice?'':'disabled'}><option value="">すべてのバージョン</option>${selectOptions(variants,state.filters.variant)}</select></label>
     <label class="control-label">ジャンル（タグ推定）<select id="genre-filter"><option value="">すべて</option>${selectOptions(GENRE_LABELS,state.filters.genre)}</select></label>
     <label class="control-label">雰囲気（タグ推定）<select id="mood-filter"><option value="">すべて</option>${selectOptions(MOOD_LABELS,state.filters.mood)}</select></label>
     <label class="control-label">投稿年<select id="year-filter"><option value="">すべて</option>${selectOptions(years,state.filters.year)}</select></label>
+    <label class="control-label">整理状況<select id="status-filter">
+      <option value="" ${!state.filters.status?'selected':''}>すべて</option>
+      ${[['unlisted','どのリストにも未所属'],['no-voice','歌唱者が未判定'],['unrated','未評価'],['missing-metadata','動画情報が不足']].map(([key,label])=>`<option value="${key}" ${state.filters.status===key?'selected':''}>${label}</option>`).join('')}
+    </select></label>
     <label class="control-label creator-control">作者・投稿者<input id="creator-filter" placeholder="作者名で検索" value="${esc(state.filters.creator)}" autocomplete="off" /></label>
     <button class="btn subtle" id="facets-reset" title="検索と詳細条件を解除。ソートは維持">条件クリア</button>
   </div>
   <div class="facet-disclaimer">ジャンルと雰囲気はタグを根拠とする推定分類です。未分類の曲は条件指定時に除外されます。</div>
   ${state.filters.sort==='registration'?`<div class="inline-hint">登録順はインポート時の一覧表示順です。正確な登録日時とは限りません。${!playlist?'マイリストを選ぶと順番を比較できます。':''}</div>`:''}
   <div class="result-heading"><span><b>${formatCount(sorted.length)}</b> 件の動画</span><span>ソート：${esc(SORTS[state.filters.sort])} ${state.filters.order==='desc'?'降順':'昇順'}</span></div>
+  <div class="result-actions">
+    <span>現在の絞り込み結果すべてが対象です（表示ページに限定されません）</span>
+    <button class="btn subtle" id="surprise-me" ${!sorted.length?'disabled':''}>♫ 条件から1曲選ぶ</button>
+    <button class="btn subtle" id="export-filtered" ${!sorted.length?'disabled':''}>⇩ 結果をCSVに出力</button>
+  </div>
   ${pageRows.length?cards(pageRows):`<div class="empty-panel"><span>♫</span><h2>動画が見つかりません</h2><p>絞り込み条件を変えるか、データをインポートしてください。</p></div>`}
   ${totalPages>1?`<nav class="pagination"><button class="btn subtle" data-page="${state.page-1}" ${state.page===1?'disabled':''}>← 前へ</button><span>${state.page} / ${totalPages}</span><button class="btn subtle" data-page="${state.page+1}" ${state.page===totalPages?'disabled':''}>次へ →</button></nav>`:''}`;
 }

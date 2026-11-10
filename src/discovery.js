@@ -96,6 +96,12 @@ export function filteredDiscovery(rows, filters={}) {
     if(filters.playlist&&!v.memberships?.some(m=>m.id===filters.playlist))return false;
     if(filters.duplicates&&v.memberships?.length<2)return false;
     if(filters.favorites&&!v.userMeta?.favorite)return false;
+    // Workflow filters help find videos still needing manual organization.
+    if(filters.status==='unlisted' && v.memberships?.length)return false;
+    if(filters.status==='no-voice' && canonicalVoices(v).length)return false;
+    if(filters.status==='unrated' && Number(v.userMeta?.rating||0)>0)return false;
+    if(filters.status==='missing-metadata' &&
+       v.thumb && v.published_at && v.title && v.title!==v.id && array(v.tags).length)return false;
     if(filters.voice&&!canonicalVoices(v).includes(filters.voice))return false;
     if(filters.variant&&!rawVoices(v).includes(filters.variant))return false;
     if(filters.genre&&!genreLabels(v).includes(filters.genre))return false;
