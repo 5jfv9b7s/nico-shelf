@@ -32,3 +32,13 @@
 .nico-check-results>b {display:block;margin-bottom:8px}
 .nico-check-line {display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #263e52;color:#dceaf4;font-size:13px}
 .nico-check-line span:last-child {font-variant-numeric:tabular-nums;white-space:nowrap;color:#83ded1}
+
+/* v0.7: direct one-click snapshot fetch */
+.sync-live-panel{margin:17px 0;padding:18px;border:1px solid #3d7e80;background:linear-gradient(120deg,#173c48,#173049);border-radius:12px}
+.sync-connection{display:flex;flex-direction:column;gap:7px;color:#9ce7d9;font-size:14px}
+.sync-connection small{color:#a5bacb;font-size:11px;line-height:1.6}
+.sync-progress{padding:10px 12px;background:#102839;border-left:3px solid #5ad2c3;border-radius:5px;line-height:1.6;font-size:12px;color:#defff7}
+.sync-note{display:block;margin:12px 0 0;color:#9bb9c2;font-size:11px;line-height:1.6}
+.sync-fallback{margin:14px 0;border:1px solid #2c4558;border-radius:9px;padding:11px 14px;color:#b9cfde}
+.sync-fallback summary{cursor:pointer;font-size:12px;font-weight:700}
+.sync-fallback .file-drop{margin-top:10px}

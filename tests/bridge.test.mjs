@@ -9,14 +9,17 @@ const bridgeScript=fs.readFileSync(ROOT+'src/bridge.js','utf8').replace('export 
 const delay=(ms)=>new Promise(r=>setTimeout(r,ms));
 
 function element(tag){return {tag,style:{},children:[],listeners:new Map(),append(...els){this.children.push(...els)},appendChild(el){this.children.push(el)},replaceChildren(...els){this.children=els},remove(){this.removed=true},addEventListener(t,fn){this.listeners.set(t,fn)},click(){this.listeners.get('click')?.()}}}
-async function runCase(notify=true){
+async function runCase(notify=true, postMessageBlocked=false){
  const store=new Map(),instances=[],timers=[];
  function create(origin,href){
-   const listeners=new Map(),attrs=new Map(),buttons=[];const win={};
+   const listeners=new Map(),docListeners=new Map(),attrs=new Map(),buttons=[];const win={};
    const doc={documentElement:{getAttribute:(n)=>attrs.get(n),setAttribute:(n,v)=>attrs.set(n,v)},body:element('body'),createElement:(tag)=>{const o=element(tag);if(tag==='button')buttons.push(o);return o;}};
-   const context={window:win,document:doc,location:{origin,href},URL,URLSearchParams,Date,Math,Number,Promise,Set,Map,String,RegExp,Object,Array,crypto:webcrypto,console,setTimeout,clearTimeout,setInterval:(fn,ms)=>{const t=setInterval(fn,ms);timers.push(t);return t;},clearInterval};
+   doc.addEventListener=(type,fn)=>{const l=docListeners.get(type)||[];l.push(fn);docListeners.set(type,l)};
+   doc.dispatchEvent=event=>{for(const f of docListeners.get(event.type)||[])f(event);return true};
+   class CustomEvent {constructor(type,options){this.type=type;this.detail=options?.detail}}
+   const context={CustomEvent,window:win,document:doc,location:{origin,href},URL,URLSearchParams,Date,Math,Number,Promise,Set,Map,String,RegExp,Object,Array,crypto:webcrypto,console,setTimeout,clearTimeout,setInterval:(fn,ms)=>{const t=setInterval(fn,ms);timers.push(t);return t;},clearInterval};
    win.addEventListener=(type,fn)=>{const l=listeners.get(type)||[];l.push(fn);listeners.set(type,l)};
-   win.postMessage=(data,targetOrigin)=>{if(targetOrigin!==origin)throw Error('wrong origin');queueMicrotask(()=>{for(const f of listeners.get('message')||[])f({source:win,origin,data})})};
+   win.postMessage=(data,targetOrigin)=>{if(targetOrigin!==origin)throw Error('wrong origin');queueMicrotask(()=>{for(const f of listeners.get('message')||[])f({source:win,origin:postMessageBlocked?'chrome-extension://isolated-world':origin,data})})};
    let seq=0;const gmListeners=new Map();
    context.GM_addValueChangeListener=(key,fn)=>{const list=gmListeners.get(key)||new Map();const id=++seq;list.set(id,fn);gmListeners.set(key,list);return id};
    context.GM_removeValueChangeListener=id=>{for(const list of gmListeners.values())list.delete(id)};
@@ -50,3 +53,5 @@ async function runCase(notify=true){
 }
 test('NICO SHELF接続: 通常のタブ間通知が届く', async()=>{assert.equal(await runCase(true),'listener')});
 test('NICO SHELF接続: 通知が届かない場合も保存領域から復旧', async()=>{assert.equal(await runCase(false),'poll-fallback')});
+
+test('DOM events work when extension postMessage origin is filtered', async()=>{assert.equal(await runCase(true,true),'listener')});

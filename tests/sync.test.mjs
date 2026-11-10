@@ -29,3 +29,31 @@ test('取得用リンクには数値マイリストのみ入り、既存アプ�
  assert.equal(url.hostname,'www.nicovideo.jp');
  assert.deepEqual(url.searchParams.getAll('nico_shelf_list'),['101','102']);
 });
+
+test('ブリッジからの取得結果を完全スナップショットへ変換',async()=>{
+ const {snapshotFromBridgeParts}=await import('../src/sync.js');
+ const out=snapshotFromBridgeParts(
+  [{id:'101',name:'ぼかうた3'},{id:'102',name:'最近のお気に入り'}],
+  [{id:'101',complete:true,items:[{video_id:'sm10',title:'曲A'}]},{id:'102',complete:true,items:[{video_id:'sm20',title:'曲B'}]}]
+ );
+ assert.equal(out.lists.length,2);
+ assert.deepEqual(out.lists[0].items.map(x=>x.position),[1]);
+ assert.equal(diffSnapshot(out,library).removed,2);
+});
+test('ブリッジの一部取得失敗・ID不一致・重複を拒否',async()=>{
+ const {snapshotFromBridgeParts}=await import('../src/sync.js');
+ const lists=[{id:'101',name:'ぼかうた3'},{id:'102',name:'最近のお気に入り'}];
+ const valid={id:'101',complete:true,items:[{video_id:'sm10'}]};
+ assert.throws(()=>snapshotFromBridgeParts(lists,[valid]));
+ assert.throws(()=>snapshotFromBridgeParts(lists,[valid,{id:'999',complete:true,items:[]}]));
+ assert.throws(()=>snapshotFromBridgeParts(lists,[valid,{id:'102',complete:false,items:[]}]));
+ assert.throws(()=>snapshotFromBridgeParts([{id:'101',name:'A'}],[{id:'101',complete:true,items:[{video_id:'sm11'},{video_id:'sm11'}]}]));
+});
+test('差分数が同じでも対象が違う場合は署名で区別できる',async()=>{
+ const {diffSignature}=await import('../src/sync.js');
+ const a=diffSnapshot(snapshot([{id:'101',items:[{video_id:'sm10'},{video_id:'sm30'}]}]),library);
+ const b=diffSnapshot(snapshot([{id:'101',items:[{video_id:'sm20'},{video_id:'sm30'}]}]),library);
+ assert.equal(a.added,b.added);
+ assert.equal(a.removed,b.removed);
+ assert.notEqual(diffSignature(a),diffSignature(b));
+});

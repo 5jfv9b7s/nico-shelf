@@ -67,3 +67,35 @@ export function snapshotUrl(library) {
   for(const p of lists){url.searchParams.append('nico_shelf_list',p.id);url.searchParams.append('nico_shelf_name',p.name);}
   return url.toString();
 }
+
+/** Build one complete snapshot from the per-playlist replies sent by the connected Nico tab.
+ * Throws unless every requested list returned once and all items are well formed.
+ */
+export function snapshotFromBridgeParts(requestedLists, replies, capturedAt=new Date().toISOString()) {
+  if(!Array.isArray(requestedLists)||!requestedLists.length||requestedLists.length>25||!Array.isArray(replies)||replies.length!==requestedLists.length){
+    throw new Error('すべてのマイリストを取得できませんでした。DBは変更していません。');
+  }
+  const expected=new Set();
+  const lists=[];
+  for(let i=0;i<requestedLists.length;i++){
+    const id=String(requestedLists[i]?.id||'');
+    const item=replies[i];
+    if(!ID_RE.test(id)||expected.has(id)||String(item?.id)!==id||item?.complete!==true||!Array.isArray(item?.items)){
+      throw new Error('取得したリストが一致しません。差分は反映できません。');
+    }
+    expected.add(id);
+    lists.push({id,name:String(requestedLists[i].name||id).slice(0,100),complete:true,items:item.items});
+  }
+  return normalizeSnapshot({format:FORMAT,version:1,captured_at:capturedAt,complete:true,lists});
+}
+
+/** Stable, content-based identity of the preview; totals alone can conceal changes. */
+export function diffSignature(diff) {
+  return JSON.stringify(diff.rows.map(row=>({
+    id:row.id,
+    added:row.added.map(item=>`${item.video_id}:${item.position}`).sort(),
+    removed:row.removed.map(item=>item.video_id).sort(),
+    reordered:row.reordered.map(item=>`${item.video_id}:${item.position}`).sort(),
+    remoteCount:row.remoteCount
+  })));
+}

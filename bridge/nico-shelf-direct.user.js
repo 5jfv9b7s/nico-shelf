@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         NICO SHELF Direct Bridge (v0.6.2)
+// @name         NICO SHELF Direct Bridge (v0.7.0)
 // @namespace    nico-shelf.direct
-// @version      0.6.2
-// @description  NICO SHELFで確認した動画を、ニコニコのログイン済みタブから登録します。Cookieを外部送信しません。
+// @version      0.7.0
+// @description  ニコニコのログイン済みタブから登録・差分同期します。Cookieを外部送信しません。
 // @match        https://www.nicovideo.jp/*
 // @match        https://nico-shelf.shiokara-lab.workers.dev/*
 // @match        http://127.0.0.1:5173/*
@@ -27,7 +27,7 @@
   }
   if(ALLOWED.has(location.origin)){
     // This marker is a diagnostic: it means this exact version executed here.
-    document.documentElement.setAttribute('data-nico-shelf-direct-bridge','0.6.2');
+    document.documentElement.setAttribute('data-nico-shelf-direct-bridge','0.7.0');
     // The app page cannot access NicoNico cookies. It only exchanges JSON
     // with the separately running userscript on the user's NicoNico tab.
     let activeNonce='',listenerIds=[],pollTimer=null,acknowledgedReady=false;
@@ -78,7 +78,7 @@
       if(!validNonce(nonce))return;
       if(type==='init')begin(nonce);
       else if(type==='request'&&nonce===activeNonce){
-        if(!['inspect','register'].includes(data.action)||!validNonce(data.requestId))return;
+        if(!['inspect','register','snapshot-list'].includes(data.action)||!validNonce(data.requestId))return;
         GM_setValue(`nico_shelf_request_${nonce}`,{
           nonce,requestId:data.requestId,action:data.action,
           payload:data.payload,timestamp:Date.now()
@@ -106,7 +106,7 @@
   const header={'X-Frontend-Id':'6','X-Frontend-Version':'0','X-Request-With':'https://www.nicovideo.jp'};
   const ui=document.createElement('section');
   ui.style.cssText='position:fixed;z-index:2147483647;right:20px;bottom:20px;width:min(390px,calc(100vw - 40px));box-sizing:border-box;background:#0d2238;color:#f7fcff;border:1px solid #85e3da;border-radius:15px;padding:18px;box-shadow:0 8px 28px #0008;font:14px/1.55 system-ui,sans-serif';
-  const headerEl=document.createElement('strong');headerEl.textContent='♫ NICO SHELF · 直接登録 v0.6.2';headerEl.style.cssText='font-size:17px;color:#85e3da';
+  const headerEl=document.createElement('strong');headerEl.textContent='♫ NICO SHELF · 直接登録・同期 v0.7.0';headerEl.style.cssText='font-size:17px;color:#85e3da';
   const note=document.createElement('p');note.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';
   const buttons=document.createElement('div');buttons.style.cssText='display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end';
   ui.append(headerEl,note,buttons);document.body.appendChild(ui);
@@ -139,6 +139,39 @@
       await sleep(150);
     }
     throw new Error(`マイリスト ${id}: 最終ページが確認できません`);
+  }
+  // One playlist per message, to avoid huge GM storage payloads and partial results.
+  // This uses the same authenticated NicoNico tab and the same list API as registration.
+  async function snapshotList(data){
+    const id=String(data?.id||'');
+    const name=String(data?.name||id).slice(0,100);
+    if(!listRe.test(id))throw new Error('同期対象のマイリストIDが不正です');
+    const out=[];const seen=new Set();
+    for(let page=1;page<=25;page++){
+      const res=await fetch(`https://nvapi.nicovideo.jp/v1/users/me/mylists/${id}?page=${page}&pageSize=100`,{
+        method:'GET',credentials:'include',cache:'no-store',headers:header
+      });
+      if(!res.ok)throw new Error(`「${name}」: HTTP ${res.status}（ログイン状態を確認してください）`);
+      const json=await res.json();
+      const ml=json?.data?.mylist;
+      if(!ml||!Array.isArray(ml.items))throw new Error(`「${name}」: ニコニコのAPI形式を認識できません`);
+      for(const item of ml.items){
+        const video_id=String(item.watchId||item.videoId||item.video?.id||item.essential?.id||item.id||'');
+        if(!videoRe.test(video_id)||seen.has(video_id))throw new Error(`「${name}」: 動画IDが不正か重複しています (${video_id})`);
+        seen.add(video_id);
+        out.push({video_id,title:String(item.video?.title||item.essential?.title||item.title||'').slice(0,220)});
+      }
+      if(out.length>1000)throw new Error(`「${name}」: 1000件を超えています`);
+      if(ml.hasNext===false || (ml.hasNext==null && ml.items.length<100)){
+        // Do not report incomplete pages as success if the API provides a total.
+        const total=ml.totalItemCount??ml.totalCount;
+        if(Number.isSafeInteger(total)&&total!==out.length)throw new Error(`「${name}」: 取得件数 ${out.length}/${total}。途中までの結果は破棄しました`);
+        return {id,name,complete:true,items:out};
+      }
+      if(ml.items.length===0)throw new Error(`「${name}」: ページングが途中で終了しました`);
+      await sleep(160);
+    }
+    throw new Error(`「${name}」: 最終ページが確認できません`);
   }
   async function inspect(data){
     if(!videoRe.test(data?.videoId||''))throw new Error('動画IDが不正です');
@@ -180,12 +213,12 @@
     if(!approved||processing||message?.nonce!==nonce||!validNonce(message.requestId))return;
     const {requestId,action,payload,timestamp}=message;
     if(processed.has(requestId)||!Number.isFinite(timestamp)||Math.abs(Date.now()-timestamp)>120000)return;
-    if(action!=='inspect'&&action!=='register')return;
+    if(!['inspect','register','snapshot-list'].includes(action))return;
     processed.add(requestId);processing=true;
     try{
-      const result=action==='inspect'?await inspect(payload):await addVideo(payload);
+      const result=action==='inspect'?await inspect(payload):action==='snapshot-list'?await snapshotList(payload):await addVideo(payload);
       send('result',{requestId,ok:true,payload:result});
-      setText(action==='inspect'?`確認完了。${payload.videoId}の所属と空き件数をNICO SHELFへ送信しました。`:`ニコニコへの登録を確認しました：\n${result.videoId} → ${result.listName}\n\nNICO SHELF側のDB更新結果も確認してください。`);
+      setText(action==='inspect'?`確認完了。${payload.videoId}の所属と空き件数をNICO SHELFへ送信しました。`:action==='snapshot-list'?`一覧取得完了：${result.name} ${result.items.length}件\nNICO SHELFで全リストの取得完了と差分を確認してください。`:`ニコニコへの登録を確認しました：\n${result.videoId} → ${result.listName}\n\nNICO SHELF側のDB更新結果も確認してください。`);
     }catch(err){send('result',{requestId,ok:false,error:String(err.message||err).slice(0,400)});setText(`処理を完了できませんでした：\n${err.message}`);}
     finally{processing=false;}
   }
