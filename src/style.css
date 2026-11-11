@@ -132,3 +132,40 @@
   .preset-picker { flex: 1 1 100%; }
   .preset-toolbar > .btn, .result-actions > .btn { flex: 1 1 auto; }
 }
+
+/* v0.10: traceable tag-based discovery. */
+.facet-row {
+  width: 100%; padding: 4px 6px; margin-left: -6px;
+  text-align: left; color: inherit; background: transparent; border: 0;
+  border-radius: 7px; cursor: pointer; font: inherit;
+}
+.facet-row:hover, .facet-row:focus-visible { background: #224052; outline: 1px solid #5da99f; }
+.facet-row .bar-num { width: 72px; }
+.related-btn {
+  border: 0; background: none; color: #7ccfcb; font-size: 24px;
+  padding: 4px; cursor: pointer;
+}
+.related-btn:hover, .related-btn:focus-visible { color: #b8fff2; }
+.related-note, .classification-evidence {
+  margin: 12px 0 18px; padding: 12px 14px; border-radius: 9px;
+  background: #162e40; border: 1px solid #315565;
+  color: #bcd4dc; line-height: 1.75; font-size: 11px;
+}
+.classification-evidence p { margin: 7px 0 0; overflow-wrap: anywhere; }
+.related-list { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+.related-item { display: flex; gap: 12px; padding: 12px; border: 1px solid #2e465e; border-radius: 9px; background: #12243a; }
+.related-thumb { flex: none; width: 106px; height: 65px; object-fit: cover; border-radius: 6px; }
+.related-placeholder { display: grid; place-items: center; background: #204052; color: #a1d8d4; font-size: 24px; }
+.related-body { min-width: 0; flex: 1; }
+.related-title { display: block; color: #e0f0f5; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.related-title:hover { text-decoration: underline; color: #83e4d7; }
+.related-body small { display: block; color: #8daabe; margin-top: 4px; }
+.related-body p { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0; }
+.related-reason { display: inline-block; font-size: 10px; color: #cce3dc; border: 1px solid #326372; border-radius: 5px; padding: 4px 6px; background: #203f4e; overflow-wrap: anywhere; }
+.related-footer { margin-top: 16px; }
+@media(max-width:600px) {
+  .related-item { gap: 9px; padding: 9px; }
+  .related-thumb { width: 78px; height: 57px; }
+  .related-title { font-size: 12px; }
+  .related-btn { font-size: 20px; padding: 1px; }
+}

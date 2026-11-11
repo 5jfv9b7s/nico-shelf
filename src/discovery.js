@@ -76,14 +76,37 @@ const MOODS = [
 ];
 export const GENRE_LABELS=GENRES.map(([name])=>name);
 export const MOOD_LABELS=MOODS.map(([name])=>name);
-export function genreLabels(video) {
-  const text=[video?.genre,...array(video?.tags),...array(video?.vocadb_tags)].join(' ');
-  return GENRES.filter(([,re])=>re.test(text)).map(([name])=>name);
+/**
+ * Explain why a genre or mood label was assigned. A match needs an actual
+ * metadata field/tag: unrelated words from separate tags are never combined.
+ * This is keyword evidence, not confirmation from listening to the audio.
+ */
+function classificationEvidence(video, rules, candidates) {
+  return rules.flatMap(([label, expression]) => {
+    const evidence = [...new Set(candidates.map(String).filter((tag) =>
+      tag.trim() && expression.test(tag)
+    ))].slice(0, 3);
+    return evidence.length ? [{ label, evidence }] : [];
+  });
 }
+
+export function genreEvidence(video) {
+  return classificationEvidence(video, GENRES,
+    [video?.genre ?? '', ...array(video?.tags), ...array(video?.vocadb_tags)]);
+}
+
+export function moodEvidence(video) {
+  // Only tagged descriptions count. Song title and uploader are never evidence.
+  return classificationEvidence(video, MOODS,
+    [...array(video?.tags), ...array(video?.vocadb_tags)]);
+}
+
+export function genreLabels(video) {
+  return genreEvidence(video).map(({ label }) => label);
+}
+
 export function moodLabels(video) {
-  // Mood is *only* an inference from explicit tags. It is not verified audio analysis.
-  const text=[...array(video?.tags),...array(video?.vocadb_tags)].join(' ');
-  return MOODS.filter(([,re])=>re.test(text)).map(([name])=>name);
+  return moodEvidence(video).map(({ label }) => label);
 }
 export function composerNames(video) {
   const verified=video?.userMeta?.verified_composer?.trim();

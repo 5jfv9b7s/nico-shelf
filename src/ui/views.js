@@ -44,9 +44,20 @@ function hero(kicker,title,desc,action=''){return `<div class="heading"><div><di
 function statsCards(){const c=counts();return `<div class="stat-grid">
   ${[[c.videos,'VIDEO LIBRARY','保存済み動画'],[c.entries,'PLAYLIST ENTRIES','登録件数'],[c.duplicates,'DUPLICATED','複数リストに所属'],[state.library.playlists.length,'MYLISTS','管理中のリスト']].map(([n,label,sub],i)=>`<div class="stat-card"><div class="stat-top"><span>${label}</span><span class="stat-symbol">${['◈','≡','◎','♫'][i]}</span></div><strong>${formatCount(n)}</strong><small>${sub}</small></div>`).join('')}
   </div>`;}
-function barList(data,noun='曲'){
-  const max=Math.max(1,...data.map(x=>x[1]));
-  return data.length?data.map(([name,num],i)=>`<div class="bar-row"><span class="bar-index">${String(i+1).padStart(2,'0')}</span><span class="bar-name" title="${esc(name)}">${esc(name)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.min(100,100*num/max)}%"></div></div><span class="bar-num">${num}${noun}</span></div>`).join(''):'<div class="empty-sm">まだ集計できる情報がありません</div>';
+function barList(data, noun = '曲', facetKind = '') {
+  const max = Math.max(1, ...data.map((entry) => entry[1]));
+  if (!data.length) return '<div class="empty-sm">まだ集計できる情報がありません</div>';
+
+  return data.map(([name, count], index) => {
+    const isFilter = facetKind === 'genre' || facetKind === 'mood';
+    const opening = isFilter
+      ? `<button class="bar-row facet-row" data-facet-kind="${facetKind}" data-facet-value="${esc(name)}" title="${esc(name)}の曲へ絞り込む">`
+      : '<div class="bar-row">';
+    return `${opening}<span class="bar-index">${String(index + 1).padStart(2, '0')}</span>
+      <span class="bar-name" title="${esc(name)}">${esc(name)}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${Math.min(100, 100 * count / max)}%"></span></span>
+      <span class="bar-num">${count}${noun}${isFilter ? ' ↗' : ''}</span>${isFilter ? '</button>' : '</div>'}`;
+  }).join('');
 }
 function playlistVoiceMatrix(rows,playlists){
   if(!playlists.length||!rows.length)return '';
@@ -83,10 +94,10 @@ function dashboard(rows){
     </div>
     ${playlistVoiceMatrix(rows,p)}
     <div class="two-cols discover-charts">
-      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG GENRES</span><h2>タグから推定したジャンル</h2></div></div>${barList(genreRanking)}</section>
-      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG MOODS</span><h2>タグから推定した雰囲気</h2></div></div>${barList(moodRanking)}</section>
+      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG GENRES</span><h2>タグから推定したジャンル</h2></div></div>${barList(genreRanking, '曲', 'genre')}</section>
+      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG MOODS</span><h2>タグから推定した雰囲気</h2></div></div>${barList(moodRanking, '曲', 'mood')}</section>
     </div>
-    <p class="facet-disclaimer">※ジャンル・雰囲気は保存済みタグの文字列からの推定です。音声を解析した結果ではなく、未分類の曲もあります。</p>
+    <p class="facet-disclaimer">※ジャンル・雰囲気は保存済みタグの文字列からの推定です（ジャンル ${rows.filter(r => genreLabels(r).length).length}/${rows.length}曲、雰囲気 ${rows.filter(r => moodLabels(r).length).length}/${rows.length}曲に根拠あり）。音声解析ではなく未分類曲もあります。各項目を押すとライブラリを絞り込めます。</p>
     <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">RECENTLY PUBLISHED</span><h2>ライブラリ内の新着投稿</h2></div><button class="text-btn" data-view="library">すべて見る →</button></div>${cards(sortRows(rows,'published_at','desc').slice(0,5))}</section>`;
 }
 function cards(rows){
@@ -97,7 +108,7 @@ function cards(rows){
       <div class="video-sub"><span>${esc(v.uploader||'投稿者不明')}</span><span class="sub-divider">·</span><span>${esc(v.id)}</span><span class="sub-divider">·</span><span>${formatDate(v.published_at)}</span></div>
       <div class="video-tags">${v.memberships.map(m=>`<span class="list-chip" title="取得時のリスト内順番: ${Number.isFinite(Number(m.position))?m.position:'不明'}">${esc(m.name)}</span>`).join('')||'<span class="empty-chip">未分類</span>'}<span class="voice-clip" title="${esc(rawVoices(v).join(' / '))}">${esc(canonicalVoices(v).slice(0,3).join(' / '))}</span>${genreLabels(v).slice(0,2).map(g=>`<span class="facet-chip">${esc(g)}</span>`).join('')}${moodLabels(v).slice(0,1).map(g=>`<span class="mood-chip">${esc(g)}</span>`).join('')}</div></div>
       <div class="video-stat"><span>▶ ${formatCount(v.views)}</span><span>♡ ${formatCount(v.likes)}</span></div>
-      <div class="video-buttons"><button class="heart-btn ${v.userMeta?.favorite?'hearted':''}" title="お気に入り" data-favorite="${esc(v.id)}">${v.userMeta?.favorite?'♥':'♡'}</button><button class="more-btn" title="メモと評価" data-detail="${esc(v.id)}">···</button></div></article>`;
+      <div class="video-buttons"><button class="heart-btn ${v.userMeta?.favorite?'hearted':''}" title="お気に入り" data-favorite="${esc(v.id)}">${v.userMeta?.favorite?'♥':'♡'}</button><button class="related-btn" title="似た曲を探す" aria-label="${esc(v.title||v.id)}に関連する曲を探す" data-related="${esc(v.id)}">≋</button><button class="more-btn" title="メモと評価" data-detail="${esc(v.id)}">···</button></div></article>`;
   }).join('')}</div>`;
 }
 function listing(rows){

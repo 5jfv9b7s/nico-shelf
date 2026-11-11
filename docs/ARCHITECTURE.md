@@ -16,16 +16,18 @@ nico-shelf/
 │   │   ├── saved-searches.js      # 検索条件の保存／復元形式
 │   │   ├── search.js              # 検索結果の共通選択処理・ランダム選曲
 │   │   ├── csv-export.js          # CSV出力とセルの安全処理
+│   │   ├── related-videos.js      # メタデータによる関連曲判定（DBアクセスなし）
 │   │   └── events.js              # HTMLのイベントをコントローラーに振り分ける
 │   ├── ui/
 │   │   ├── views.js               # ダッシュボード・一覧・設定画面
 │   │   ├── dialogs.js             # 登録・同期・編集ダイアログ
+│   │   ├── related.js             # 関連曲モーダルのテンプレート
 │   │   └── media.js               # サムネイルURLの許可判定
 │   ├── supabase.js                # DBからの読み込み・インポート
 │   ├── bridge.js                  # ログイン済みニコニコとの通信
 │   ├── sync.js                    # スナップショット比較と整合性検証
 │   ├── registration.js            # 登録先選択と重複判定
-│   ├── discovery.js               # 歌唱者名寄せ・ジャンル・タグ分析
+│   ├── discovery.js               # 歌唱者名寄せ・ジャンル・雰囲気の根拠分析
 │   └── lib.js                     # 文字列処理・CSV・並び替えなど
 ├── bridge/
 │   └── nico-shelf-direct.user.js # Tampermonkey側（ニコニコで動作）
@@ -79,3 +81,10 @@ src/ui/views.js / dialogs.js
 ## 今後の整理余地
 
 `src/main.js` の操作関数と、`src/ui/views.js` の大きなHTMLテンプレートはまだ長い部分があります。今回の分割は **機能を壊さないことを最優先** した第1段階です。今後、登録・同期・補完の操作を個別コントローラーへ切り出す際は、必ずテストを追加してください。
+
+## v0.10 追加の判定処理
+
+- `src/app/related-videos.js` にメタデータの類似判定ロジックを集約。DBアクセスやDOMの操作は行いません。
+- `src/ui/related.js` が関連曲の表示のみを担当。動画タイトル等の外部文字列をHTMLエスケープします。
+- 詳細画面の分類根拠は `src/discovery.js` の `genreEvidence()` / `moodEvidence()` で取得できます。
+- ロジックの重みや注意点は [DISCOVERY.md](DISCOVERY.md) に記載しています。

@@ -1,6 +1,6 @@
 {
   "name": "nico-shelf-web",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "description": "NICO SHELF — private, multi-user NicoNico playlist library",

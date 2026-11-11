@@ -1,7 +1,8 @@
 import { esc, videoId, array, formatCount, formatDate } from '../lib.js';
 import { snapshotUrl } from '../sync.js';
 import { registrationLists, registrationDecision } from '../registration.js';
-import { canonicalVoices, needsMetadata } from '../discovery.js';
+import { canonicalVoices, genreEvidence, moodEvidence, needsMetadata } from '../discovery.js';
+import { renderRelatedDialog } from './related.js';
 import { safeThumb } from './media.js';
 
 /**
@@ -90,6 +91,9 @@ function modal(){
       <div class="inline-hint">非公式APIのため登録できない場合があります。処理中に通信が切れた場合はニコニコで結果を確認し、再送信せず差分同期してください。</div>
       <button class="btn subtle full" id="save-video" ${!p.length||state.busy||d.target==='auto'||!d.target?'disabled':''}>DBのみへ仮登録（本体には登録しない）</button>`;
   }
+  else if (d.kind === 'related') {
+    contents = renderRelatedDialog(lib, d.id);
+  }
   else if(d.kind==='detail'){
     const v=lib.videos.find(x=>x.id===d.id),m=lib.meta.find(x=>x.video_id===d.id);
     if(!v)return '';
@@ -97,6 +101,12 @@ function modal(){
     ${safeThumb(v.thumb)?`<a class="detail-hero-thumb" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer"><img src="${esc(safeThumb(v.thumb))}" alt="${esc(v.title)}のサムネイル" loading="lazy" /></a>`:''}
     <a class="link-text" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer">ニコニコで動画を見る ↗</a>
     <p class="modal-note">歌唱キャラ：${esc(canonicalVoices({...v,userMeta:m}).join(' / ')||'未判定')} ／ 元の表記：${esc(array(v.voices).join(' / ')||'なし')}<br>タグ：${esc(array(v.tags).slice(0,20).join(' / ')||'なし')}</p>
+    <div class="classification-evidence">
+      <b>分類の根拠（タグなど）</b>
+      <p>ジャンル：${esc(genreEvidence(v).map(x => `${x.label}〈${x.evidence.join('・')}〉`).join(' / ') || '未分類')}</p>
+      <p>雰囲気：${esc(moodEvidence(v).map(x => `${x.label}〈${x.evidence.join('・')}〉`).join(' / ') || '未分類')}</p>
+    </div>
+    <button class="btn subtle full" id="find-related">≋ この曲に近い曲を探す</button>
     <div class="inline-actions"><button class="btn subtle" id="enrich-single" ${!nicoBridge.connected||state.busy?'disabled':''}>↻ ニコニコから詳細情報を補完</button>${!nicoBridge.connected?'<small class="muted">補完するには先に「データと設定」からニコニコへ接続してください。</small>':''}</div>
     <label class="field-label">お気に入り<select id="meta-fav"><option value="0" ${!m?.favorite?'selected':''}>通常</option><option value="1" ${m?.favorite?'selected':''}>♥ お気に入り</option></select></label>
     <label class="field-label">評価<select id="meta-rating">${[0,1,2,3,4,5].map(x=>`<option value="${x}" ${Number(m?.rating||0)===x?'selected':''}>${x===0?'未評価':`★ ${x} / 5`}</option>`).join('')}</select></label>

@@ -50,6 +50,21 @@ root.addEventListener('click',e=>{
   if(target.dataset.view){state.view=target.dataset.view;state.page=1;state.activeSavedSearchId='';Object.assign(state.filters,{q:'',playlist:'',sort:'views',order:'desc',voice:'',variant:'',genre:'',mood:'',year:'',creator:'',status:''});return render();}
   if(target.dataset.page){state.page=Math.max(1,Number(target.dataset.page));return rerenderContent();}
   if(target.dataset.action){return showDialog(target.dataset.action);}
+  if (target.dataset.related) return showDialog('related', { id: target.dataset.related });
+  if (target.id === 'find-related' && state.dialog?.id) {
+    return showDialog('related', { id: state.dialog.id });
+  }
+  if (target.dataset.facetKind && target.dataset.facetValue) {
+    const key = target.dataset.facetKind;
+    if (key !== 'genre' && key !== 'mood') return;
+    state.view = 'library';
+    state.activeSavedSearchId = '';
+    state.filters = { ...state.filters, q: '', playlist: '', voice: '', variant: '',
+      genre: '', mood: '', year: '', creator: '', status: '' };
+    state.filters[key] = target.dataset.facetValue;
+    state.page = 1;
+    return render();
+  }
   if(target.dataset.favorite)return guard(()=>toggleFavorite(target.dataset.favorite));
   if(target.dataset.detail)return showDialog('detail',{id:target.dataset.detail});
   if(target.id==='sort-dir'){state.activeSavedSearchId='';state.filters.order=state.filters.order==='desc'?'asc':'desc';state.page=1;return rerenderContent();}
