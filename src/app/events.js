@@ -91,6 +91,17 @@ root.addEventListener('click',e=>{
   if(target.id==='erase')return guard(eraseData);
 });
 root.addEventListener('change',e=>{
+  if (state.dialog?.kind === 'related') {
+    if (e.target.id === 'related-mode') {
+      state.dialog.mode = ['balanced', 'musical', 'explore'].includes(e.target.value)
+        ? e.target.value : 'balanced';
+      return render();
+    }
+    if (e.target.id === 'related-unrated') {
+      state.dialog.unratedOnly = e.target.checked;
+      return render();
+    }
+  }
   if((e.target.id==='target-playlist'||e.target.id==='allow-duplicate')&&state.dialog?.kind==='add'){captureAddForm();render();return;}
   if(e.target.id==='file-import')return guard(()=>handleFile(e.target.files[0]));
   if(e.target.id==='file-sync')return guard(()=>handleSyncFile(e.target.files[0]));

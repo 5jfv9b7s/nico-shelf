@@ -92,7 +92,7 @@ function modal(){
       <button class="btn subtle full" id="save-video" ${!p.length||state.busy||d.target==='auto'||!d.target?'disabled':''}>DBのみへ仮登録（本体には登録しない）</button>`;
   }
   else if (d.kind === 'related') {
-    contents = renderRelatedDialog(lib, d.id);
+    contents = renderRelatedDialog(lib, d.id, { mode: d.mode, unratedOnly: d.unratedOnly });
   }
   else if(d.kind==='detail'){
     const v=lib.videos.find(x=>x.id===d.id),m=lib.meta.find(x=>x.video_id===d.id);

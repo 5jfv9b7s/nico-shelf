@@ -175,3 +175,38 @@
   .related-title { font-size: 12px; }
   .related-btn { font-size: 20px; padding: 1px; }
 }
+
+/* v0.11: discoverability controls for related songs. */
+.related-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 14px;
+  margin: 16px 0 8px;
+}
+.related-controls .field-label { flex: 1 1 220px; }
+.related-controls select {
+  min-height: 42px;
+  width: 100%;
+  color: #e8f3fc;
+  background: #0e1c30;
+  border: 1px solid #3d6073;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.related-controls select:focus-visible,
+.related-controls input:focus-visible { outline: 2px solid #72ded4; outline-offset: 2px; }
+.related-unrated { margin-bottom: 8px; }
+.related-mode-note, .related-mode-caveat, .related-count {
+  font-size: 11px;
+  line-height: 1.65;
+  color: #a1bbcb;
+  margin: 7px 0;
+}
+.related-mode-caveat { color: #dfc7a2; }
+.related-count { font-weight: 700; color: #c2e5e0; }
+.related-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0; }
+@media (max-width: 600px) {
+  .related-controls { align-items: stretch; gap: 8px; }
+  .related-controls .field-label { flex-basis: 100%; }
+}

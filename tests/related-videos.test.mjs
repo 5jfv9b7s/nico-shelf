@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recommendRelatedVideos } from '../src/app/related-videos.js';
+import { RELATED_MODES, recommendRelatedVideos } from '../src/app/related-videos.js';
+import { registerEventHandlers } from '../src/app/events.js';
 import { genreEvidence, moodEvidence, genreLabels, moodLabels } from '../src/discovery.js';
 import { createInitialState } from '../src/app/state.js';
 import { createDialogRenderer } from '../src/ui/dialogs.js';
@@ -110,4 +111,85 @@ test('大量の動画でも候補は上限内で返り、順序が安定する',
   assert.equal(result.length, 8);
   assert.deepEqual(result.map((entry) => entry.video.id),
     recommendRelatedVideos(source, [source, ...songs]).map((entry) => entry.video.id));
+});
+
+
+test('探し方は3つあり、未知の選択値は安全にバランスへ戻る', () => {
+  assert.deepEqual(Object.keys(RELATED_MODES), ['balanced', 'musical', 'explore']);
+  const { library } = fixture();
+  assert.deepEqual(
+    recommendRelatedVideos(library.videos[0], library.videos, { mode: 'invalid' }),
+    recommendRelatedVideos(library.videos[0], library.videos),
+  );
+});
+
+test('ジャンル・雰囲気重視では歌唱者が同じだけの曲を候補にしない', () => {
+  const source = video('sm0', { voices: ['音街ウナ'], tags: ['ボカロック', '疾走感'] });
+  const singerOnly = video('sm1', { voices: ['音街ウナ'] });
+  const musical = video('sm2', { voices: ['初音ミク'], tags: ['ボカロック', '疾走感'] });
+  const results = recommendRelatedVideos(source, [source, singerOnly, musical], { mode: 'musical' });
+  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm2']);
+  assert.match(results[0].reasons.join('、'), /ジャンル：ロック/);
+});
+
+test('ジャンル・雰囲気重視は、共通タグだけの場合も候補にできる', () => {
+  const source = video('sm0', { tags: ['変拍子', '実験音楽'] });
+  const candidate = video('sm1', { tags: ['変拍子'] });
+  const results = recommendRelatedVideos(source, [source, candidate], { mode: 'musical' });
+  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm1']);
+});
+
+test('別作者・投稿者発掘では一致名を除外する（表記ゆれ・大文字小文字も比較）', () => {
+  const source = video('sm0', { voices: ['音街ウナ'], uploader: 'Creator A' });
+  const same = video('sm1', { voices: ['音街ウナ Spicy'], uploader: 'creator a' });
+  const different = video('sm2', { voices: ['音街ウナ-SV'], uploader: 'Creator B' });
+  const results = recommendRelatedVideos(source, [source, same, different], { mode: 'explore' });
+  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm2']);
+  assert.doesNotMatch(results[0].reasons.join('、'), /作者・投稿者：/);
+});
+
+test('未評価のみを絞り込み、評価済みの曲を返さない', () => {
+  const source = video('sm0', { voices: ['足立レイ'] });
+  const rated = video('sm1', { voices: ['足立レイ'], userMeta: { rating: 4 } });
+  const unrated = video('sm2', { voices: ['足立レイ'], userMeta: { rating: 0 } });
+  const missing = video('sm3', { voices: ['足立レイ'] });
+  const results = recommendRelatedVideos(source, [source, rated, unrated, missing], { unratedOnly: true });
+  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm2', 'sm3']);
+});
+
+test('一般的なプラットフォームタグはおすすめ根拠にしない', () => {
+  const source = video('sm0', { tags: ['ボカロオリジナル曲', 'ニコニコインディーズ'] });
+  const candidate = video('sm1', { tags: ['ボカロオリジナル曲', 'ニコニコインディーズ'] });
+  assert.deepEqual(recommendRelatedVideos(source, [source, candidate]), []);
+});
+
+test('関連曲ダイアログは選択したモードと未評価フィルタを表示する', () => {
+  const state = fixture();
+  state.library.meta = [{ video_id: 'sm2', rating: 5 }];
+  state.dialog = { kind: 'related', id: 'sm1', mode: 'explore', unratedOnly: true };
+  const renderDialog = createDialogRenderer({ state, nicoBridge: { connected: false } });
+  const html = renderDialog();
+  assert.match(html, /id="related-mode"/);
+  assert.match(html, /value="explore" selected/);
+  assert.match(html, /id="related-unrated" type="checkbox" checked/);
+  assert.doesNotMatch(html, /data-detail="sm2"/);
+  assert.match(html, /作者・投稿者情報が欠けている曲/);
+});
+
+test('モード変更はDBを操作せず、ダイアログ内で再描画する', () => {
+  const state = fixture();
+  state.dialog = { kind: 'related', id: 'sm1' };
+  const listeners = new Map();
+  const root = { addEventListener: (event, callback) => listeners.set(event, callback) };
+  let renders = 0;
+  registerEventHandlers({
+    root, state, client: {}, nicoBridge: {}, render: () => { renders++; },
+    rerenderContent: () => {}, showDialog: () => {}, closeDialog: () => {},
+    refreshMembership: () => {}, actions: {},
+  });
+  listeners.get('change')({ target: { id: 'related-mode', value: 'musical' } });
+  assert.equal(state.dialog.mode, 'musical');
+  listeners.get('change')({ target: { id: 'related-unrated', checked: true } });
+  assert.equal(state.dialog.unratedOnly, true);
+  assert.equal(renders, 2);
 });
