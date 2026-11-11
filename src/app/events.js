@@ -67,6 +67,13 @@ root.addEventListener('click',e=>{
   }
   if(target.dataset.favorite)return guard(()=>toggleFavorite(target.dataset.favorite));
   if(target.dataset.detail)return showDialog('detail',{id:target.dataset.detail});
+  if (target.dataset.trendGroup && target.dataset.trendCategory) {
+    const next = { group: target.dataset.trendGroup, category: target.dataset.trendCategory };
+    const current = state.trends.selected;
+    state.trends.selected = current?.group === next.group && current?.category === next.category ? null : next;
+    return rerenderContent();
+  }
+  if (target.id === 'trend-clear') { state.trends.selected = null; return rerenderContent(); }
   if(target.id==='sort-dir'){state.activeSavedSearchId='';state.filters.order=state.filters.order==='desc'?'asc':'desc';state.page=1;return rerenderContent();}
   if(target.id==='sort-reset'){state.activeSavedSearchId='';state.filters.sort='views';state.filters.order='desc';state.page=1;return rerenderContent();}
   if(target.id==='toggle-card-mode'){state.activeSavedSearchId='';state.cardMode=state.cardMode==='grid'?'list':'grid';return rerenderContent();}
@@ -105,6 +112,14 @@ root.addEventListener('change',e=>{
   if((e.target.id==='target-playlist'||e.target.id==='allow-duplicate')&&state.dialog?.kind==='add'){captureAddForm();render();return;}
   if(e.target.id==='file-import')return guard(()=>handleFile(e.target.files[0]));
   if(e.target.id==='file-sync')return guard(()=>handleSyncFile(e.target.files[0]));
+  if (['trend-axis', 'trend-facet', 'trend-playlist', 'trend-include-other'].includes(e.target.id)) {
+    if (e.target.id === 'trend-axis') state.trends.axis = e.target.value;
+    if (e.target.id === 'trend-facet') state.trends.facet = e.target.value;
+    if (e.target.id === 'trend-playlist') state.trends.playlistId = e.target.value;
+    if (e.target.id === 'trend-include-other') state.trends.includeOther = e.target.checked;
+    state.trends.selected = null;
+    return rerenderContent();
+  }
   if(e.target.id==='saved-search-select')return useSearchPreset(e.target.value);
   if(e.target.id==='list-filter'){state.activeSavedSearchId='';state.filters.playlist=e.target.value;state.page=1;rerenderContent();}
   const facetMap={'voice-filter':'voice','variant-filter':'variant','genre-filter':'genre','mood-filter':'mood','year-filter':'year','status-filter':'status'};

@@ -88,3 +88,13 @@ src/ui/views.js / dialogs.js
 - `src/ui/related.js` が関連曲の表示のみを担当。動画タイトル等の外部文字列をHTMLエスケープします。
 - 詳細画面の分類根拠は `src/discovery.js` の `genreEvidence()` / `moodEvidence()` で取得できます。
 - ロジックの重みや注意点は [DISCOVERY.md](DISCOVERY.md) に記載しています。
+
+
+## v0.12 音楽の変遷
+
+- `src/app/trends.js`：マイリストの区間作成、各歌唱者・タグ・作者の件数と構成比を算出（純粋関数）
+- `src/ui/trends.js`：ヒートマップ、分類率、該当動画の一覧表示
+- `src/app/events.js`：比較軸・項目の切り替え、セルの選択
+- `docs/TRENDS.md`：集計上の注意点、時系列と登録日時の区別
+
+この機能はログイン済みユーザーのメモリ上のライブラリを参照するだけで、Supabaseに新規書き込みを行いません。

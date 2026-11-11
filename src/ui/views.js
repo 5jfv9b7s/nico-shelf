@@ -7,6 +7,7 @@ import { buildLibraryRows, countLibrary } from '../app/library.js';
 import { APP_VERSION, VIEWS, SORTS, NAV_ICONS } from '../app/state.js';
 import { safeThumb } from './media.js';
 import { selectLibraryResults } from '../app/search.js';
+import { renderTrends } from './trends.js';
 
 /**
  * Pure-ish HTML templates: read the injected UI state, but never write to the DB.
@@ -26,7 +27,7 @@ function shell(){
     <aside class="sidebar">
       <button class="brand" data-view="dashboard" aria-label="トップへ"><span class="brand-mark">♫</span><span><b>NICO SHELF</b><small>YOUR MUSIC ARCHIVE</small></span></button>
       <div class="menu-label">DISCOVER</div>
-      <nav>${['dashboard','library','duplicates','favorites'].map(x=>navItem(x,VIEWS[x],NAV_ICONS[x],state.view===x)).join('')}</nav>
+      <nav>${['dashboard','library','trends','duplicates','favorites'].map(x=>navItem(x,VIEWS[x],NAV_ICONS[x],state.view===x)).join('')}</nav>
       <div class="menu-label playlist-head">MY LISTS <span>${p.length}</span></div>
       <nav class="playlist-menu">${p.map(x=>`<button class="nav-item ${state.view===`playlist:${x.id}`?'is-active':''}" data-view="playlist:${esc(x.id)}"><span class="playlist-dot"></span><span class="text-ellipsis">${esc(x.name)}</span><small>${all.filter(e=>e.playlist_id===x.id).length}</small></button>`).join('')||'<p class="nav-help">インポートすると表示されます</p>'}</nav>
       <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v${APP_VERSION} β</b><br>クラウド管理・非公式アプリ</div></div>
@@ -87,6 +88,7 @@ function dashboard(rows){
   const c=counts();const p=state.library.playlists;
   return `${hero('OVERVIEW','あなたの音楽の棚','好きな曲を、探して、整理して、もっと知る。',`<div class="inline-actions"><button class="btn primary" data-action="add">＋ 動画を登録</button><button class="btn subtle" data-action="sync">↻ ニコニコとの差分同期</button><button class="btn subtle" data-action="import">⇩ インポート</button></div>`)}
     ${statsCards()}
+    <div class="trend-entry-banner"><span><strong>♫ 音楽の変遷</strong><small>マイリストの順番・投稿年から、好きな曲の傾向を比較</small></span><button class="btn subtle" data-view="trends">分析を見る →</button></div>
     ${c.videos===0?`<div class="welcome-banner"><div class="welcome-icon">♫</div><div><h2>最初のライブラリを作りましょう</h2><p>v0.3のJSONバックアップ、またはCSVから取り込めます。あなたのデータはGoogleアカウントごとに分離して保存されます。</p><div class="inline-actions"><button class="btn primary" data-action="import">インポートする</button><button class="btn subtle" data-action="playlist">空のリストを作る</button></div></div></div>`:''}
     <div class="two-cols">
       <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">VOICE RANKING</span><h2>歌唱者ランキング</h2></div><label class="control-label compact">集計単位<select id="voice-mode"><option value="canonical" ${state.voiceMode==='canonical'?'selected':''}>キャラクター別</option><option value="raw" ${state.voiceMode==='raw'?'selected':''}>元の歌唱者表記</option></select></label></div>${barList(voiceStats(rows,state.voiceMode,8))}</section>
@@ -174,7 +176,13 @@ function settings(){return `${hero('SETTINGS','データと設定','マイリス
   <div class="panel setting-panel"><div class="setting-icon">↻</div><h2>ニコニコとの差分同期</h2><p>ログイン済みニコニコの一覧を取得して、登録漏れや削除済み動画を確認できます。差分を確認してからDBへ反映します。</p><button class="btn primary" data-action="sync">差分を確認する</button></div>
   <section class="panel setting-panel metadata-settings"><div class="setting-icon">✦</div><h2>動画メタデータを補完</h2><p>タイトル・サムネイル・タグなどの不足分をニコニコから取得します。既存の手動修正やVocaDB情報は保持します。</p><button class="btn primary" data-action="metadata">不足情報を確認</button></section>
   </section><div class="danger-zone"><div><h2>ライブラリを削除</h2><p>このアカウントの動画・マイリスト・メモを削除します。Googleアカウント自体は削除しません。</p></div><button class="btn danger" id="erase">全データを削除</button></div>`;}
-function content(){const rows=makeRows();return state.view==='dashboard'?dashboard(rows):state.view==='settings'?settings():listing(rows);}
+function content(){
+  const rows = makeRows();
+  if (state.view === 'dashboard') return dashboard(rows);
+  if (state.view === 'trends') return renderTrends({ state, rows, cards, hero });
+  if (state.view === 'settings') return settings();
+  return listing(rows);
+}
 function loginScreen(){return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">♫</span><span>NICO SHELF</span><span class="version">BETA / ${APP_VERSION}</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">♫</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;}
 function missingConfig(){return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v${APP_VERSION}</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;}
 
