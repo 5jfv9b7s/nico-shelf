@@ -55,24 +55,27 @@ function classifyFetchFailure(error) {
  * Gateway mode is enabled only after real network testing on the target host.
  * It must be a fixed HTTPS destination configured by the operator, not user input.
  */
+function gatewayConfiguration(env) {
+  if (env?.PUBLIC_MYLIST_SOURCE !== 'gateway') return { reason: 'SOURCE_NOT_GATEWAY' };
+  let base;
+  try { base = new URL(String(env.PUBLIC_MYLIST_GATEWAY_URL || '')); }
+  catch { return { reason: 'GATEWAY_URL_INVALID' }; }
+  if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash ||
+      base.pathname !== '/' || !base.hostname) return { reason: 'GATEWAY_URL_INVALID' };
+  const token = String(env.PUBLIC_MYLIST_GATEWAY_TOKEN || '');
+  if (token.length < 24) return { reason: 'GATEWAY_TOKEN_INVALID' };
+  return { config: { base, token }, reason: null };
+}
 function gatewayConfig(env) {
-  if (env?.PUBLIC_MYLIST_SOURCE !== 'gateway') return null;
-  try {
-    const base = new URL(String(env.PUBLIC_MYLIST_GATEWAY_URL || ''));
-    if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash ||
-        base.pathname !== '/' || !base.hostname || !String(env.PUBLIC_MYLIST_GATEWAY_TOKEN || '') ||
-        String(env.PUBLIC_MYLIST_GATEWAY_TOKEN).length < 24) return null;
-    return { base, token: String(env.PUBLIC_MYLIST_GATEWAY_TOKEN) };
-  } catch {
-    return null;
-  }
+  return gatewayConfiguration(env).config ?? null;
 }
 
 async function requestGatewayPage(env, listId, page) {
   const config = gatewayConfig(env);
   if (!config) return json({
-    error: '公開マイリストのURL取り込みは現在準備中です。データは変更していません',
+    error: '公開マイリスト取得サービスの設定が確認できません。運営者がCloudflareの接続設定を確認してください。データは変更していません',
     code: 'PUBLIC_SYNC_NOT_READY', stage: 'configuration',
+    reason: gatewayConfiguration(env).reason,
   }, 503);
   const url = new URL(`/v1/public-mylists/${listId}?page=${page}`, config.base);
   let response;
@@ -121,7 +124,9 @@ export async function handlePublicMylistRequest(request, env) {
   if (request.method !== 'GET') return json({ error: 'GETのみ対応しています' }, 405);
   const url = new URL(request.url);
   if (url.pathname === '/api/public-mylists/status') {
-    return json({ available: Boolean(gatewayConfig(env)), method: 'gateway', upstreamVerified: false });
+    const result = gatewayConfiguration(env);
+    return json({ available: Boolean(result.config), method: 'gateway', upstreamVerified: false,
+      reason: result.reason });
   }
   const match = url.pathname.match(/^\/api\/public-mylists\/([1-9]\d{0,15})$/);
   if (!match) return json({ error: '不正なマイリストIDです' }, 400);

@@ -32,7 +32,7 @@ export function registerEventHandlers({
     syncFromNico,
     syncFromPublic,
     importPublicPlaylist,
-    confirmPublicImport, cancelPublicImport,
+    confirmPublicImport, cancelPublicImport, checkPublicSourceStatus,
     probeNico,
     registerInNico,
     runImport,
@@ -124,6 +124,7 @@ root.addEventListener('click',e=>{
   if(target.id==='sync-live')return guard(syncFromNico);
   if(target.id==='sync-public')return guard(syncFromPublic);
   if(target.id==='public-sync-add')return guard(importPublicPlaylist);
+  if(target.id==='public-sync-check-connection')return void checkPublicSourceStatus();
   if(target.id==='public-import-confirm')return guard(confirmPublicImport);
   if(target.id==='public-import-cancel')return cancelPublicImport();
   if(target.id==='nico-inspect')return guard(probeNico);
@@ -145,10 +146,10 @@ root.addEventListener('change', (event) => {
 });
 
 root.addEventListener('keydown', (event) => {
-  // URL + Enter is the shortest first-run flow; do not submit when unavailable.
+  // URL + Enter remains available even if the optional status probe fails.
   if (event.key === 'Enter' && event.target.id === 'public-sync-new-list') {
     event.preventDefault();
-    if (!state.busy && !state.pendingPublicImport && state.publicSourceStatus === 'configured') {
+    if (!state.busy && !state.pendingPublicImport) {
       return guard(importPublicPlaylist);
     }
     return;

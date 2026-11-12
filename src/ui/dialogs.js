@@ -28,11 +28,11 @@ function modal(){
     contents=`<div class="modal-head"><div class="eyebrow">SYNC / REVIEW FIRST</div><h2>マイリストを取り込む・更新する</h2><p>ニコニコの公開マイリストはURLから取り込めます。データは確認してから保存します。</p></div>
       <div class="sync-live-panel public-import-primary">
         <div class="sync-connection"><b>URLを貼って取り込む</b><small>ニコニコの公開マイリストURLを貼り付けるだけ。拡張機能は不要です。</small></div>
-        ${state.publicSourceStatus==='unavailable'?'<p class="sync-warning" role="status">ただいま公開マイリストを取得できません。時間を空けて再度お試しください。登録済みデータは変更されません。</p>':state.publicSourceStatus==='checking'?'<p class="modal-note" role="status">接続機能の設定を確認しています…</p>':state.publicSourceStatus==='configured'?'<p class="modal-note">URLを入力して「内容を確認する」を押してください。最初の取得は少し時間がかかる場合があります。</p>':''}
+        ${state.publicSourceStatus==='not-configured'?`<p class="sync-warning" role="status">公開リスト取得サービスの設定を確認できません（${esc(state.publicSourceReason||'GATEWAY_NOT_CONFIGURED')}）。運営者はCloudflareのランタイム設定を確認してください。URLから取得を試すことはできます。</p><button class="btn subtle" id="public-sync-check-connection" ${state.busy?'disabled':''}>接続状態を再確認</button>`:state.publicSourceStatus==='unverified'?'<p class="modal-note" role="status">接続状態の自動確認ができませんでした。URLから実際の取得を試せます。失敗した場合は表示されるエラーをご確認ください。</p><button class="btn subtle" id="public-sync-check-connection" >接続状態を再確認</button>':state.publicSourceStatus==='checking'?'<p class="modal-note" role="status">接続設定を確認しています。URLはそのまま入力できます。</p>':state.publicSourceStatus==='configured'?'<p class="modal-note">URLを入力して「内容を確認する」を押してください。最初の取得は少し時間がかかる場合があります。</p>':''}
         <label class="field-label">ニコニコのマイリストURL / ID
-          <input id="public-sync-new-list" placeholder="https://www.nicovideo.jp/mylist/12345678" value="${esc(state.publicImportInput||'')}" autocomplete="off" inputmode="url" ${state.pendingPublicImport||state.busy||state.publicSourceStatus!=='configured'?'disabled':''}/>
+          <input id="public-sync-new-list" placeholder="https://www.nicovideo.jp/mylist/12345678" value="${esc(state.publicImportInput||'')}" autocomplete="off" inputmode="url" ${state.pendingPublicImport||state.busy?'disabled':''}/>
         </label>
-        <button class="btn primary full" id="public-sync-add" ${state.busy||state.pendingPublicImport||state.publicSourceStatus!=='configured'?'disabled':''}>${state.busy?'取得中…':'内容を確認する'}</button>
+        <button class="btn primary full" id="public-sync-add" ${state.busy||state.pendingPublicImport?'disabled':''}>${state.busy?'取得中…':'内容を確認する'}</button>
         ${state.pendingPublicImport?`<div class="public-import-preview">
           <strong>取り込む内容を確認</strong>
           <h3>${esc(state.pendingPublicImport.name)}</h3>
@@ -47,7 +47,7 @@ function modal(){
         <div class="sync-public-list-options">
           ${lib.playlists.filter(p=>/^[1-9]\d{0,15}$/.test(String(p.id))).map(p=>`<label class="check-field"><input type="checkbox" data-public-sync-list value="${esc(p.id)}" ${(state.publicSyncSelected||[]).includes(String(p.id))?'checked':''} /> ${esc(p.name)} <small>（ID: ${esc(p.id)}）</small></label>`).join('') || '<small>登録済みのリストはありません。</small>'}
         </div>
-        <button class="btn subtle full" id="sync-public" ${state.busy||state.publicSourceStatus!=='configured'?'disabled':''}>選択した公開リストの差分を確認</button>
+        <button class="btn subtle full" id="sync-public" ${state.busy?'disabled':''}>選択した公開リストの差分を確認</button>
         <small class="sync-note">読み取りが失敗した場合、ライブラリは変更されません。削除・追加も確認後にだけ反映します。</small>
       </details>
       <details class="sync-fallback"><summary>非公開マイリスト／直接登録の従来連携（Tampermonkey）</summary>

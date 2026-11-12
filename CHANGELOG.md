@@ -1,3 +1,10 @@
+## 0.17.2 — Fix false-negative public gateway readiness blocking
+
+- Status endpoint is advisory only: missing/stale/unreachable `/api/public-mylists/status` never disables URL entry, Enter key, or existing-list sync.
+- Show distinct messages for configuration missing vs unable to check status; add recheck control.
+- Expose safe reason codes (`SOURCE_NOT_GATEWAY`, `GATEWAY_URL_INVALID`, `GATEWAY_TOKEN_INVALID`) without returning URLs or tokens.
+- Keep the actual fetch fail-closed, full-page completeness checks, explicit confirmation, and no DB change on fetch error.
+
 ## 0.17.1 — Simpler first-run import and resilient public sync
 
 - Use one URL field for both first-time import and re-sync of an existing list.

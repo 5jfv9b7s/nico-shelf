@@ -62,3 +62,22 @@ WorkerはURLパラメータから取得先を受け取らず、このHTTPS固定
 - 最大20ページ、1ページ100件、上流レスポンス最大1MiB、12秒タイムアウト。ページの欠落や件数不一致は全体を破棄。
 - 新規リストの保存はSupabaseの既存「リスト作成→完全スナップショット適用」の2呼び出しです。通信失敗時に空のリストが残る可能性はありますが、既存データの削除は行いません。将来の原子化は別途SQLマイグレーションで対応します。
 - 外部のクラウドゲートウェイで成功する保証はありません。ユーザーに公開する前に、運営側で継続的な実通信・利用規約の確認が必要です。
+
+## v0.17.2: 公開マイリストの入力欄が無効になる場合
+
+従来のUIは `/api/public-mylists/status` の通信・設定チェックが失敗すると、実際の読み取りを試す前にURL入力や同期ボタンを無効化していました。v0.17.2では **事前チェックは参考情報** に変更しています。
+
+- `status` が `available:true`: Cloudflareの接続設定が構文上は揃っています。**Render→ニコニコへの通信成功までは保証しません**。
+- `available:false`, `reason:SOURCE_NOT_GATEWAY`: `PUBLIC_MYLIST_SOURCE` を `gateway` に設定してください。
+- `reason:GATEWAY_URL_INVALID`: `PUBLIC_MYLIST_GATEWAY_URL` に `https://nico-shelf.onrender.com/` のような **HTTPSのルートURL**（パス・クエリなし）を指定してください。
+- `reason:GATEWAY_TOKEN_INVALID`: `PUBLIC_MYLIST_GATEWAY_TOKEN` に24文字以上の秘密値を設定し、Renderの `GATEWAY_TOKEN` と一致させてください。**秘密値をスクリーンショットやログに出さないでください**。
+- ステータス取得が一時的に失敗する、または古いHTMLが返る場合: この失敗だけでユーザー操作を禁止しません。URLを入力して実際に読み取りを試し、そこで返った診断コードを確認してください。
+
+診断用URL（GETのみ）:
+
+```text
+https://nico-shelf.shiokara-lab.workers.dev/api/public-mylists/status
+https://nico-shelf.shiokara-lab.workers.dev/api/public-mylists/75327830?page=1
+```
+
+**データ保護:** 全ページを取得・検証するまで差分更新を提案せず、ユーザーの明示確認なしでSupabaseを更新しません。

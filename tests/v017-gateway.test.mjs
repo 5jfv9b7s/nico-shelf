@@ -138,7 +138,7 @@ test('APIの悪意あるレスポンスは安全な検証段階で失敗する',
   assert.throws(() => validatePublicMylistPage({ ...validPage, hasNext: 'false' }, ID, 1), /不正/);
 });
 
-test('公開リストの追加前にプレビューを表示し、取得先未設定なら操作を無効化', () => {
+test('公開リストは保存前のプレビューを表示し、状態確認失敗だけでは操作を無効化しない', () => {
   const state = createInitialState();
   state.dialog = { kind: 'sync' };
   state.library = { playlists: [], videos: [], entries: [], meta: [] };
@@ -151,10 +151,13 @@ test('公開リストの追加前にプレビューを表示し、取得先未�
   assert.doesNotMatch(html, /<危険な文字列>/);
   assert.match(html, /public-import-confirm/);
   state.pendingPublicImport = null;
-  state.publicSourceStatus = 'unavailable';
+  state.publicSourceStatus = 'not-configured';
+  state.publicSourceReason = 'GATEWAY_TOKEN_INVALID';
   const unavailable = renderDialog();
-  assert.match(unavailable, /取得できません/);
-  assert.match(unavailable, /id="public-sync-add" disabled/);
+  assert.match(unavailable, /GATEWAY_TOKEN_INVALID/);
+  assert.match(unavailable, /接続状態を再確認/);
+  assert.match(unavailable, /id="public-sync-add"(?=\s|>)/);
+  assert.doesNotMatch(unavailable, /id="public-sync-add" disabled/);
 });
 
 

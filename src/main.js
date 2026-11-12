@@ -19,6 +19,7 @@ import { buildLibraryRows } from './app/library.js';
 import { mountScatter3D } from './ui/scatter3d.js';
 import { createDialogRenderer } from './ui/dialogs.js';
 import { captureSyncDialogUi, restoreSyncDialogUi, updateSyncStatus } from './app/sync-dialog-ui.js';
+import { checkPublicSourceStatus } from './app/public-source-status.js';
 
 /**
  * Controller: connects UI events to Supabase and NicoNico bridge operations.
@@ -63,14 +64,16 @@ function rerenderContent(){
 }
 function rerenderSidebar(){render();}
 async function loadPublicSourceStatus() {
-  try {
-    const response = await fetch('/api/public-mylists/status', { cache: 'no-store' });
-    const body = await response.json();
-    state.publicSourceStatus = response.ok && body.available === true ? 'configured' : 'unavailable';
-  } catch {
-    state.publicSourceStatus = 'unavailable';
-  }
+  // A failed /status probe is NOT evidence that the read-only list API fails.
+  // Keep the URL/refresh controls usable and let the actual request diagnose it.
+  state.publicSourceStatus = 'checking';
+  state.publicSourceReason = null;
   if (state.dialog?.kind === 'sync') render();
+  const result = await checkPublicSourceStatus();
+  if (state.dialog?.kind !== 'sync') return;
+  state.publicSourceStatus = result.status;
+  state.publicSourceReason = result.reason;
+  render();
 }
 function showDialog(kind, extra = {}) {
   state.preview = null;
@@ -80,6 +83,7 @@ function showDialog(kind, extra = {}) {
     state.syncProgress = '';
     state.publicImportInput = '';
     state.publicSourceStatus = 'checking';
+    state.publicSourceReason = null;
     state.publicSyncSelected = state.library.playlists.filter(p => /^[1-9]\d{0,15}$/.test(String(p.id))).map(p => String(p.id));
   }
   if (kind === 'metadata') state.metadataProgress = '';
@@ -435,7 +439,6 @@ async function syncFromPublic(onlyLists = null) {
 /** Preview a public list completely BEFORE creating anything in Supabase. */
 async function importPublicPlaylist() {
   if (state.busy || state.dialog?.kind !== 'sync') return;
-  if (state.publicSourceStatus !== 'configured') throw new Error('公開マイリストの接続先がまだ利用可能ではありません');
   const requested = state.publicImportInput || document.querySelector('#public-sync-new-list')?.value || '';
   const id = parsePublicMylistId(requested);
   if (!id) throw new Error('ニコニコの公開マイリストURLまたは数値IDを入力してください');
@@ -615,6 +618,7 @@ registerEventHandlers({
   actions: {
     guard, login, toggleFavorite, enrichMissing, enrichSingle,
     saveMeta, savePlaylist, saveVideo, connectNico, syncFromNico, syncFromPublic, importPublicPlaylist, confirmPublicImport, cancelPublicImport,
+    checkPublicSourceStatus: loadPublicSourceStatus,
     probeNico, registerInNico, runImport, applySync, exportJson,
     eraseData, captureAddForm, handleFile, handleSyncFile,
     saveSearchPreset, deleteSearchPreset, useSearchPreset, exportFilteredCsv, surpriseMe,
