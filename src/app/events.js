@@ -30,6 +30,8 @@ export function registerEventHandlers({
     saveVideo,
     connectNico,
     syncFromNico,
+    syncFromPublic,
+    importPublicPlaylist,
     probeNico,
     registerInNico,
     runImport,
@@ -119,6 +121,8 @@ root.addEventListener('click',e=>{
   if(target.id==='save-video')return guard(saveVideo);
   if(target.id==='nico-connect')return guard(connectNico);
   if(target.id==='sync-live')return guard(syncFromNico);
+  if(target.id==='sync-public')return guard(syncFromPublic);
+  if(target.id==='public-sync-add')return guard(importPublicPlaylist);
   if(target.id==='nico-inspect')return guard(probeNico);
   if(target.id==='nico-register')return guard(registerInNico);
   if(target.id==='run-import')return guard(runImport);
@@ -126,6 +130,17 @@ root.addEventListener('click',e=>{
   if(target.id==='export')return exportJson();
   if(target.id==='erase')return guard(eraseData);
 });
+// List selection is explicit: excluding a private list must never be mistaken
+// for the list becoming empty, which would mark all its entries as removed.
+root.addEventListener('change', (event) => {
+  if (event.target.matches('[data-public-sync-list]')) {
+    const selected = new Set(state.publicSyncSelected || []);
+    if (event.target.checked) selected.add(event.target.value);
+    else selected.delete(event.target.value);
+    state.publicSyncSelected = [...selected];
+  }
+});
+
 root.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter' && event.key !== ' ') return;
   const point = event.target.closest('[data-scatter-video]');

@@ -6,6 +6,7 @@ import {
   snapshotFromBridgeParts, diffSignature,
 } from './sync.js';
 import { NicoTabBridge } from './bridge.js';
+import { fetchPublicSnapshot, fetchPublicMylist, parsePublicMylistId } from './public-sync.js';
 import { registrationLists, registrationDecision } from './registration.js';
 import { needsMetadata, mergeMetadata, inferredVoicesFromTags } from './discovery.js';
 import { createInitialState } from './app/state.js';
@@ -52,7 +53,7 @@ function rerenderContent(){
   mountInteractiveScatter();
 }
 function rerenderSidebar(){render();}
-function showDialog(kind,extra={}){state.preview=null;if(kind==='sync'){state.sync=null;state.syncProgress='';}if(kind==='metadata')state.metadataProgress='';state.dialog={kind,...extra};render();}
+function showDialog(kind,extra={}){state.preview=null;if(kind==='sync'){state.sync=null;state.syncProgress='';state.publicSyncSelected=state.library.playlists.filter(p=>/^[1-9]\d{0,15}$/.test(String(p.id))).map(p=>String(p.id));}if(kind==='metadata')state.metadataProgress='';state.dialog={kind,...extra};render();}
 function closeDialog(){state.dialog=null;state.preview=null;render();}
 function refreshMembership(){
   const el=document.querySelector('#membership-preview'),id=videoId(document.querySelector('#video-id')?.value);
@@ -359,6 +360,90 @@ async function runImport(){
     toast(presetError||`${rows.videos.length}動画のインポートが完了しました`,Boolean(presetError));
   }finally{state.busy=false;if(document.querySelector('#run-import'))document.querySelector('#run-import').disabled=false;}
 }
+/**
+ * No-extension sync for explicitly public playlists. The Worker verifies the
+ * Google session, reads only the published API, and never receives Nico cookies.
+ */
+async function syncFromPublic() {
+  if (state.busy || state.dialog?.kind !== 'sync') return;
+  const ids = new Set(state.publicSyncSelected || []);
+  const lists = state.library.playlists.filter(
+    (p) => ids.has(String(p.id)) && /^[1-9]\d{0,15}$/.test(String(p.id))
+  );
+  if (!lists.length) throw new Error('公開マイリストを1つ以上選択してください');
+
+  state.busy = true;
+  state.sync = null;
+  state.syncProgress = '公開マイリストを取得しています…';
+  render();
+  try {
+    const snapshot = await fetchPublicSnapshot(lists, {
+      client,
+      onProgress: (message) => {
+        state.syncProgress = message;
+        render();
+      },
+    });
+    // Obtain current DB state *after* the network call: another device might
+    // have synced or registered videos while we were fetching pages.
+    const latest = await loadLibrary(state.user.id);
+    state.library = latest;
+    state.sync = diffSnapshot(snapshot, latest);
+    state.syncProgress = `公開マイリスト ${lists.length}件を取得しました。内容を確認してください。`;
+    toast(`公開同期：追加${state.sync.added}件・削除候補${state.sync.removed}件`);
+  } catch (error) {
+    state.sync = null;
+    state.syncProgress = `取得失敗：${error.message}。DBは変更していません。非公開リストは下の従来連携で同期してください。`;
+    throw error;
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+/**
+ * Add a public playlist to this user's DB, then preview its items. It cannot
+ * grant write permission on NicoNico; imported third-party lists are read-only.
+ */
+async function importPublicPlaylist() {
+  if (state.busy || state.dialog?.kind !== 'sync') return;
+  const requested = document.querySelector('#public-sync-new-list')?.value || '';
+  const id = parsePublicMylistId(requested);
+  if (!id) throw new Error('公開マイリストの数値IDか、https://www.nicovideo.jp/mylist/... を入力してください');
+  if (state.library.playlists.some((playlist) => String(playlist.id) === id)) {
+    throw new Error('このマイリストは既に登録済みです。上のチェック項目から選択して同期してください');
+  }
+  state.busy = true;
+  state.syncProgress = `${id} の公開状態を確認しています…`;
+  render();
+  try {
+    const remote = await fetchPublicMylist(id, {
+      client,
+      onProgress: (message) => { state.syncProgress = message; render(); },
+    });
+    // This insertion happens only on the user's explicit "add public list"
+    // action. No remote NicoNico write call is involved.
+    const { error } = await client.from('playlists').insert({
+      owner_id: state.user.id, id, name: remote.name,
+    });
+    if (error) throw new Error(`公開リスト名を保存できません: ${error.message}`);
+    const latest = await loadLibrary(state.user.id);
+    state.library = latest;
+    const list = latest.playlists.find((playlist) => String(playlist.id) === id);
+    const snapshot = snapshotFromBridgeParts([list], [remote]);
+    state.sync = diffSnapshot(snapshot, latest);
+    state.publicSyncSelected = [id];
+    state.syncProgress = `「${remote.name}」をライブラリに登録しました。動画${remote.items.length}件の取り込み候補を確認してください。`;
+    toast(`公開マイリスト「${remote.name}」を追加しました`);
+  } catch (error) {
+    state.syncProgress = `取得・登録失敗：${error.message}。動画の所属には変更を加えていません。`;
+    throw error;
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
 /** One-click read-only sync, reusing the proven v0.7.0 bridge. */
 async function syncFromNico(){
   if(state.busy || state.dialog?.kind!=='sync')return;
@@ -465,7 +550,7 @@ registerEventHandlers({
   refreshMembership,
   actions: {
     guard, login, toggleFavorite, enrichMissing, enrichSingle,
-    saveMeta, savePlaylist, saveVideo, connectNico, syncFromNico,
+    saveMeta, savePlaylist, saveVideo, connectNico, syncFromNico, syncFromPublic, importPublicPlaylist,
     probeNico, registerInNico, runImport, applySync, exportJson,
     eraseData, captureAddForm, handleFile, handleSyncFile,
     saveSearchPreset, deleteSearchPreset, useSearchPreset, exportFilteredCsv, surpriseMe,

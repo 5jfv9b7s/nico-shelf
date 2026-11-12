@@ -1,4 +1,4 @@
-# NICO SHELF v0.15.0 β
+# NICO SHELF v0.16.0 β
 
 ニコニコ動画のマイリストを、Googleログインに対応した自分の音楽ライブラリとして検索・分析・整理するWebアプリです。
 
@@ -6,6 +6,18 @@
 - **構成**: Vite / vanilla JavaScript / Supabase（Google Auth + PostgreSQL + RLS）/ Cloudflare Workers
 - **ニコニコ連携**: Tampermonkeyのログイン済みニコニコタブから、直接登録・差分同期・メタデータ取得
 - **注意**: ニコニコの非公式APIを利用するため、API変更時に同期・登録が動かなくなる可能性があります。
+
+## v0.16.0 — 拡張機能なしの公開マイリスト同期（読み取り専用）
+
+- 「ニコニコとの差分同期」で**公開マイリストをTampermonkeyなしで取得**できます。
+- Googleログインを使ってCloudflare Workerの専用読み取りAPIへアクセスします。ニコニコのログインCookieは送信しません。
+- 公開／非公開が混在する場合は公開リストだけチェックしてください。全件取得に失敗した場合は**DBに一切反映しません**。
+- 新規公開リストのURL・IDを入力してライブラリへ追加できます。追加後は従来の確認画面で動画の差分を反映します。
+- 非公開リストとニコニコ本体への直接登録では、動作確認済みのTampermonkey連携をそのまま利用できます。
+- **CloudflareにWorkerのランタイム環境変数が2件必要です**（Googleのアプリ画面で設定するVITE_*とは別）。詳しくは [`docs/EXTENSION_FREE_SYNC.md`](docs/EXTENSION_FREE_SYNC.md)。
+- 今回はSupabase SQLとTampermonkeyスクリプトの更新は不要です。
+- GitHub Actionsでテスト・import参照チェック・ビルドを検証するCIを追加しました。
+- OAuthを使った直接登録は、ニコニコ側の正式なクライアント発行方法・書き込み権限を確認できるまで保留です。API利用規約の確認と実ブラウザテストが必要です。
 
 ## v0.15.0 — 3軸散布図（X・Y・Z）
 

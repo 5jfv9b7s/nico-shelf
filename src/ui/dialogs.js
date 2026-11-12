@@ -27,11 +27,28 @@ function modal(){
     const syncing=state.busy && state.dialog?.kind==='sync';
     contents=`<div class="modal-head"><div class="eyebrow">SYNC / REVIEW FIRST</div><h2>ニコニコとの差分同期</h2><p>登録状況を取得して差分を確認できます。メモや評価は物理削除しません。</p></div>
       <div class="sync-live-panel">
+        <div class="sync-connection"><b>拡張機能なしで公開マイリストを同期</b><small>Googleログインだけで公開リストを取得します。ニコニコへのログインやTampermonkeyは不要です。非公開リストは対象外です。</small></div>
+        <div class="sync-public-list-options">
+          ${lib.playlists.filter(p=>/^[1-9]\d{0,15}$/.test(String(p.id))).map(p=>`<label class="check-field"><input type="checkbox" data-public-sync-list value="${esc(p.id)}" ${(state.publicSyncSelected||[]).includes(String(p.id))?'checked':''} /> ${esc(p.name)} <small>（ID: ${esc(p.id)}）</small></label>`).join('') || '<small>先にマイリストのデータをインポートしてください。</small>'}
+        </div>
+        <button class="btn primary full" id="sync-public" ${state.busy?'disabled':''}>${syncing?'公開マイリストを取得中…':'↻ 公開マイリストを照合する（拡張機能不要）'}</button>
+        <small class="sync-note">選択したリストだけを更新候補にします。非公開やAPI不調で取得できないときはDBを変更しません。</small>
+        <details class="sync-fallback"><summary>新しい公開マイリストをURL・IDから追加する</summary>
+          <label class="field-label">公開マイリストURL / ID
+            <input id="public-sync-new-list" placeholder="https://www.nicovideo.jp/mylist/12345678" autocomplete="off" />
+          </label>
+          <button class="btn subtle full" id="public-sync-add" ${state.busy?'disabled':''}>公開リストをDBに追加して内容を確認</button>
+          <small class="sync-note">公開リストの取得成功後、リスト名を自分のDBに追加します。動画は差分を確認してから反映。ほかの人のリストを取り込んでもニコニコ側の操作権限は得られません。</small>
+        </details>
+      </div>
+      <details class="sync-fallback"><summary>非公開マイリスト／直接登録の従来連携（Tampermonkey）</summary>
+      <div class="sync-live-panel">
         <div class="sync-connection"><b>${liveConnected?'● ニコニコと接続中':'○ ニコニコに未接続'}</b><small>ブラウザのログイン済みニコニコタブを使います。Cookieはクラウドに保存しません。</small></div>
         <button class="btn primary full" id="sync-live" ${state.busy?'disabled':''}>${syncing?'ニコニコから取得中…':liveConnected?'↻ ニコニコと照合する':'↗ 接続してニコニコと照合する'}</button>
         ${state.syncProgress?`<p class="sync-progress" role="status">${esc(state.syncProgress)}</p>`:''}
         <small class="sync-note">${liveConnected?'接続済み。ボタン1回で全リストを読み取り、差分を表示します。':'初回のみ、開いたニコニコのタブで「接続を許可」してください。'}</small>
       </div>
+      </details>
       <details class="sync-fallback"><summary>JSONファイルで同期する（予備の方法）</summary>
         <p class="modal-note">通信できない場合は、v0.5の一覧取得スクリプトでJSONを作り、ここから読み込めます。</p>
         ${url?`<a class="btn subtle full sync-export" href="${esc(url)}" target="_blank" rel="noopener noreferrer">↗ ニコニコでJSONを作成</a>`:'<p class="inline-hint">数値のマイリストIDがありません。</p>'}
