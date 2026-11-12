@@ -18,6 +18,7 @@ export const VOICE_RULES = Object.freeze([
   ['足立レイ', /足立\s*レイ|adachi\s*rei/i],
   ['宮舞モカ', /宮舞\s*モカ|miyamai\s*moca/i],
   ['東北きりたん', /東北\s*きりたん|tohoku\s*kiritan/i],
+  ['東北ずん子', /東北\s*ずん子|tohoku\s*zunko/i],
   ['結月ゆかり', /結月\s*ゆかり|yuzuki\s*yukari/i],
   ['琴葉茜', /琴葉\s*茜/i],
   ['琴葉葵', /琴葉\s*葵/i],
@@ -28,6 +29,8 @@ export const VOICE_RULES = Object.freeze([
   ['ずんだもん', /ずんだもん/i],
   ['小春六花', /小春\s*六花/i],
   ['花隈千冬', /花隈\s*千冬/i],
+  // VoiSona's included singer. English Chis-A is the same character.
+  ['知声', /知声|(?<![A-Za-z0-9])chis[-\s]?a(?![A-Za-z0-9])/i],
   ['夏色花梨', /夏色\s*花梨/i],
   ['GUMI', /\bGUMI\b|megpoid/i],
   ['IA', /\bIA\b/i],
@@ -60,6 +63,8 @@ export const VOICE_RULES = Object.freeze([
   ['羽累', /羽累/i],
   ['狐子', /狐子/i],
   ['神威がくぽ', /神威\s*がくぽ|がくっぽいど/i],
+  // Only the name in a credit/tag is trusted; generic prose remains a suggestion.
+  ['Lily', /(?<![A-Za-z0-9])Lily(?![A-Za-z0-9])/i],
   ['夢ノ結唱 POPY', /夢ノ結唱\s*POPY/i],
   ['夢ノ結唱 ROSE', /夢ノ結唱\s*ROSE/i],
   // Do not detect the singer OИE inside words such as ZONE.
@@ -133,7 +138,7 @@ function titleCreditsSinger(title, match) {
     || /^\s*(?:が歌う|に歌ってもらった|が歌ってみた|cover|カバー)/i.test(after);
 }
 
-const VOCAL_CREDIT = /^(?:歌唱|歌声|唄|ボーカル|ヴォーカル|vocal(?:s)?|vo\.?|singer|voice|使用音源|歌声合成|歌手)(?:\s*(?:&|and|・|／|\/|\+|、)\s*(?:chorus|コーラス))?\s*[:：/／=\-]\s*/i;
+const VOCAL_CREDIT = /^(?:歌唱|歌声|歌|うた|唄|ボーカル|ヴォーカル|vocal(?:s)?|vo\.?|singer|voice|使用音源|歌声合成|歌手)(?:\s*(?:&|and|・|／|\/|\+|、)\s*(?:chorus|コーラス))?\s*[:：/／=\-]\s*/i;
 const UNRELATED_CREDIT = /^(?:原曲|本家|original|original\s+song|参考|リンク|イラスト|絵|作画|動画|movie|mix|作曲|作詞|music|illustration|illust|guest)\s*[:：/／=\-]/i;
 
 function descriptionLines(description) {
@@ -150,6 +155,63 @@ function isCreditedTag(tag, match) {
   const remainder = tag.replace(match.matchedText, '').replace(/[\s_＿・-]/g, '');
   return remainder === '' || /^(?:sv|spicy|sugar|歌唱|カバー曲?|オリジナル曲?|utauオリジナル曲?|vocaloidオリジナル曲?)$/i.test(remainder)
     || /^(?:synthesizerv(?:ai)?)/i.test(remainder);
+}
+
+/**
+ * Unknown performers are *suggestions only*.  An explicit "Vocal:" / "歌唱："
+ * credit can identify a name absent from VOICE_RULES, but it may also credit a
+ * human singer or contain a spelling mistake. Never count it automatically.
+ *
+ * This is deliberately NOT a general proper-name extractor: people mentioned
+ * in lyrics, illustrations or the original-song credits are not singers.
+ */
+const ENGINE_HINT = /(?:synthesizer\s*v(?:2|\s*ai)?|synthv|vocaloid|voiceroid|voicevox|cevio|utau|neutrino|voicepeak|suno)/i;
+const NON_SINGER_WORDS = /^(?:vocal(?:s)?|歌唱|歌|うた|唄|voice|singer|合唱|chorus|コーラス|オリジナル|original|cover|カバー|instrumental|inst|feat\.?|ft\.?|作曲|作詞|編曲|music|mix|イラスト|illust|movie|投稿者|作者|未定|未判定|不明|unknown|なし|none|多人数|ほか|他|spicy|sugar|sv2?|v4x?|ai|synthesizer\s*v(?:2|\s*ai)?|vocaloid|utau|cevio|neutrino)$/i;
+
+function sanitizeCreditName(part) {
+  return String(part ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/^[\s【】\[\]「」『』()（）:：・／/\-]+|[\s【】\[\]「」『』()（）:：・／/\-]+$/g, '')
+    .replace(/^(?:と|and)\s+/i, '')
+    .replace(/^(?:synthesizer\s*v(?:2|\s*ai)?|vocaloid\s*\d*|cevio\s*ai|utau|neutrino)\s*[:：-]?\s*/i, '')
+    .replace(/\s*[（(]\s*(?:synthesizer\s*v[^）)]*|vocaloid[^）)]*|utau|neutrino|cevio\s*ai|voicevox|voicepeak)[）)]\s*$/i, '')
+    .trim();
+}
+
+/** Only examine a bounded and clearly credited field, not arbitrary prose. */
+export function unknownSingerCandidates(creditText) {
+  const raw = String(creditText ?? '').slice(0, 220);
+  if (!raw || /https?:\/\/|@\w{2,}/i.test(raw)) return [];
+  // Do not mistake a composer/illustrator on the same line for a performer.
+  let field = raw.split(/\s+(?:(?:作曲|作詞|編曲|絵|イラスト|動画|music|illust|movie|mix)\s*[:：])/i)[0];
+  // Remove dictionary matches before parsing unknown names, so e.g.
+  // "重音テト&知声" produces a suggestion for 知声, not for 重音テト.
+  for (const match of namesInText(field).reverse()) {
+    field = `${field.slice(0, match.index)}、${field.slice(match.index + match.matchedText.length)}`;
+  }
+  const parts = field.split(/[,，、;；&＆+＋×\n]/).map((part) => sanitizeCreditName(part.replace(/^\s*(?:と|and)\s*/i, '')));
+  return [...new Set(parts.filter((name) => {
+    if (!name || name.length < 2 || name.length > 42) return false;
+    if (NON_SINGER_WORDS.test(name)) return false;
+    if (/^(?:\d+|sm\d+|so\d+|nm\d+|\d+年)$|[<>]|(?:https?:|www\.|@)/i.test(name)) return false;
+    if (namesInText(name).length) return false;
+    // Plain English prose is likely a description, not a singer name.
+    if (/^[a-z ]+$/i.test(name) && name.split(/\s+/).length > 4) return false;
+    return true;
+  }))].slice(0, 8);
+}
+
+/** Only feats or labels unambiguously identify a title credit. */
+function unknownTitleCredits(title) {
+  const matches = [];
+  const credited = String(title ?? '').match(/(?:^|[\s／/|｜（(【\[])(?:feat(?:uring)?\.?|ft\.?|vocal(?:s)?|vo\.?|歌唱|歌声)\s*[:：.\-]?\s*(.{2,110})$/i);
+  if (credited) matches.push(credited[1].split(/[\]）)}】]/)[0]);
+  // "Song / NewVoice (SynthesizerV) cover" is suggestive, but not proven.
+  const suffix = String(title ?? '').split(/[／/|｜]/).pop() ?? '';
+  if (ENGINE_HINT.test(suffix)) {
+    matches.push(suffix.replace(/\s*[（(].*?[）)]/g, '').replace(/\s*(?:カバー|cover).*$/i, ''));
+  }
+  return matches.flatMap(unknownSingerCandidates);
 }
 
 /**
@@ -206,9 +268,21 @@ export function detectVoiceEvidence(video) {
     }
   }
 
+  for (const tag of [...array(video?.tags), ...array(video?.vocadb_tags)]) {
+    const credit = String(tag ?? '').match(VOCAL_CREDIT);
+    if (!credit) continue;
+    for (const name of unknownSingerCandidates(String(tag).slice(credit[0].length))) {
+      add(name, 'タグの明示的な歌唱表記（辞書未登録・要確認）', tag, 'suggestion', name);
+    }
+  }
+
   const title = String(video?.title ?? '').trim();
   for (const match of namesInText(title)) {
     add(match.name, 'タイトル', title, titleCreditsSinger(title, match) ? 'high' : 'suggestion', voiceVariant(match.name, title));
+  }
+
+  for (const name of unknownTitleCredits(title)) {
+    add(name, 'タイトルの歌唱者らしい表記（要確認）', title, 'suggestion', name);
   }
 
   const lines = descriptionLines(video?.description);
@@ -218,6 +292,9 @@ export function detectVoiceEvidence(video) {
     if (!credit) continue;
     const voicePart = line.slice(credit[0].length).split(/\s+(?:絵|イラスト|動画|作詞|作曲|mix|illust|movie|music)\s*[:：]/i)[0];
     for (const match of namesInText(voicePart)) add(match.name, '概要欄の歌唱クレジット', line, 'high', voiceVariant(match.name, voicePart));
+    for (const name of unknownSingerCandidates(voicePart)) {
+      add(name, '概要欄の歌唱クレジット（辞書未登録・要確認）', line, 'suggestion', name);
+    }
   }
 
   // Loose description mentions are review candidates, NEVER automatic singers.

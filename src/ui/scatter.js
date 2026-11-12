@@ -1,6 +1,7 @@
 /** Accessible, dependency-free SVG scatter plot with a per-video drill-down. */
 import { esc, formatCount } from '../lib.js';
 import { voiceStats } from '../discovery.js';
+import { availableForScatter } from '../app/scatter-availability.js';
 import { colorForCharacter, hasCharacterColor, UNCLASSIFIED_COLOR } from '../app/character-colors.js';
 import {
   createScatterData, readableMetric, scatterTicks, SCATTER_METRICS,
@@ -87,7 +88,7 @@ export function renderScatter({ state, rows, hero }) {
   const { x, y, voice } = state.scatter;
   const legendLimit = state.scatter.legendLimit ?? 30;
   const result = createScatterData(rows, { x, y, voice });
-  const voices = voiceStats(rows, 'canonical', 100).map(([name]) => name);
+  const voices = voiceStats(rows.filter(availableForScatter), 'canonical', 100).map(([name]) => name);
   const correlation = result.correlation === null ? '算出不可' : result.correlation.toFixed(2);
   const uniqueMissing = result.eligible - result.points.length;
   // Include duet partners in the legend, even when the point is coloured by
@@ -110,6 +111,8 @@ export function renderScatter({ state, rows, hero }) {
       <div class="scatter-metrics">
         <span>描画できた動画：<strong>${formatCount(result.points.length)}</strong> / ${formatCount(result.eligible)}曲</span>
         <span>情報不足で非表示：<strong>${formatCount(Math.max(0, uniqueMissing))}</strong>曲</span>
+        <span>削除・非公開で除外：<strong>${formatCount(result.excluded.deleted + result.excluded.private)}</strong>曲</span>
+        <span>公開状態未確認で除外：<strong>${formatCount(result.excluded.unconfirmed)}</strong>曲</span>
         <span>順位相関 ρ：<strong>${correlation}</strong></span>
       </div>
       ${result.points.length ? renderPoints(result) : '<div class="empty-sm">選択した軸の動画情報が不足しています。別の軸を選択するか、メタデータを補完してください。</div>'}
@@ -121,6 +124,6 @@ export function renderScatter({ state, rows, hero }) {
             : `<span class="scatter-legend-entry"><i style="background:${UNCLASSIFIED_COLOR}"></i>歌唱者不明</span>`).join('')}</div>
         ${legendNames.length > (legendLimit === 'all' ? Infinity : legendLimit) ? `<small>ほか${legendNames.length - legendLimit}種類。全員表示に切り替えられます。</small>` : ''}
       </div>
-      <p class="trend-notice">点にカーソルを重ねると動画名と数値を表示し、クリックすると詳細を開きます。複数歌唱者の曲は白い輪郭で表示し、色は先頭の歌唱者を採用します。設定色のない歌唱者には名前に基づく安定した自動色を使います（公式カラーではありません）。再生数・コメント数・いいね数は0も扱える対数目盛を使用。順位相関は2つの数値の傾向を示すだけで、因果関係や曲の好みを証明しません。投稿時期は聴取した時期ではありません。</p>
+      <p class="trend-notice">点にカーソルを重ねると動画名と数値を表示し、クリックすると詳細を開きます。複数歌唱者の曲は白い輪郭で表示し、色は先頭の歌唱者を採用します。設定色のない歌唱者には名前に基づく安定した自動色を使います（公式カラーではありません）。再生数・コメント数・いいね数は0も扱える対数目盛を使用。順位相関は2つの数値の傾向を示すだけで、因果関係や曲の好みを証明しません。投稿時期は聴取した時期ではありません。削除・非公開・取得失敗の動画は描画と相関計算に含めません（取得失敗は削除確定ではありません）。動画データやメモは削除しません。</p>
     </section>`;
 }

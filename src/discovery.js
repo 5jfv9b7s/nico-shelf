@@ -2,6 +2,7 @@
  * not audio analysis; no user notes or source singer names are overwritten. */
 import {array} from './lib.js';
 import { creditedComposers } from './app/creator-detection.js';
+import { scatterExclusionReason } from './app/scatter-availability.js';
 
 import {
   canonicalVoice,
@@ -167,7 +168,7 @@ export function mergeMetadata(old,remote,{refresh=false}={}) {
   const patch={id:old.id};
   for(const key of META_STRING_FIELDS){
     const value=String(remote[key]??'').trim();
-    if(value&&(refresh||!String(old[key]||'').trim()||(key==='title'&&old.title===old.id)))patch[key]=value;
+    if(value&&(refresh||!String(old[key]||'').trim()||(key==='title'&&(old.title===old.id || scatterExclusionReason(old) !== null))))patch[key]=value;
   }
   for(const key of META_NUMBER_FIELDS){
     const value=remote[key];
@@ -178,6 +179,10 @@ export function mergeMetadata(old,remote,{refresh=false}={}) {
     // Never discard existing VocaDB-enriched credits/voices on an automatic refresh.
     if(fetched.length&&!array(old[key]).length)patch[key]=fetched;
   }
+  // The caller only passes a successfully fetched, validated NicoNico record.
+  // Clear stale "取得失敗" after recovery, otherwise the scatter plot would
+  // continue to omit this now-accessible video.
+  patch.status = '取得成功';
   patch.metadata_updated_at=new Date().toISOString();
   return patch;
 }

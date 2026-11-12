@@ -4,6 +4,7 @@
  * All logarithmic axes use log10(value + 1), so a genuine 0 is plottable.
  */
 import { canonicalVoices } from '../discovery.js';
+import { scatterExclusionReason } from './scatter-availability.js';
 
 export const SCATTER_METRICS = Object.freeze({
   views: { label: '再生数', unit: '回', logarithmic: true },
@@ -66,11 +67,19 @@ export function createScatterData(videos, { x = 'views', y = 'comments', voice =
   const unique = new Set();
   const points = [];
   let eligible = 0;
+  const excluded = { deleted: 0, private: 0, unconfirmed: 0 };
   for (const video of videos) {
     if (!video?.id || unique.has(video.id)) continue;
     unique.add(video.id);
     const voices = canonicalVoices(video);
     if (voice && !voices.includes(voice)) continue;
+    // Exclude unavailable videos before metric calculation, visualisation,
+    // singer legend and Spearman correlation. The database remains unchanged.
+    const reason = scatterExclusionReason(video);
+    if (reason) {
+      excluded[reason]++;
+      continue;
+    }
     eligible++;
     const xValue = metricValue(video, x);
     const yValue = metricValue(video, y);
@@ -82,7 +91,7 @@ export function createScatterData(videos, { x = 'views', y = 'comments', voice =
     });
   }
   return {
-    x, y, voice, points, eligible, total: unique.size,
+    x, y, voice, points, eligible, total: unique.size, excluded,
     correlation: x === y ? null : pearson(rank(points.map((p) => p.xValue)), rank(points.map((p) => p.yValue))),
   };
 }
