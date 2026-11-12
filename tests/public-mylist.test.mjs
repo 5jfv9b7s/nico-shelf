@@ -11,7 +11,7 @@ const page = (id, number, items, { totalCount = null, hasNext = false } = {}) =>
   items: items.map((id) => ({ video_id: id, title: id })),
 });
 const PUBLIC_ID = '76098340';
-const env = { PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => ({ success: true }) } };
+const env = { PUBLIC_MYLIST_SOURCE: 'direct', PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => ({ success: true }) } };
 const authHeader = { Authorization: 'Bearer test.token.value123456' }; // Never forwarded to NicoNico
 const apiUrl = `https://nico-shelf.example/api/public-mylists/${PUBLIC_ID}?page=1`;
 
@@ -142,7 +142,7 @@ test('非公開・削除リストはエラーにし、空のスナップショ�
   }, async () => {
     const response = await handlePublicMylistRequest(new Request(apiUrl, { headers: authHeader }), env);
     assert.equal(response.status, 403);
-    assert.match((await response.json()).error, /公開マイリストを取得できません/);
+    assert.match((await response.json()).error, /HTTP 403/);
   });
 });
 

@@ -1,3 +1,15 @@
+## v0.17.0 — 初めての利用者向け「URLから取り込む」導線（試験段階）
+
+- マイリストURLを入力 → **DBへ書き込まずに**動画一覧をプレビュー → 明示的に「追加する」で保存。
+- Cloudflare Workersからニコニコ公開APIへ直接接続する方式は、実際の検証でHTTP 403になりました。ブラウザ直接取得もCORSでブロックされました。
+- この版には**別Node.jsホストで稼働させる任意の読み取り専用ゲートウェイ**を追加しました。外部ホストからの取得成功は未検証です。**設定していない間はURL取り込みを「準備中」と表示し、誤った同期を行いません。**
+- 一般ユーザーには拡張機能やAPI設定を要求しない方針です。ゲートウェイの配備と接続確認は運営者側の作業です。
+- 保存済みのライブラリ・既存Tampermonkey連携・Googleログイン・RLSは変更していません。
+
+**導入手順・接続先の検証:** [`docs/PUBLIC_GATEWAY.md`](docs/PUBLIC_GATEWAY.md)
+
+---
+
 ## v0.16.3 — 公開マイリスト同期のCloudflare互換性修正（2026-11-12）
 
 **原因:** v0.16.2はCloudflare Workersが対応していない `fetch(..., { redirect: 'error' })` を指定し、外部HTTPリクエストの前に必ず例外が発生する状態でした。詳細: https://developers.cloudflare.com/workers/runtime-apis/request/

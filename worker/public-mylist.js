@@ -31,6 +31,9 @@ export function parsePublicMylistPage(payload, listId, page) {
     throw new Error('取得件数が許容範囲を超えています');
   }
   // Some API variants omit hasNext; the client then checks the item count.
+  if (items.length === 0 && totalCount === null) {
+    throw new Error('0件の応答について実際の総件数を確認できません');
+  }
   const hasNext = typeof list.hasNext === 'boolean' ? list.hasNext : null;
   return {
     id: listId,
@@ -51,4 +54,40 @@ export function publicMylistUpstreamUrl(id, page) {
   url.searchParams.set('page', String(page));
   url.searchParams.set('pageSize', String(PAGE_SIZE));
   return url;
+}
+
+/** Untrusted normalized page from optional Node gateway: validate before UI. */
+export function validatePublicMylistPage(pageData, listId, page) {
+  if (!PUBLIC_MYLIST_ID.test(listId) || pageData?.id !== listId || pageData?.page !== page ||
+      !Array.isArray(pageData?.items) || pageData.items.length > PAGE_SIZE) {
+    throw new Error('公開マイリストの取得結果が不完全です');
+  }
+  const seen = new Set();
+  const items = pageData.items.map((item) => {
+    const id = String(item?.video_id || '').toLowerCase();
+    if (!VIDEO_ID.test(id) || seen.has(id) || typeof item.title !== 'string' || item.title.length > 220) {
+      throw new Error('公開マイリストの動画ID・タイトルが不正です');
+    }
+    seen.add(id);
+    return { video_id: id, title: item.title };
+  });
+  const total = pageData.totalCount;
+  if (total !== null && total !== undefined && (!Number.isSafeInteger(total) || total < 0 || total > 2000)) {
+    throw new Error('公開マイリストの件数が不正です');
+  }
+  if (items.length === 0 && (total === null || total === undefined)) {
+    throw new Error('0件の応答について実際の総件数を確認できません');
+  }
+  if (pageData.hasNext !== null && pageData.hasNext !== undefined && typeof pageData.hasNext !== 'boolean') {
+    throw new Error('公開マイリストの継続状態が不正です');
+  }
+  return {
+    id: listId,
+    page,
+    pageSize: PAGE_SIZE,
+    name: String(pageData.name || listId).slice(0, 100),
+    totalCount: total ?? null,
+    hasNext: pageData.hasNext ?? null,
+    items,
+  };
 }

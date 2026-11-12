@@ -53,8 +53,31 @@ function rerenderContent(){
   mountInteractiveScatter();
 }
 function rerenderSidebar(){render();}
-function showDialog(kind,extra={}){state.preview=null;if(kind==='sync'){state.sync=null;state.syncProgress='';state.publicSyncSelected=state.library.playlists.filter(p=>/^[1-9]\d{0,15}$/.test(String(p.id))).map(p=>String(p.id));}if(kind==='metadata')state.metadataProgress='';state.dialog={kind,...extra};render();}
-function closeDialog(){state.dialog=null;state.preview=null;render();}
+async function loadPublicSourceStatus() {
+  try {
+    const response = await fetch('/api/public-mylists/status', { cache: 'no-store' });
+    const body = await response.json();
+    state.publicSourceStatus = response.ok && body.available === true ? 'configured' : 'unavailable';
+  } catch {
+    state.publicSourceStatus = 'unavailable';
+  }
+  if (state.dialog?.kind === 'sync') render();
+}
+function showDialog(kind, extra = {}) {
+  state.preview = null;
+  if (kind === 'sync') {
+    state.sync = null;
+    state.pendingPublicImport = null;
+    state.syncProgress = '';
+    state.publicSourceStatus = 'checking';
+    state.publicSyncSelected = state.library.playlists.filter(p => /^[1-9]\d{0,15}$/.test(String(p.id))).map(p => String(p.id));
+  }
+  if (kind === 'metadata') state.metadataProgress = '';
+  state.dialog = { kind, ...extra };
+  render();
+  if (kind === 'sync') void loadPublicSourceStatus();
+}
+function closeDialog(){state.dialog=null;state.preview=null;state.pendingPublicImport=null;render();}
 function refreshMembership(){
   const el=document.querySelector('#membership-preview'),id=videoId(document.querySelector('#video-id')?.value);
   if(!el)return;
@@ -400,46 +423,79 @@ async function syncFromPublic() {
   }
 }
 
-/**
- * Add a public playlist to this user's DB, then preview its items. It cannot
- * grant write permission on NicoNico; imported third-party lists are read-only.
- */
+/** Preview a public list completely BEFORE creating anything in Supabase. */
 async function importPublicPlaylist() {
   if (state.busy || state.dialog?.kind !== 'sync') return;
+  if (state.publicSourceStatus !== 'configured') throw new Error('公開マイリストの接続先がまだ利用可能ではありません');
   const requested = document.querySelector('#public-sync-new-list')?.value || '';
   const id = parsePublicMylistId(requested);
-  if (!id) throw new Error('公開マイリストの数値IDか、https://www.nicovideo.jp/mylist/... を入力してください');
-  if (state.library.playlists.some((playlist) => String(playlist.id) === id)) {
-    throw new Error('このマイリストは既に登録済みです。上のチェック項目から選択して同期してください');
+  if (!id) throw new Error('ニコニコの公開マイリストURLまたは数値IDを入力してください');
+  if (state.library.playlists.some((p) => String(p.id) === id)) {
+    throw new Error('既に登録済みのリストです。下の「登録済みリストの同期」を利用してください');
   }
   state.busy = true;
-  state.syncProgress = `${id} の公開状態を確認しています…`;
+  state.pendingPublicImport = null;
+  state.syncProgress = `${id} の公開マイリストを読み取っています…`;
   render();
   try {
     const remote = await fetchPublicMylist(id, {
       onProgress: (message) => { state.syncProgress = message; render(); },
     });
-    // This insertion happens only on the user's explicit "add public list"
-    // action. No remote NicoNico write call is involved.
-    const { error } = await client.from('playlists').insert({
-      owner_id: state.user.id, id, name: remote.name,
-    });
-    if (error) throw new Error(`公開リスト名を保存できません: ${error.message}`);
-    const latest = await loadLibrary(state.user.id);
-    state.library = latest;
-    const list = latest.playlists.find((playlist) => String(playlist.id) === id);
-    const snapshot = snapshotFromBridgeParts([list], [remote]);
-    state.sync = diffSnapshot(snapshot, latest);
-    state.publicSyncSelected = [id];
-    state.syncProgress = `「${remote.name}」をライブラリに登録しました。動画${remote.items.length}件の取り込み候補を確認してください。`;
-    toast(`公開マイリスト「${remote.name}」を追加しました`);
+    state.pendingPublicImport = remote;
+    state.syncProgress = `取得成功。${remote.items.length}件を確認して、追加を確定してください。`;
   } catch (error) {
-    state.syncProgress = `取得・登録失敗：${error.message}。動画の所属には変更を加えていません。`;
+    state.syncProgress = `取得できませんでした：${error.message}。ライブラリは変更していません。`;
     throw error;
   } finally {
     state.busy = false;
     render();
   }
+}
+
+/** Explicit confirmation: insert list, then apply its validated snapshot. */
+async function confirmPublicImport() {
+  const remote = state.pendingPublicImport;
+  if (state.busy || state.dialog?.kind !== 'sync' || !remote) return;
+  // Existing lists must never be overwritten by new-list import.
+  const latest = await loadLibrary(state.user.id);
+  if (latest.playlists.some((p) => String(p.id) === remote.id)) {
+    state.library = latest;
+    state.pendingPublicImport = null;
+    render();
+    throw new Error('別の端末でこのリストが作成されました。再度同期画面を開いてください');
+  }
+  const snapshot = snapshotFromBridgeParts([{ id: remote.id, name: remote.name }], [remote]);
+  state.busy = true;
+  render();
+  let listCreated = false;
+  try {
+    const { error: insertError } = await client.from('playlists').insert({
+      owner_id: state.user.id, id: remote.id, name: remote.name,
+    });
+    if (insertError) throw new Error(`マイリストを作成できません: ${insertError.message}`);
+    listCreated = true;
+    const { data, error } = await client.rpc('apply_mylist_snapshot', {
+      p_snapshot: toRpcPayload(snapshot),
+    });
+    if (error || !data?.ok) throw new Error(`動画の登録に失敗しました: ${error?.message || '不明なエラー'}`);
+    state.pendingPublicImport = null;
+    state.dialog = null;
+    await refresh();
+    toast(`「${remote.name}」の${remote.items.length}件を取り込みました`);
+  } catch (error) {
+    if (listCreated) {
+      // A partly completed two-step operation may leave an EMPTY playlist.
+      // Do not silently delete it or mark any old entries absent.
+      state.pendingPublicImport = null;
+      state.syncProgress = `リストだけ作成された可能性があります。データと設定で確認してください：${error.message}`;
+    }
+    throw error;
+  } finally { state.busy = false; render(); }
+}
+function cancelPublicImport() {
+  state.pendingPublicImport = null;
+  state.syncProgress = '';
+  render();
 }
 
 /** One-click read-only sync, reusing the proven v0.7.0 bridge. */
@@ -548,7 +604,7 @@ registerEventHandlers({
   refreshMembership,
   actions: {
     guard, login, toggleFavorite, enrichMissing, enrichSingle,
-    saveMeta, savePlaylist, saveVideo, connectNico, syncFromNico, syncFromPublic, importPublicPlaylist,
+    saveMeta, savePlaylist, saveVideo, connectNico, syncFromNico, syncFromPublic, importPublicPlaylist, confirmPublicImport, cancelPublicImport,
     probeNico, registerInNico, runImport, applySync, exportJson,
     eraseData, captureAddForm, handleFile, handleSyncFile,
     saveSearchPreset, deleteSearchPreset, useSearchPreset, exportFilteredCsv, surpriseMe,

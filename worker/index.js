@@ -1,4 +1,4 @@
-import { publicMylistUpstreamUrl, parsePublicMylistPage } from './public-mylist.js';
+import { publicMylistUpstreamUrl, parsePublicMylistPage, validatePublicMylistPage } from './public-mylist.js';
 
 /**
  * Read-only proxy for PUBLIC NicoNico mylists. Never forwards credentials.
@@ -52,12 +52,77 @@ function classifyFetchFailure(error) {
 }
 
 /**
+ * Gateway mode is enabled only after real network testing on the target host.
+ * It must be a fixed HTTPS destination configured by the operator, not user input.
+ */
+function gatewayConfig(env) {
+  if (env?.PUBLIC_MYLIST_SOURCE !== 'gateway') return null;
+  try {
+    const base = new URL(String(env.PUBLIC_MYLIST_GATEWAY_URL || ''));
+    if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash ||
+        base.pathname !== '/' || !base.hostname || !String(env.PUBLIC_MYLIST_GATEWAY_TOKEN || '') ||
+        String(env.PUBLIC_MYLIST_GATEWAY_TOKEN).length < 24) return null;
+    return { base, token: String(env.PUBLIC_MYLIST_GATEWAY_TOKEN) };
+  } catch {
+    return null;
+  }
+}
+
+async function requestGatewayPage(env, listId, page) {
+  const config = gatewayConfig(env);
+  if (!config) return json({
+    error: '公開マイリストのURL取り込みは現在準備中です。データは変更していません',
+    code: 'PUBLIC_SYNC_NOT_READY', stage: 'configuration',
+  }, 503);
+  const url = new URL(`/v1/public-mylists/${listId}?page=${page}`, config.base);
+  let response;
+  try {
+    response = await fetch(url.toString(), {
+      headers: { 'X-Nico-Shelf-Gateway-Key': config.token, Accept: 'application/json' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (error) {
+    return failure('GATEWAY_NETWORK', 'gateway', '公開マイリストの取得サービスに接続できません', 502,
+      { listId, page, reason: error instanceof Error ? error.name : 'UnknownError' });
+  }
+  if (response.status >= 300 && response.status < 400) {
+    return failure('GATEWAY_REDIRECT', 'gateway', '取得サービスから予期しない移動応答がありました', 502, { listId, page });
+  }
+  // Do not leak gateway details, credentials, or raw responses to browsers.
+  const code = response.status === 502 ? 'GATEWAY_UPSTREAM_FAILED' : 'GATEWAY_ERROR';
+  if (!response.ok) {
+    let diagnostic = null;
+    try { diagnostic = (await response.json())?.code; } catch {}
+    const allowed = ['UPSTREAM_ACCESS_DENIED', 'UPSTREAM_NOT_FOUND', 'UPSTREAM_RATE_LIMITED',
+      'UPSTREAM_HTTP_ERROR', 'UPSTREAM_TIMEOUT', 'UPSTREAM_NOT_JSON', 'UPSTREAM_TOO_LARGE',
+      'UPSTREAM_INVALID_RESPONSE'];
+    if (allowed.includes(diagnostic)) {
+      const message = diagnostic === 'UPSTREAM_ACCESS_DENIED'
+        ? '取得サーバーからニコニコAPIへの接続が拒否されました。別環境での動作確認が必要です'
+        : 'ニコニコの公開マイリストを取得できませんでした。時間を空けて再試行してください';
+      return json({ error: message, code: diagnostic, stage: 'gateway' }, 502);
+    }
+    return failure(code, 'gateway', '公開マイリストの取得サービスが利用できません', 502,
+      { listId, page, gatewayStatus: response.status });
+  }
+  let payload;
+  try { payload = await response.json(); }
+  catch { return failure('GATEWAY_INVALID_JSON', 'gateway', '取得サービスの応答形式が不正です', 502, { listId, page }); }
+  try { return json(validatePublicMylistPage(payload, listId, page)); }
+  catch { return failure('GATEWAY_INVALID_DATA', 'gateway', '取得データが不完全なため同期を中止しました', 502, { listId, page }); }
+}
+
+/**
  * The upstream API is unofficial/undocumented; fail closed on ANY unknown
  * response, especially an empty or partial page, to prevent mass removals.
  */
 export async function handlePublicMylistRequest(request, env) {
   if (request.method !== 'GET') return json({ error: 'GETのみ対応しています' }, 405);
   const url = new URL(request.url);
+  if (url.pathname === '/api/public-mylists/status') {
+    return json({ available: Boolean(gatewayConfig(env)), method: 'gateway', upstreamVerified: false });
+  }
   const match = url.pathname.match(/^\/api\/public-mylists\/([1-9]\d{0,15})$/);
   if (!match) return json({ error: '不正なマイリストIDです' }, 400);
   const pageText = url.searchParams.get('page') || '1';
@@ -68,6 +133,7 @@ export async function handlePublicMylistRequest(request, env) {
 
   const listId = match[1];
   const page = Number(pageText);
+  if (env?.PUBLIC_MYLIST_SOURCE !== 'direct') return requestGatewayPage(env, listId, page);
   const logContext = { listId, page }; // Public list identifiers only.
   let upstream;
   try {
@@ -96,8 +162,8 @@ export async function handlePublicMylistRequest(request, env) {
   }
   if (status === 401 || status === 403 || status === 404) {
     return json({
-      error: '公開マイリストを取得できません。非公開・削除・アクセス制限の可能性があります',
-      code: 'NICO_NOT_PUBLIC', stage: 'http', upstreamStatus: status,
+      error: status === 403 ? 'ニコニコAPIがCloudflareからの通信を拒否しました（HTTP 403）' : 'ニコニコAPIから取得できませんでした',
+      code: status === 403 ? 'NICO_ACCESS_DENIED' : 'NICO_NOT_PUBLIC', stage: 'http', upstreamStatus: status,
     }, 403);
   }
   if (status === 429) {

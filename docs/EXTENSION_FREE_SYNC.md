@@ -1,3 +1,5 @@
+> **2026-11-13 更新：** この文書のv0.16.x時点のCloudflare直結手順は、実環境でニコニコAPIからHTTP 403を返されるため、実際の公開同期手段としては利用できません。v0.17以降は [`PUBLIC_GATEWAY.md`](PUBLIC_GATEWAY.md) を参照してください。別Nodeホストでも取得できるとはまだ確認されていません。
+
 # v0.16.3 追記 — Cloudflare Workersのredirect互換性
 
 v0.16.2のWorkerでは `fetch(..., { redirect: 'error' })` を指定していましたが、Cloudflare Workersはこのモードをサポートしておらず、リクエストを送信する前にTypeErrorを返します。これはCloudflare公式のRequest仕様で明示されています: https://developers.cloudflare.com/workers/runtime-apis/request/

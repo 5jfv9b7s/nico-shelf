@@ -4,7 +4,7 @@ import { handlePublicMylistRequest } from '../worker/index.js';
 import { fetchPublicMylist } from '../src/public-sync.js';
 
 const endpoint = 'https://nico-shelf.example/api/public-mylists/75327830?page=1';
-const rateLimit = { PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => ({ success: true }) } };
+const rateLimit = { PUBLIC_MYLIST_SOURCE: 'direct', PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => ({ success: true }) } };
 
 async function requestWith(mock) {
   const old = globalThis.fetch;
@@ -66,7 +66,7 @@ test('JSON破損は解析失敗、データ構造変更は形式不一致とし�
 test('上流HTTPエラーは本来のステータスを保存して区別', async () => {
   const blocked = await requestWith(async () => new Response('denied', { status: 403 }));
   assert.equal(blocked.status, 403);
-  assert.equal(blocked.body.code, 'NICO_NOT_PUBLIC');
+  assert.equal(blocked.body.code, 'NICO_ACCESS_DENIED');
   const failed = await requestWith(async () => new Response('upstream error', { status: 503 }));
   assert.equal(failed.status, 502);
   assert.equal(failed.body.code, 'NICO_HTTP_ERROR');

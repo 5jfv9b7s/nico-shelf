@@ -1,3 +1,13 @@
+## 0.17.0 — URL-first onboarding and optional public mylist gateway
+
+- Public-mylist URL entry is prominently displayed, with full read-only preview before any DB write.
+- Added optional zero-dependency Node.js gateway (`gateway/server.mjs`), strictly scoped to public NicoNico list IDs, protected by a server-to-server shared key.
+- Worker uses configured HTTPS gateway only (`PUBLIC_MYLIST_SOURCE=gateway`); otherwise returns `PUBLIC_SYNC_NOT_READY` instead of misleading private/deleted errors. Legacy `direct` mode remains available for isolated diagnostics.
+- Added status check, error isolation, source-level validation, request bounds, HTTPS-only host pinning, and safe no-write failure behavior.
+- New-list confirmation writes the list and validated video snapshot. These are two database calls; if snapshot application fails, an empty list may remain, which is reported rather than silently removed.
+- Existing NicoNico-tab extension link remains optional and unchanged.
+- Deployment is NOT verified; host-level probe is mandatory before enabling user-facing imports.
+
 ## v0.16.3 (2026-11-12) — Cloudflare Workers公開同期の実行時互換性を修正
 
 - **根本原因:** Workers の `fetch()` は `redirect: 'error'` に非対応で、リクエスト送信前に `TypeError` を発生させる。v0.16.2はこれを汎用502にしていた。

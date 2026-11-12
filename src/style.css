@@ -649,3 +649,16 @@ button.scatter-legend-entry:focus-visible { outline: 2px solid #76dacc; outline-
   .modal { max-height: calc(100dvh - 20px); padding: 22px 18px; }
   .toast { bottom: calc(77px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 24px); }
 }
+
+
+/* v0.17: visible URL-first import; preview is shown before any DB writes. */
+.public-import-primary { border: 1px solid var(--line, #35445b); border-radius: 12px; padding: 16px; }
+.public-import-primary .field-label { margin: 12px 0 8px; }
+.public-import-primary input { width: 100%; min-height: 44px; font-size: 14px; }
+.public-import-preview { border-top: 1px solid var(--line, #35445b); margin-top: 16px; padding-top: 15px; }
+.public-import-preview h3 { margin: 8px 0; font-size: 17px; }
+.public-import-preview p, .public-import-preview li { font-size: 13px; line-height: 1.6; }
+.public-import-preview ol { max-height: 165px; overflow-y: auto; padding-left: 22px; }
+.public-import-preview li { margin: 4px 0; overflow-wrap: anywhere; }
+.public-import-preview small { color: #aabbd0; }
+.public-import-preview .inline-actions { margin-top: 10px; }

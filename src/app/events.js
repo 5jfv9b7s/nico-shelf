@@ -32,6 +32,7 @@ export function registerEventHandlers({
     syncFromNico,
     syncFromPublic,
     importPublicPlaylist,
+    confirmPublicImport, cancelPublicImport,
     probeNico,
     registerInNico,
     runImport,
@@ -123,6 +124,8 @@ root.addEventListener('click',e=>{
   if(target.id==='sync-live')return guard(syncFromNico);
   if(target.id==='sync-public')return guard(syncFromPublic);
   if(target.id==='public-sync-add')return guard(importPublicPlaylist);
+  if(target.id==='public-import-confirm')return guard(confirmPublicImport);
+  if(target.id==='public-import-cancel')return cancelPublicImport();
   if(target.id==='nico-inspect')return guard(probeNico);
   if(target.id==='nico-register')return guard(registerInNico);
   if(target.id==='run-import')return guard(runImport);

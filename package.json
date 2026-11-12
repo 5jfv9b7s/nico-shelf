@@ -1,6 +1,6 @@
 {
   "name": "nico-shelf-web",
-  "version": "0.16.3",
+  "version": "0.17.0",
   "private": true,
   "type": "module",
   "description": "NICO SHELF — private, multi-user NicoNico playlist library",
@@ -10,6 +10,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/*.test.mjs",
     "check:imports": "node scripts/check-imports.mjs",
+    "gateway:start": "node gateway/server.mjs",
+    "gateway:probe": "node scripts/probe-public-mylist.mjs",
     "format": "prettier --write src bridge tests",
     "format:check": "prettier --check src bridge tests"
   },

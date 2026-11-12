@@ -37,6 +37,9 @@ export function assemblePublicMylistPages(pages, listId) {
       }
       total = page.totalCount;
     }
+    if (page.items.length === 0 && total === null) {
+      throw new Error('0件という応答だけでは取得完了を確認できません。同期を中止しました');
+    }
     for (const item of page.items) {
       if (!/^(?:sm|nm|so)\d{1,12}$/i.test(item?.video_id || '') || ids.has(item.video_id.toLowerCase())) {
         throw new Error('取得した動画IDが不正・重複しています。同期を中止しました');
