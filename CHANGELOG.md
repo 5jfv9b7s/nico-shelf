@@ -1,3 +1,10 @@
+## 0.17.3
+
+- 公開APIが最終ページまで返しても公称件数に届かない場合、取得した動画のプレビューと追加・復元を可能にしました。
+- 件数差と、今回の応答に含まれなかった登録済み動画を表示します。
+- 件数差があるリストでは既存の所属・順番を保持するRPCを追加しました。全件取得できたリストは従来どおり同期します。
+- `202611130001_public_mylist_partial.sql` をフロントエンド更新前に適用してください。
+
 ## 0.17.2 — Fix false-negative public gateway readiness blocking
 
 - Status endpoint is advisory only: missing/stale/unreachable `/api/public-mylists/status` never disables URL entry, Enter key, or existing-list sync.

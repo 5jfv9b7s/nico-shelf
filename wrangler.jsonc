@@ -1,13 +1,6 @@
-
 {
   "name": "nico-shelf",
   "compatibility_date": "2026-11-09",
-  "main": "worker/index.js",
-  "keep_vars": true,
-  "vars": {
-    "PUBLIC_MYLIST_SOURCE": "gateway",
-    "PUBLIC_MYLIST_GATEWAY_URL": "https://nico-shelf.onrender.com/"
-  },
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",
@@ -25,5 +18,11 @@
         "period": 60
       }
     }
-  ]
+  ],
+  "main": "worker/index.js",
+  "keep_vars": true,
+  "vars": {
+    "PUBLIC_MYLIST_SOURCE": "gateway",
+    "PUBLIC_MYLIST_GATEWAY_URL": "https://nico-shelf.onrender.com/"
+  }
 }

@@ -36,6 +36,7 @@ function modal(){
         ${state.pendingPublicImport?`<div class="public-import-preview">
           <strong>取り込む内容を確認</strong>
           <h3>${esc(state.pendingPublicImport.name)}</h3>
+          ${state.pendingPublicImport.allow_removals===false?`<p class="sync-warning" role="status">公称${formatCount(state.pendingPublicImport.reported_total)}件・取得${formatCount(state.pendingPublicImport.items.length)}件。最後のページまで取得しました。今回確認できた動画を取り込みます。</p>`:''}
           <p>${formatCount(state.pendingPublicImport.items.length)}件の動画を取り込みます。保存済みの動画・メモ・評価は変更しません。</p>
           <ol>${state.pendingPublicImport.items.slice(0,7).map(item=>`<li>${esc(item.title||item.video_id)} <small>${esc(item.video_id)}</small></li>`).join('')}</ol>
           ${state.pendingPublicImport.items.length>7?`<p>ほか${state.pendingPublicImport.items.length-7}件</p>`:''}
@@ -66,6 +67,8 @@ function modal(){
       ${diff?`<div class="sync-summary"><b>取得日時：${esc(new Date(diff.snapshot.captured_at).toLocaleString('ja-JP'))}</b>${age>60?'<p class="sync-warning">取得から1時間以上経過しています。最新の一覧を再取得することを推奨します。</p>':''}
         <div class="sync-totals"><span>追加候補 <b>${diff.added}</b></span><span>削除候補 <b>${diff.removed}</b></span><span>順番変更 <b>${diff.reordered}</b></span></div>
         ${diff.rows.map(row=>`<div class="sync-list"><h3>${esc(row.name)} <small>ニコニコ ${row.remoteCount} / DB ${row.localCount}</small></h3>
+          ${row.allowRemovals===false?`<p class="sync-warning" role="status">${row.reportedTotal!==null?`公称${formatCount(row.reportedTotal)}件・取得${formatCount(row.remoteCount)}件。`:''}確認できた動画の追加・復元を反映します。既存の所属と順番を保持します。</p>`:''}
+          ${row.retained?.length?`<div class="sync-detail"><b>今回の応答に含まれなかった登録済み動画（所属を保持）</b>${row.retained.slice(0,40).map(item=>`<div><a href="https://www.nicovideo.jp/watch/${encodeURIComponent(item.video_id)}" target="_blank" rel="noopener noreferrer">${esc(item.title||item.video_id)}</a> <small>(${esc(item.video_id)})</small></div>`).join('')}${row.retained.length>40?`<small>ほか ${row.retained.length-40} 件</small>`:''}</div>`:''}
           <p class="sync-list-count">追加 ${row.added.length}・削除 ${row.removed.length}・並び順の差 ${row.reordered.length}</p>
           ${row.added.length?`<div class="sync-detail"><b class="sync-add">＋ ニコニコにあってDBにないもの</b>${row.added.slice(0,40).map(x=>`<div><a href="https://www.nicovideo.jp/watch/${encodeURIComponent(x.video_id)}" target="_blank" rel="noopener noreferrer">${esc(x.title||x.video_id)}</a> <small>(${esc(x.video_id)})</small></div>`).join('')}${row.added.length>40?`<small>ほか ${row.added.length-40} 件</small>`:''}</div>`:''}
           ${row.removed.length?`<div class="sync-detail"><b class="sync-remove">− DBにあってニコニコにないもの</b>${row.removed.slice(0,40).map(x=>`<div><a href="https://www.nicovideo.jp/watch/${encodeURIComponent(x.video_id)}" target="_blank" rel="noopener noreferrer">${esc(x.title||x.video_id)}</a> <small>(${esc(x.video_id)})</small></div>`).join('')}${row.removed.length>40?`<small>ほか ${row.removed.length-40} 件</small>`:''}</div>`:''}

@@ -487,7 +487,7 @@ async function confirmPublicImport() {
     });
     if (insertError) throw new Error(`マイリストを作成できません: ${insertError.message}`);
     listCreated = true;
-    const { data, error } = await client.rpc('apply_mylist_snapshot', {
+    const { data, error } = await client.rpc('apply_mylist_snapshot_v2', {
       p_snapshot: toRpcPayload(snapshot),
     });
     if (error || !data?.ok) throw new Error(`動画の登録に失敗しました: ${error?.message || '不明なエラー'}`);
@@ -570,7 +570,7 @@ async function applySync(){
   const newIds=[...new Set(latest.rows.flatMap(r=>r.added.map(x=>x.video_id)))].filter(id=>!current.videos.some(v=>v.id===id));
   state.busy=true;render();
   try{
-    const {data,error}=await client.rpc('apply_mylist_snapshot',{p_snapshot:toRpcPayload(snapshot)});
+    const {data,error}=await client.rpc('apply_mylist_snapshot_v2',{p_snapshot:toRpcPayload(snapshot)});
     if(error)throw new Error(`Supabaseの同期に失敗: ${error.message}。SQLマイグレーションの適用も確認してください。`);
     if(!data?.ok)throw new Error('同期処理から正常な完了応答がありません');
     state.sync=null;state.dialog=null;await refresh();

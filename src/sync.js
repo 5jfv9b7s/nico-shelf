@@ -27,7 +27,17 @@ export function normalizeSnapshot(payload) {
       seen.add(vid);
       return {video_id:vid,position:index+1,title:typeof item.title==='string'?item.title.slice(0,220):''};
     });
-    return {id,name:String(list.name||id).slice(0,100),complete:true,items};
+    if (list.allow_removals !== undefined && typeof list.allow_removals !== 'boolean') {
+      throw new Error(`${id}: 同期方式が不正です`);
+    }
+    const reportedTotal = list.reported_total;
+    if (reportedTotal !== undefined && (!Number.isSafeInteger(reportedTotal) || reportedTotal < items.length || reportedTotal > 2000 ||
+        (reportedTotal !== items.length && list.allow_removals !== false))) {
+      throw new Error(`${id}: 公称件数と同期方式が一致しません`);
+    }
+    return {id,name:String(list.name||id).slice(0,100),complete:true,items,
+      ...(reportedTotal !== undefined ? {reported_total:reportedTotal} : {}),
+      ...(list.allow_removals === false ? {allow_removals:false} : {})};
   });
   return {format:FORMAT,version:1,captured_at:new Date(time).toISOString(),complete:true,lists};
 }
@@ -47,16 +57,23 @@ export function diffSnapshot(snapshot, library) {
     const added=remote.items.filter(e=>!currentById.has(e.video_id)).map(e=>({
       ...e,kind:oldAllById.has(e.video_id)?'restored':'added',title:videos.get(e.video_id)?.title||e.title||e.video_id
     }));
-    const removed=current.filter(e=>!remoteById.has(e.video_id)).map(e=>({...e,title:videos.get(e.video_id)?.title||e.video_id}));
-    const reordered=remote.items.filter(e=>currentById.has(e.video_id)&&Number(currentById.get(e.video_id).position)!==e.position);
-    rows.push({id:remote.id,name:localList.name,remoteName:remote.name,localCount:current.length,remoteCount:remote.items.length,added,removed,reordered});
+    const allowRemovals = remote.allow_removals !== false;
+    const missing=current.filter(e=>!remoteById.has(e.video_id)).map(e=>({...e,title:videos.get(e.video_id)?.title||e.video_id}));
+    const removed=allowRemovals ? missing : [];
+    const retained=allowRemovals ? [] : missing;
+    // Missing public items make exact positions uncertain as well as removals.
+    const reordered=allowRemovals ? remote.items.filter(e=>currentById.has(e.video_id)&&Number(currentById.get(e.video_id).position)!==e.position) : [];
+    rows.push({id:remote.id,name:localList.name,remoteName:remote.name,localCount:current.length,remoteCount:remote.items.length,added,removed,reordered,
+      allowRemovals,reportedTotal:remote.reported_total ?? null,retained});
   }
   return {snapshot:normalized,rows,added:rows.reduce((n,r)=>n+r.added.length,0),removed:rows.reduce((n,r)=>n+r.removed.length,0),reordered:rows.reduce((n,r)=>n+r.reordered.length,0)};
 }
 
 export function toRpcPayload(snapshot) {
   const value=normalizeSnapshot(snapshot);
-  return {lists:value.lists.map(({id,items})=>({id,items:items.map(({video_id,position,title})=>({video_id,position,title}))}))};
+  return {lists:value.lists.map(({id,items,allow_removals})=>({id,
+    ...(allow_removals === false ? {allow_removals:false} : {}),
+    items:items.map(({video_id,position,title})=>({video_id,position,title}))}))};
 }
 
 export function snapshotUrl(library) {
@@ -84,7 +101,9 @@ export function snapshotFromBridgeParts(requestedLists, replies, capturedAt=new 
       throw new Error('取得したリストが一致しません。差分は反映できません。');
     }
     expected.add(id);
-    lists.push({id,name:String(requestedLists[i].name||id).slice(0,100),complete:true,items:item.items});
+    lists.push({id,name:String(requestedLists[i].name||id).slice(0,100),complete:true,items:item.items,
+      ...(item.reported_total !== undefined ? {reported_total:item.reported_total} : {}),
+      ...(item.allow_removals !== undefined ? {allow_removals:item.allow_removals} : {})});
   }
   return normalizeSnapshot({format:FORMAT,version:1,captured_at:capturedAt,complete:true,lists});
 }
@@ -96,6 +115,8 @@ export function diffSignature(diff) {
     added:row.added.map(item=>`${item.video_id}:${item.position}`).sort(),
     removed:row.removed.map(item=>item.video_id).sort(),
     reordered:row.reordered.map(item=>`${item.video_id}:${item.position}`).sort(),
+    allowRemovals:row.allowRemovals,
+    reportedTotal:row.reportedTotal,
     remoteCount:row.remoteCount
   })));
 }

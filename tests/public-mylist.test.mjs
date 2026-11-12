@@ -52,9 +52,11 @@ test('途中で欠けたページや件数変化・ID重複は差分に反映で
   assert.throws(() => assemblePublicMylistPages([
     page(PUBLIC_ID, 1, ['sm10'], { hasNext: true }),
   ], PUBLIC_ID), /すべての動画/);
-  assert.throws(() => assemblePublicMylistPages([
+  const shortList = assemblePublicMylistPages([
     page(PUBLIC_ID, 1, ['sm10'], { totalCount: 3 }),
-  ], PUBLIC_ID), /すべての動画/);
+  ], PUBLIC_ID);
+  assert.equal(shortList.allow_removals, false);
+  assert.equal(shortList.reported_total, 3);
   assert.throws(() => assemblePublicMylistPages([
     page(PUBLIC_ID, 1, ['sm10'], { hasNext: true }),
     page(PUBLIC_ID, 2, ['sm10']),

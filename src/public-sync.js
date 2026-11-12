@@ -67,8 +67,11 @@ export function assemblePublicMylistPages(pages, listId) {
     if (!hasNext || page?.id !== listId || page.page !== index + 1 || !Array.isArray(page.items) || page.items.length > PAGE_SIZE) {
       throw new Error('取得ページに欠落・順番違いがあります。同期を中止しました');
     }
+    if (page.hasNext != null && typeof page.hasNext !== 'boolean') {
+      throw new Error('公開マイリストの継続状態が不正です');
+    }
     if (page.totalCount !== null && page.totalCount !== undefined) {
-      if (!Number.isSafeInteger(page.totalCount) || page.totalCount < 0 || (total !== null && total !== page.totalCount)) {
+      if (!Number.isSafeInteger(page.totalCount) || page.totalCount < 0 || page.totalCount > PAGE_SIZE * MAX_PAGES || (total !== null && total !== page.totalCount)) {
         throw new Error('マイリスト件数が取得途中で変わりました。再度取得してください');
       }
       total = page.totalCount;
@@ -85,13 +88,20 @@ export function assemblePublicMylistPages(pages, listId) {
     }
     hasNext = page.hasNext === true || (page.hasNext == null && page.items.length === PAGE_SIZE && (total === null || items.length < total));
   }
-  if (hasNext || (total !== null && items.length !== total) || items.length > 1000) {
+  const countMismatch = total !== null && items.length !== total;
+  // Only an explicit final-page marker permits a short public response. Keep
+  // its count discrepancy through preview and the database write operation.
+  if (hasNext || items.length > 1000 || (countMismatch && (
+    items.length === 0 || items.length > total || pages.at(-1).hasNext !== false
+  ))) {
     throw new Error('すべての動画を取得できませんでした。削除候補の誤検出を防ぐため中止します');
   }
   return {
     id: listId,
     name: String(pages[0].name || listId).slice(0, 100),
     complete: true,
+    ...(total !== null ? { reported_total: total } : {}),
+    ...(countMismatch ? { allow_removals: false } : {}),
     items,
   };
 }
