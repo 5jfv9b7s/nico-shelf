@@ -14,6 +14,8 @@ import { selectLibraryResults, chooseRandomVideo } from './app/search.js';
 import { makeLibraryCsv } from './app/csv-export.js';
 import { registerEventHandlers } from './app/events.js';
 import { createViewRenderer } from './ui/views.js';
+import { buildLibraryRows } from './app/library.js';
+import { mountScatter3D } from './ui/scatter3d.js';
 import { createDialogRenderer } from './ui/dialogs.js';
 
 /**
@@ -31,10 +33,24 @@ function toast(message,isError=false){
   el.textContent=message;el.className=`toast show ${isError?'danger':''}`;
   clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>el.classList.remove('show'),4200);
 }
+/** Attach Canvas behavior only when the 3D chart is visible. */
+function mountInteractiveScatter() {
+  mountScatter3D({
+    root, state,
+    rows: state.view === 'scatter' && state.scatter.mode === '3d'
+      ? buildLibraryRows(state.library) : [],
+    onOpenVideo: (id) => showDialog('detail', { id }),
+  });
+}
 function render(){
   root.innerHTML=!configured?missingConfig():!state.user?loginScreen():shell();
+  mountInteractiveScatter();
 }
-function rerenderContent(){const el=document.querySelector('#main-content');if(el)el.innerHTML=content();}
+function rerenderContent(){
+  const el=document.querySelector('#main-content');
+  if (el) el.innerHTML=content();
+  mountInteractiveScatter();
+}
 function rerenderSidebar(){render();}
 function showDialog(kind,extra={}){state.preview=null;if(kind==='sync'){state.sync=null;state.syncProgress='';}if(kind==='metadata')state.metadataProgress='';state.dialog={kind,...extra};render();}
 function closeDialog(){state.dialog=null;state.preview=null;render();}

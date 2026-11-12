@@ -414,3 +414,49 @@ button.scatter-legend-entry:focus-visible { outline: 2px solid #76dacc; outline-
   .scatter-legend-header .control-label { flex: 1 1 100%; }
   .trend-line-svg { min-width: 600px; }
 }
+
+/* v0.15 — lightweight rotatable 3-axis plot (no new JS dependency). */
+.scatter-mode-switch {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #34475c;
+}
+.scatter3d-frame {
+  position: relative; width: 100%; overflow: hidden;
+  border-radius: 12px; border: 1px solid #354d68;
+  background: #102239;
+}
+#scatter-3d-canvas {
+  display: block; width: 100%; min-height: 365px;
+  touch-action: none; cursor: grab;
+}
+#scatter-3d-canvas:active { cursor: grabbing; }
+#scatter-3d-canvas:focus-visible { outline: 2px solid #76dacc; outline-offset: -3px; }
+.scatter3d-tooltip {
+  position: absolute; max-width: min(280px, 80%); padding: 9px 11px;
+  border-radius: 8px; border: 1px solid #638da2;
+  background: #091726ee; color: #eaf2fb;
+  white-space: pre-line; overflow-wrap: anywhere;
+  font: 12px/1.5 system-ui, sans-serif;
+  pointer-events: none; z-index: 2;
+  box-shadow: 0 5px 16px #0007;
+}
+.scatter3d-tooltip[hidden] { display: none; }
+.scatter3d-axis-ranges {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px; margin: 10px 0;
+}
+.scatter3d-axis-range {
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid #3b5670; border-radius: 9px;
+  padding: 9px; color: #e3ecf5; font-size: 12px;
+}
+.scatter3d-axis-range:nth-child(1) { border-left: 3px solid #6EDCCB; }
+.scatter3d-axis-range:nth-child(2) { border-left: 3px solid #C7A4FF; }
+.scatter3d-axis-range:nth-child(3) { border-left: 3px solid #FFD18A; }
+.scatter3d-axis-range small { color: #aac5d9; }
+.scatter3d-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.scatter3d-actions > span { flex: 1 1 240px; font-size: 12px; color: #bad1df; }
+@media(max-width: 650px) {
+  .scatter3d-axis-ranges { grid-template-columns: 1fr; gap: 5px; }
+  .scatter3d-actions > span { flex-basis: 100%; }
+}

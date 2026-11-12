@@ -6,6 +6,7 @@ import { colorForCharacter, hasCharacterColor, UNCLASSIFIED_COLOR } from '../app
 import {
   createScatterData, readableMetric, scatterTicks, SCATTER_METRICS,
 } from '../app/scatter.js';
+import { createScatter3DData } from '../app/scatter3d.js';
 
 const SVG_SIZE = { width: 920, height: 510, left: 100, right: 888, top: 28, bottom: 442 };
 
@@ -95,13 +96,46 @@ function metricOptions(value) {
   `).join('');
 }
 
+/** A canvas is mounted after the page renders; HTML never embeds personal data. */
+function renderThreeDimensionalPlot(result) {
+  if (!result.points.length) {
+    return '<div class="empty-sm">3軸すべての情報がそろう動画がありません。軸を変えるかメタデータを補完してください。</div>';
+  }
+
+  const axisReadout = ['x', 'y', 'z'].map((axis) => {
+    const metric = result[axis];
+    const values = result.points.map((point) => point[`${axis}Value`]);
+    const minimum = Math.min(...values);
+    const maximum = Math.max(...values);
+    return `<span class="scatter3d-axis-range"><b>${axis.toUpperCase()}: ${esc(SCATTER_METRICS[metric].label)}</b>
+      <small>${esc(readableMetric(minimum, metric))} ～ ${esc(readableMetric(maximum, metric))}${SCATTER_METRICS[metric].logarithmic ? '（対数目盛）' : ''}</small></span>`;
+  }).join('');
+
+  return `<div class="scatter3d-frame">
+    <canvas id="scatter-3d-canvas" tabindex="0" role="img"
+      aria-label="3軸散布図。ドラッグ・矢印キーで回転、ホイール・プラスマイナスで拡大縮小、点をクリックして動画詳細を開けます。"></canvas>
+    <div id="scatter-3d-tooltip" class="scatter3d-tooltip" role="status" hidden></div>
+  </div>
+  <div class="scatter3d-axis-ranges">${axisReadout}</div>
+  <div class="scatter3d-actions">
+    <span>ドラッグ：回転 ／ ホイール：拡大縮小 ／ 点をクリック：動画詳細</span>
+    <button id="scatter-3d-zoom-in" type="button" class="btn subtle">＋ 拡大</button>
+    <button id="scatter-3d-zoom-out" type="button" class="btn subtle">－ 縮小</button>
+    <button id="scatter-3d-reset-view" type="button" class="btn subtle">視点をリセット</button>
+  </div>`;
+}
+
 /** The plot uses the signed-in user's already-loaded metadata; no API calls. */
 export function renderScatter({ state, rows, hero }) {
   const { x, y, voice } = state.scatter;
+  const is3D = state.scatter.mode === '3d';
+  const z = state.scatter.z || 'mylists';
   const legendLimit = state.scatter.legendLimit ?? 30;
-  const result = createScatterData(rows, { x, y, voice });
+  const result = is3D
+    ? createScatter3DData(rows, { x, y, z, voice })
+    : createScatterData(rows, { x, y, voice });
   const voices = voiceStats(rows.filter(availableForScatter), 'canonical', 100).map(([name]) => name);
-  const correlation = result.correlation === null ? '算出不可' : result.correlation.toFixed(2);
+  const correlation = result.correlation === null ? '算出不可' : result.correlation?.toFixed(2);
   const uniqueMissing = result.eligible - result.points.length;
   // Include duet partners in the legend, even when the point is coloured by
   // the first singer. Clicking a partner filters and recolours matching points.
@@ -112,11 +146,16 @@ export function renderScatter({ state, rows, hero }) {
     }
   }
   const legendNames = [...singerFrequency].sort((a, b) => b[1] - a[1]).map(([name]) => name);
-  return `${hero('DATA EXPLORER', '楽曲の散布図', '再生数・マイリスト登録数・反応率・自分の評価などを、自由な軸で比較する。')}
+  return `${hero('DATA EXPLORER', '楽曲の散布図', '再生数・マイリスト登録数・反応率・自分の評価などを、2Dまたは3Dの自由な軸で比較する。')}
     <section class="panel scatter-panel">
+      <div class="scatter-mode-switch" role="group" aria-label="散布図の次元">
+        <button type="button" id="scatter-mode-2d" class="btn ${is3D ? 'subtle' : 'primary'}" aria-pressed="${!is3D}">2D散布図</button>
+        <button type="button" id="scatter-mode-3d" class="btn ${is3D ? 'primary' : 'subtle'}" aria-pressed="${is3D}">3D散布図（X・Y・Z）</button>
+      </div>
       <div class="scatter-controls" aria-label="散布図の表示条件">
         <label class="control-label">横軸（X）<select id="scatter-x">${metricOptions(x)}</select></label>
         <label class="control-label">縦軸（Y）<select id="scatter-y">${metricOptions(y)}</select></label>
+        ${is3D ? `<label class="control-label">奥行き（Z）<select id="scatter-z">${metricOptions(z)}</select></label>` : ''}
         <label class="control-label">歌唱キャラクターで絞る<select id="scatter-voice"><option value="">すべての曲</option>${voices.map((name) => `<option value="${esc(name)}" ${voice === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>
         <button id="scatter-reset" class="btn subtle" type="button">表示条件をリセット</button>
       </div>
@@ -125,9 +164,9 @@ export function renderScatter({ state, rows, hero }) {
         <span>情報不足で非表示：<strong>${formatCount(Math.max(0, uniqueMissing))}</strong>曲</span>
         <span>削除・非公開で除外：<strong>${formatCount(result.excluded.deleted + result.excluded.private)}</strong>曲</span>
         <span>公開状態未確認で除外：<strong>${formatCount(result.excluded.unconfirmed)}</strong>曲</span>
-        <span>順位相関 ρ：<strong>${correlation}</strong></span>
+        ${is3D ? '<span>3軸共通のデータを使用（順位相関は2Dのみ）</span>' : `<span>順位相関 ρ：<strong>${correlation}</strong></span>`}
       </div>
-      ${result.points.length ? renderPoints(result) : '<div class="empty-sm">選択した軸の動画情報が不足しています。別の軸を選択するか、メタデータを補完してください。</div>'}
+      ${is3D ? renderThreeDimensionalPlot(result) : result.points.length ? renderPoints(result) : '<div class="empty-sm">選択した軸の動画情報が不足しています。別の軸を選択するか、メタデータを補完してください。</div>'}
       <div class="scatter-legend"><div class="scatter-legend-header"><span class="scatter-legend-title">歌唱キャラクター（凡例を押すと絞り込み。デュエットの相手も掲載）</span>
         <label class="control-label compact">凡例の表示数<select id="scatter-legend-limit">${[[15,'上位15'],[30,'上位30'],['all','全員']].map(([n,label]) =>
           `<option value="${n}" ${legendLimit===n?'selected':''}>${label}</option>`).join('')}</select></label></div>
@@ -136,6 +175,6 @@ export function renderScatter({ state, rows, hero }) {
             : `<span class="scatter-legend-entry"><i style="background:${UNCLASSIFIED_COLOR}"></i>歌唱者不明</span>`).join('')}</div>
         ${legendNames.length > (legendLimit === 'all' ? Infinity : legendLimit) ? `<small>ほか${legendNames.length - legendLimit}種類。全員表示に切り替えられます。</small>` : ''}
       </div>
-      <p class="trend-notice">点にカーソルを重ねると動画名と数値を表示し、クリックすると詳細を開きます。複数歌唱者の曲は白い輪郭で表示し、色は先頭の歌唱者を採用します。設定色のない歌唱者には名前に基づく安定した自動色を使います（公式カラーではありません）。再生数・コメント数・いいね数・ニコニコ全体のマイリスト数は0も扱える対数目盛を使用。反応率は1,000再生あたりの件数で、再生数0や情報未取得の場合は描画しません。自分の所属マイリスト数とニコニコ全体のマイリスト数は別指標です。未評価の動画は評価軸では描画しません。順位相関は2つの数値の傾向を示すだけで、因果関係や曲の好みを証明しません。投稿時期は聴取した時期ではありません。削除・非公開・取得失敗の動画は描画と相関計算に含めません（取得失敗は削除確定ではありません）。動画データやメモは削除しません。</p>
+      <p class="trend-notice">${is3D ? '3Dは3つの数値を立体的に投影しています。ドラッグやキーボードで回転し、別の角度から重なりを確かめてください。見やすさや操作性を優先したい場合は2Dに戻せます。' : ''}点にカーソルを重ねると動画名と数値を表示し、クリックすると詳細を開きます。複数歌唱者の曲は白い輪郭で表示し、色は先頭の歌唱者を採用します。設定色のない歌唱者には名前に基づく安定した自動色を使います（公式カラーではありません）。再生数・コメント数・いいね数・ニコニコ全体のマイリスト数は0も扱える対数目盛を使用。反応率は1,000再生あたりの件数で、再生数0や情報未取得の場合は描画しません。自分の所属マイリスト数とニコニコ全体のマイリスト数は別指標です。未評価の動画は評価軸では描画しません。順位相関は2つの数値の傾向を示すだけで、因果関係や曲の好みを証明しません。投稿時期は聴取した時期ではありません。削除・非公開・取得失敗の動画は描画と相関計算に含めません（取得失敗は削除確定ではありません）。動画データやメモは削除しません。</p>
     </section>`;
 }

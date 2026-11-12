@@ -1,5 +1,5 @@
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.14.4';
+export const APP_VERSION = '0.15.0';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
@@ -44,7 +44,7 @@ export function createInitialState() {
     savedSearchesError: '',
     activeSavedSearchId: '',
     trends: { axis: 'playlist', facet: 'voice', playlistId: '', includeOther: false, selected: null, chartStyle: 'line', focus: '', visibleCount: 10 },
-    scatter: { x: 'views', y: 'comments', voice: '', legendLimit: 30 },
+    scatter: { mode: '2d', x: 'views', y: 'comments', z: 'mylists', voice: '', legendLimit: 30 },
     voiceMode: 'canonical',
     voiceVisibleCount: 15,
     cardMode: 'list',

@@ -1,4 +1,5 @@
 import { videoId } from '../lib.js';
+import { DEFAULT_3D_CAMERA } from './scatter3d.js';
 
 /**
  * DOM event delegation belongs here, away from the data-fetching controller.
@@ -70,8 +71,22 @@ root.addEventListener('click',e=>{
     state.scatter.voice = state.scatter.voice === target.dataset.scatterVoice ? '' : target.dataset.scatterVoice;
     return rerenderContent();
   }
+  if (target.id === 'scatter-mode-2d' || target.id === 'scatter-mode-3d') {
+    state.scatter.mode = target.id === 'scatter-mode-3d' ? '3d' : '2d';
+    return rerenderContent();
+  }
+  if (target.id === 'scatter-3d-reset-view') {
+    state.scatter.camera = { ...DEFAULT_3D_CAMERA };
+    return rerenderContent();
+  }
+  if (target.id === 'scatter-3d-zoom-in' || target.id === 'scatter-3d-zoom-out') {
+    const camera = state.scatter.camera || { ...DEFAULT_3D_CAMERA };
+    camera.zoom = Math.max(0.6, Math.min(2.2, camera.zoom * (target.id.endsWith('in') ? 1.2 : 1 / 1.2)));
+    state.scatter.camera = camera;
+    return rerenderContent();
+  }
   if (target.id === 'scatter-reset') {
-    state.scatter = { x: 'views', y: 'comments', voice: '', legendLimit: 30 };
+    state.scatter = { mode: '2d', x: 'views', y: 'comments', z: 'mylists', voice: '', legendLimit: 30 };
     return rerenderContent();
   }
   if(target.dataset.favorite)return guard(()=>toggleFavorite(target.dataset.favorite));
@@ -146,9 +161,9 @@ root.addEventListener('change',e=>{
     state.trends.selected = null;
     return rerenderContent();
   }
-  if (['scatter-x', 'scatter-y', 'scatter-voice', 'scatter-legend-limit'].includes(e.target.id)) {
+  if (['scatter-x', 'scatter-y', 'scatter-z', 'scatter-voice', 'scatter-legend-limit'].includes(e.target.id)) {
     if (e.target.id === 'scatter-legend-limit') state.scatter.legendLimit = e.target.value === 'all' ? 'all' : Number(e.target.value);
-    else state.scatter[{ 'scatter-x': 'x', 'scatter-y': 'y', 'scatter-voice': 'voice' }[e.target.id]] = e.target.value;
+    else state.scatter[{ 'scatter-x': 'x', 'scatter-y': 'y', 'scatter-z': 'z', 'scatter-voice': 'voice' }[e.target.id]] = e.target.value;
     return rerenderContent();
   }
   if(e.target.id==='saved-search-select')return useSearchPreset(e.target.value);
