@@ -89,8 +89,9 @@ test('公開情報の取得時はSupabase認証への外部通信を行わず、
   const urls = [];
   await withFetch(async (url, options) => {
     const target = String(url); urls.push(target);
+    assert.equal(typeof url, 'string');
     assert.equal(new URL(target).hostname, 'nvapi.nicovideo.jp');
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     assert.equal(options.headers.Authorization, undefined);
     assert.equal(options.headers.Cookie, undefined);
     assert.equal(options.headers.apikey, undefined);

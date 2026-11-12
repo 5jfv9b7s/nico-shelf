@@ -1,3 +1,24 @@
+# v0.16.3 追記 — Cloudflare Workersのredirect互換性
+
+v0.16.2のWorkerでは `fetch(..., { redirect: 'error' })` を指定していましたが、Cloudflare Workersはこのモードをサポートしておらず、リクエストを送信する前にTypeErrorを返します。これはCloudflare公式のRequest仕様で明示されています: https://developers.cloudflare.com/workers/runtime-apis/request/
+
+v0.16.3では `redirect: 'manual'` に変更し、3xx応答を明示的に拒否。上流リクエストのエラーは以下のコードに分けて返します。
+
+| エラーコード | 段階 | 意味・確認先 |
+|---|---|---|
+| `NICO_NETWORK` | fetch | Cloudflare→ニコニコ通信ができない。Workersログで接続エラーを確認 |
+| `NICO_TIMEOUT` | fetch | 15秒のタイムアウト |
+| `NICO_REDIRECT` | http | APIが予期しない3xxを返した。自動追跡しない |
+| `NICO_HTTP_ERROR` | http | ニコニコAPIの4xx/5xx（非公開とレート制限を除く） |
+| `NICO_NON_JSON` | response | HTTP 200でもJSONではなく、HTMLのエラー画面など |
+| `NICO_INVALID_JSON` | response | JSON形式としてパースできない |
+| `NICO_INVALID_DATA` | parse | フィールド不足や動画ID欠落。安全のため同期中止 |
+| `NICO_NOT_PUBLIC` | http | 非公開・削除・アクセス制限の可能性 |
+
+本番で失敗したときはAPIレスポンスの `code` と `stage`、Cloudflare WorkersのLogsを確認してください。生の認証トークンやCookieをログに出さないでください。**取得失敗時に空の一覧をDBへ反映しない**仕様は維持しています。
+
+---
+
 # NICO SHELF v0.16.2 — 拡張機能不要の公開マイリスト同期
 
 ## 対応範囲

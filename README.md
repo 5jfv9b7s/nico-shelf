@@ -1,3 +1,17 @@
+## v0.16.3 — 公開マイリスト同期のCloudflare互換性修正（2026-11-12）
+
+**原因:** v0.16.2はCloudflare Workersが対応していない `fetch(..., { redirect: 'error' })` を指定し、外部HTTPリクエストの前に必ず例外が発生する状態でした。詳細: https://developers.cloudflare.com/workers/runtime-apis/request/
+
+**修正:** `worker/index.js` を `redirect: 'manual'` に変更し、3xxレスポンスは自動追跡せずエラーにします。また、ネットワーク・JSON・API形式のエラーを分離して表示します。
+
+1. `worker/index.js` を含む更新パッチをGitHubに適用します。Cloudflareのデプロイで **Worker本体（wrangler deploy）** が更新されたことを確認します。ブラウザのキャッシュ更新だけでは直りません。
+2. `https://nico-shelf.shiokara-lab.workers.dev/api/public-mylists/75327830?page=1` を開きます。成功なら `items` 配列を含むJSON。失敗時は `code` と `stage` のあるJSONになるので、その**コード部分だけ**を診断に使用できます。
+3. NICO SHELFで公開リストを1つ選び「公開マイリストを照合する」を再試行します。複数リストの一部が非公開だったり取得に失敗した場合、同期全体を中止します。マイリストへの追加・削除候補は差分プレビューで確認してください。
+
+Cloudflareに新しい環境変数・DB変更・Tampermonkey更新は不要です。v0.16.2のレート制限バインディングは引き続き必要です。実際のニコニコ側の公開APIの応答までは、この環境から検証できていません。
+
+---
+
 ## v0.16.2 — 公開マイリスト同期の503修正（2026-11-12）
 
 v0.16.0〜v0.16.1の `/api/public-mylists/...` が、公開データの取得前にSupabase Authへ問い合わせ、接続・JSON解析の失敗で503を返す問題を修正しました。

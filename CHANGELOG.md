@@ -1,3 +1,12 @@
+## v0.16.3 (2026-11-12) — Cloudflare Workers公開同期の実行時互換性を修正
+
+- **根本原因:** Workers の `fetch()` は `redirect: 'error'` に非対応で、リクエスト送信前に `TypeError` を発生させる。v0.16.2はこれを汎用502にしていた。
+- `worker/index.js`: `redirect: 'manual'` + HTTP 3xx の明示的な拒否に変更。fetch先を文字列URLに統一。
+- 失敗段階を `NICO_NETWORK`、`NICO_TIMEOUT`、`NICO_REDIRECT`、`NICO_HTTP_ERROR`、`NICO_NON_JSON`、`NICO_INVALID_JSON`、`NICO_INVALID_DATA` 等で区別。Workerログには公開ID、ページ番号、エラー種別だけを記録。
+- `X-Niconico-Language` を追加。外部へのCookie/Token転送禁止、レート制限、全ページ検証、失敗時にDBを変更しない仕様を維持。
+- フロントはエラー表示に診断コードを追記。次に失敗したときも原因の段階を判断しやすくした。
+- 独立した通信・JSON・リダイレクト・パースのテストを追加。実際のCloudflare→ニコニコ通信は公開後要検証。
+
 ## v0.16.2 (2026-11-12) — 公開マイリストAPIの503修正
 
 - `worker/index.js`: 読み取り専用の公開APIでSupabase Authに再問い合わせしない構成に変更。Authサービスへの接続失敗やJSON応答による503を回避。

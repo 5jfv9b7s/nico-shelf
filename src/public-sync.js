@@ -66,7 +66,11 @@ export async function fetchPublicMylist(listId, { onProgress = () => {}, fetchPa
       cache: 'no-store',
     });
     const pageResult = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(`${listId}: ${pageResult.error || `HTTP ${response.status}`}`);
+    if (!response.ok) {
+      const detail = pageResult.error || `HTTP ${response.status}`;
+      const diagnostic = pageResult.code ? ` [${pageResult.code}]` : '';
+      throw new Error(`${listId}: ${detail}${diagnostic}`);
+    }
     if (!Array.isArray(pageResult.items)) throw new Error(`${listId}: API応答が不完全です`);
     pages.push(pageResult);
     const total = pages.reduce((value, part) => value + part.items.length, 0);
