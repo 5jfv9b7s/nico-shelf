@@ -361,8 +361,8 @@ async function runImport(){
   }finally{state.busy=false;if(document.querySelector('#run-import'))document.querySelector('#run-import').disabled=false;}
 }
 /**
- * No-extension sync for explicitly public playlists. The Worker verifies the
- * Google session, reads only the published API, and never receives Nico cookies.
+ * No-extension sync for explicitly public playlists. The public read-only
+ * Worker endpoint fetches published data; Supabase/RLS still protect DB writes.
  */
 async function syncFromPublic() {
   if (state.busy || state.dialog?.kind !== 'sync') return;
@@ -378,7 +378,6 @@ async function syncFromPublic() {
   render();
   try {
     const snapshot = await fetchPublicSnapshot(lists, {
-      client,
       onProgress: (message) => {
         state.syncProgress = message;
         render();
@@ -418,7 +417,6 @@ async function importPublicPlaylist() {
   render();
   try {
     const remote = await fetchPublicMylist(id, {
-      client,
       onProgress: (message) => { state.syncProgress = message; render(); },
     });
     // This insertion happens only on the user's explicit "add public list"

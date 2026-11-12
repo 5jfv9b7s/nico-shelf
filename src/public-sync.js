@@ -57,15 +57,12 @@ export function assemblePublicMylistPages(pages, listId) {
   };
 }
 
-export async function fetchPublicMylist(listId, { client, onProgress = () => {}, fetchPage = fetch } = {}) {
+export async function fetchPublicMylist(listId, { onProgress = () => {}, fetchPage = fetch } = {}) {
   if (!ID_RE.test(listId)) throw new Error('マイリストIDが不正です');
-  const { data, error } = await client.auth.getSession();
-  if (error || !data.session?.access_token) throw new Error('Googleでログインし直してください');
   const pages = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     onProgress(`${listId}: ${page}ページ目を取得中…`);
     const response = await fetchPage(`/api/public-mylists/${listId}?page=${page}`, {
-      headers: { Authorization: `Bearer ${data.session.access_token}` },
       cache: 'no-store',
     });
     const pageResult = await response.json().catch(() => ({}));

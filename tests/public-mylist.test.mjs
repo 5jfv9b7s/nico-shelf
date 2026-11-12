@@ -11,8 +11,8 @@ const page = (id, number, items, { totalCount = null, hasNext = false } = {}) =>
   items: items.map((id) => ({ video_id: id, title: id })),
 });
 const PUBLIC_ID = '76098340';
-const env = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_example' };
-const authHeader = { Authorization: 'Bearer test.token.value123456' };
+const env = { PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => ({ success: true }) } };
+const authHeader = { Authorization: 'Bearer test.token.value123456' }; // Never forwarded to NicoNico
 const apiUrl = `https://nico-shelf.example/api/public-mylists/${PUBLIC_ID}?page=1`;
 
 function withFetch(mock, run) {
@@ -64,23 +64,36 @@ test('途中で欠けたページや件数変化・ID重複は差分に反映で
   ], PUBLIC_ID), /欠落/);
 });
 
-test('Workerは未認証・ID不正・設定不足を拒否する', async () => {
-  assert.equal((await handlePublicMylistRequest(new Request(apiUrl), env)).status, 401);
-  assert.equal((await handlePublicMylistRequest(new Request('https://nico-shelf.example/api/public-mylists/abc', { headers: authHeader }), env)).status, 400);
-  assert.equal((await handlePublicMylistRequest(new Request(apiUrl, { headers: authHeader }), {})).status, 503);
-  assert.equal((await handlePublicMylistRequest(new Request(apiUrl, { headers: authHeader, method: 'POST' }), env)).status, 405);
+test('WorkerはID・HTTPメソッドを検証し、レート制限設定がない場合は取得しない', async () => {
+  assert.equal((await handlePublicMylistRequest(new Request('https://nico-shelf.example/api/public-mylists/abc'), env)).status, 400);
+  assert.equal((await handlePublicMylistRequest(new Request(apiUrl), {})).status, 503);
+  assert.equal((await handlePublicMylistRequest(new Request(apiUrl, { method: 'POST' }), env)).status, 405);
+  assert.equal((await handlePublicMylistRequest(new Request(apiUrl.replace('page=1', 'page=21')), env)).status, 400);
 });
 
-test('WorkerはSupabase認証済みユーザーにだけ公開動画IDを返す', async () => {
+test('レート制限を超えると429を返し、ニコニコAPIを一切呼ばない', async () => {
+  await withFetch(async () => { throw Error('上流APIに到達してはいけない'); }, async () => {
+    const limited = { PUBLIC_MYLIST_RATE_LIMIT: { limit: async ({ key }) => {
+      assert.equal(key, 'nico-public:203.0.113.12');
+      return { success: false };
+    } } };
+    const response = await handlePublicMylistRequest(new Request(apiUrl, {
+      headers: { 'CF-Connecting-IP': '203.0.113.12' },
+    }), limited);
+    assert.equal(response.status, 429);
+    assert.match((await response.json()).error, /時間/);
+  });
+});
+
+test('公開情報の取得時はSupabase認証への外部通信を行わず、ニコニコにもトークンを送らない', async () => {
   const urls = [];
   await withFetch(async (url, options) => {
     const target = String(url); urls.push(target);
-    if (target.endsWith('/auth/v1/user')) {
-      assert.equal(options.headers.apikey, env.SUPABASE_PUBLISHABLE_KEY);
-      return Response.json({ id: 'a-real-user-id' });
-    }
     assert.equal(new URL(target).hostname, 'nvapi.nicovideo.jp');
     assert.equal(options.redirect, 'error');
+    assert.equal(options.headers.Authorization, undefined);
+    assert.equal(options.headers.Cookie, undefined);
+    assert.equal(options.headers.apikey, undefined);
     return Response.json({ data: { mylist: {
       name: '公開リスト', totalItemCount: 2, hasNext: false, items: [video('sm10'), video('sm20')],
     } } });
@@ -90,12 +103,40 @@ test('WorkerはSupabase認証済みユーザーにだけ公開動画IDを返す'
     assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.equal((await response.json()).items.length, 2);
   });
-  assert.equal(urls.length, 2);
+  assert.equal(urls.length, 1);
+});
+
+test('公開APIはSupabaseセッションなしでも公開動画だけを読み取れる', async () => {
+  await withFetch(async (url) => {
+    assert.equal(new URL(url).hostname, 'nvapi.nicovideo.jp');
+    return Response.json({ data: { mylist: {
+      name: '公開リスト', items: [video('sm123')], totalItemCount: 1,
+    } } });
+  }, async () => {
+    const response = await handlePublicMylistRequest(new Request(apiUrl), env);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.items.map((item) => item.video_id), ['sm123']);
+  });
+});
+
+test('ニコニコ上流APIに障害があると502になり、空リストに変換しない', async () => {
+  await withFetch(async () => new Response('temporary failure', { status: 503 }), async () => {
+    const response = await handlePublicMylistRequest(new Request(apiUrl), env);
+    assert.equal(response.status, 502);
+    assert.match((await response.json()).error, /HTTP 503/);
+  });
+});
+
+test('レート制限バインディングの故障時は安全側に倒して503を返す', async () => {
+  const broken = { PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => { throw Error('failure'); } } };
+  const response = await handlePublicMylistRequest(new Request(apiUrl), broken);
+  assert.equal(response.status, 503);
+  assert.match((await response.json()).error, /制限処理/);
 });
 
 test('非公開・削除リストはエラーにし、空のスナップショットにしない', async () => {
   await withFetch(async (url) => {
-    if (String(url).includes('/auth/v1/user')) return Response.json({ id: 'a-real-user-id' });
     return new Response('Forbidden', { status: 403 });
   }, async () => {
     const response = await handlePublicMylistRequest(new Request(apiUrl, { headers: authHeader }), env);
@@ -106,11 +147,9 @@ test('非公開・削除リストはエラーにし、空のスナップショ�
 
 test('画面側でページを最後まで取得し、従来の差分同期と同じ形式になる', async () => {
   const page1 = page(PUBLIC_ID, 1, ['sm10', 'sm20'], { totalCount: 2 });
-  const fakeClient = { auth: { getSession: async () => ({ data: { session: { access_token: 'test.token' } } }) } };
   const snapshot = await fetchPublicSnapshot([{ id: PUBLIC_ID, name: 'ぼかうた3' }], {
-    client: fakeClient,
     fetchPage: async (_url, init) => {
-      assert.equal(init.headers.Authorization, 'Bearer test.token');
+      assert.equal(init.headers, undefined);
       return Response.json(page1);
     },
   });
@@ -125,10 +164,8 @@ test('画面側でページを最後まで取得し、従来の差分同期と�
 });
 
 test('公開同期の1リスト取得失敗では部分的な差分を返さない', async () => {
-  const fakeClient = { auth: { getSession: async () => ({ data: { session: { access_token: 'test.token' } } }) } };
   const ids = [{ id: '123', name: '公開A' }, { id: '456', name: '非公開B' }];
   await assert.rejects(() => fetchPublicSnapshot(ids, {
-    client: fakeClient,
     fetchPage: async (url) => url.includes('/123?')
       ? Response.json(page('123', 1, ['sm10']))
       : Response.json({ error: '非公開です' }, { status: 403 }),
@@ -142,10 +179,8 @@ test('100件を超える公開マイリストを複数ページから正しく�
   const list = assemblePublicMylistPages([first, second], PUBLIC_ID);
   assert.equal(list.items.length, 101);
   assert.equal(list.items.at(-1).video_id, 'sm200');
-  const fakeClient = { auth: { getSession: async () => ({ data: { session: { access_token: 'test.token' } } }) } };
   const requested = [];
   const fetched = await fetchPublicMylist(PUBLIC_ID, {
-    client: fakeClient,
     fetchPage: async (url) => {
       requested.push(url);
       return Response.json(requested.length === 1 ? first : second);

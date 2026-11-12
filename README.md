@@ -1,3 +1,16 @@
+## v0.16.2 — 公開マイリスト同期の503修正（2026-11-12）
+
+v0.16.0〜v0.16.1の `/api/public-mylists/...` が、公開データの取得前にSupabase Authへ問い合わせ、接続・JSON解析の失敗で503を返す問題を修正しました。
+
+- **公開マイリストの取得だけ**はSupabase Authへの再通信を行いません。ブラウザからSupabaseのアクセストークンをこの公開APIに送信する処理も削除しました。
+- Workerは固定されたニコニコの公開APIだけを読み取ります。Cloudflareの `PUBLIC_MYLIST_RATE_LIMIT` バインディングでアクセス回数を制限します。`wrangler.jsonc` **を必ず更新**してください。
+- このAPI自体は認証不要で、**他人も公開マイリストを読み取れます**。個人のNICO SHELFライブラリやメモにはアクセスできず、DBの保存・更新は従来のGoogleログイン・Supabase RLSに従います。
+- Supabase用の **VITE_*** ビルド環境変数は引き続き必要です。旧版のWorker専用 `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` は公開同期には不要になりました（Cloudflareで後から削除可能）。
+- 新たなSQL・Tampermonkeyの更新は不要。非公開リストの同期やニコニコ本体への直接登録は従来どおりTampermonkeyが必要です。
+- 詳しい設定と制限事項は [`docs/EXTENSION_FREE_SYNC.md`](docs/EXTENSION_FREE_SYNC.md) を参照してください。Cloudflare→ニコニコAPIの実通信はデプロイ後に要確認です。
+
+---
+
 ## v0.16.1 UI改善について
 
 この版はv0.16.0を基礎に、スマホ操作と分析画面の可読性を改善します。DBマイグレーション・Cloudflare環境変数・Tampermonkeyの再設定は不要です。
@@ -26,11 +39,11 @@
 ## v0.16.0 — 拡張機能なしの公開マイリスト同期（読み取り専用）
 
 - 「ニコニコとの差分同期」で**公開マイリストをTampermonkeyなしで取得**できます。
-- Googleログインを使ってCloudflare Workerの専用読み取りAPIへアクセスします。ニコニコのログインCookieは送信しません。
+- Cloudflare Workerの公開読み取り専用APIを使います（v0.16.2でSupabase Auth再確認を廃止）。ニコニコのログインCookieは送信しません。
 - 公開／非公開が混在する場合は公開リストだけチェックしてください。全件取得に失敗した場合は**DBに一切反映しません**。
 - 新規公開リストのURL・IDを入力してライブラリへ追加できます。追加後は従来の確認画面で動画の差分を反映します。
 - 非公開リストとニコニコ本体への直接登録では、動作確認済みのTampermonkey連携をそのまま利用できます。
-- **CloudflareにWorkerのランタイム環境変数が2件必要です**（Googleのアプリ画面で設定するVITE_*とは別）。詳しくは [`docs/EXTENSION_FREE_SYNC.md`](docs/EXTENSION_FREE_SYNC.md)。
+- **v0.16.2以降**: Worker専用のSupabase環境変数は不要です。`wrangler.jsonc` のレート制限バインディング設定が必要です。詳しくは [`docs/EXTENSION_FREE_SYNC.md`](docs/EXTENSION_FREE_SYNC.md)。
 - 今回はSupabase SQLとTampermonkeyスクリプトの更新は不要です。
 - GitHub Actionsでテスト・import参照チェック・ビルドを検証するCIを追加しました。
 - OAuthを使った直接登録は、ニコニコ側の正式なクライアント発行方法・書き込み権限を確認できるまで保留です。API利用規約の確認と実ブラウザテストが必要です。

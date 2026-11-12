@@ -9,5 +9,12 @@
       "/api/*"
     ]
   },
+  "ratelimits": [
+    {
+      "name": "PUBLIC_MYLIST_RATE_LIMIT",
+      "namespace_id": "1601621",
+      "simple": { "limit": 120, "period": 60 }
+    }
+  ],
   "main": "worker/index.js"
 }
