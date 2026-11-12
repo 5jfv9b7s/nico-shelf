@@ -62,10 +62,10 @@ test('歌唱者の元表記が違っても同一キャラとして一致', () =>
 
 test('分類根拠には実際に一致したタグだけを表示する', () => {
   const song = video('sm1', { tags: ['ボカロック', '切ない', 'かわいい'], genre: '音楽・サウンド' });
-  assert.deepEqual(genreEvidence(song), [{ label: 'ロック', evidence: ['ボカロック'] }]);
+  assert.deepEqual(genreEvidence(song), [{ label: 'ロック', evidence: ['タグ：ボカロック'] }]);
   assert.deepEqual(moodEvidence(song), [
-    { label: 'かわいい・癒し', evidence: ['かわいい'] },
-    { label: '切ない・感動', evidence: ['切ない'] },
+    { label: 'かわいい・癒し', evidence: ['タグ：かわいい'] },
+    { label: '切ない・感動', evidence: ['タグ：切ない'] },
   ]);
   assert.deepEqual(genreLabels(song), ['ロック']);
   assert.deepEqual(moodLabels(song), ['かわいい・癒し', '切ない・感動']);

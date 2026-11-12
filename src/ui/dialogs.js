@@ -1,7 +1,7 @@
 import { esc, videoId, array, formatCount, formatDate } from '../lib.js';
 import { snapshotUrl } from '../sync.js';
 import { registrationLists, registrationDecision } from '../registration.js';
-import { canonicalVoices, genreEvidence, moodEvidence, needsMetadata } from '../discovery.js';
+import { canonicalVoices, detectVoiceEvidence, genreEvidence, moodEvidence, needsMetadata } from '../discovery.js';
 import { renderRelatedDialog } from './related.js';
 import { safeThumb } from './media.js';
 
@@ -97,12 +97,19 @@ function modal(){
   else if(d.kind==='detail'){
     const v=lib.videos.find(x=>x.id===d.id),m=lib.meta.find(x=>x.video_id===d.id);
     if(!v)return '';
+    const singerEvidence = detectVoiceEvidence({ ...v, userMeta: m });
+    const singerEvidenceRows = (items) => items.map((item) => `
+      <li><b>${esc(item.name)}</b> — ${esc(item.source)} <small>${esc(item.excerpt)}</small></li>`).join('');
     contents=`<div class="modal-head"><div class="eyebrow">VIDEO NOTES / ${esc(v.id)}</div><h2>${esc(v.title||v.id)}</h2><p>${esc(v.uploader||'')} · ${formatDate(v.published_at)}</p></div>
     ${safeThumb(v.thumb)?`<a class="detail-hero-thumb" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer"><img src="${esc(safeThumb(v.thumb))}" alt="${esc(v.title)}のサムネイル" loading="lazy" /></a>`:''}
     <a class="link-text" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer">ニコニコで動画を見る ↗</a>
     <p class="modal-note">歌唱キャラ：${esc(canonicalVoices({...v,userMeta:m}).join(' / ')||'未判定')} ／ 元の表記：${esc(array(v.voices).join(' / ')||'なし')}<br>タグ：${esc(array(v.tags).slice(0,20).join(' / ')||'なし')}</p>
     <div class="classification-evidence">
-      <b>分類の根拠（タグなど）</b>
+      <b>歌唱者の判定根拠</b>
+      ${singerEvidence.accepted.length ? `<ul class="singer-evidence-list">${singerEvidenceRows(singerEvidence.accepted)}</ul>` : '<p>歌唱者の確かな根拠はまだありません。</p>'}
+      ${singerEvidence.suggestions.length ? `<p class="singer-evidence-note">要確認の候補（集計には含めません）：</p><ul class="singer-evidence-list">${singerEvidenceRows(singerEvidence.suggestions)}</ul>` : ''}
+      <p class="singer-evidence-note">概要欄で名前が言及されただけの場合は誤判定を避けるため自動集計しません。歌唱者を自分で修正すると判定を上書きできます。</p>
+      <b>分類の根拠（ジャンル・雰囲気）</b>
       <p>ジャンル：${esc(genreEvidence(v).map(x => `${x.label}〈${x.evidence.join('・')}〉`).join(' / ') || '未分類')}</p>
       <p>雰囲気：${esc(moodEvidence(v).map(x => `${x.label}〈${x.evidence.join('・')}〉`).join(' / ') || '未分類')}</p>
     </div>

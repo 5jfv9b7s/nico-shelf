@@ -265,3 +265,63 @@
   .trend-controls { display: grid; grid-template-columns: 1fr; }
   .trend-matrix th:first-child { width: 135px; }
 }
+
+/* v0.13 — readable, accessible trend visualization.
+   The width of each fill belongs to a block-level element (v0.10 regression). */
+.trend-visualization {
+  padding: 18px;
+  margin: 18px 0 24px;
+  background: rgba(9, 25, 42, .46);
+  border: 1px solid rgba(105, 222, 208, .22);
+  border-radius: 13px;
+}
+.trend-chart-heading {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.trend-chart-heading h3 { color: #e7f5f5; margin: 0 0 6px; font-size: 16px; }
+.trend-chart-heading p { font-size: 12px; color: #9bb2c8; margin: 0; }
+.trend-legend { display: flex; flex-wrap: wrap; gap: 7px; margin: 17px 0 10px; }
+.trend-legend-item, .trend-legend-clear {
+  border: 1px solid rgba(158, 190, 214, .25); background: rgba(26, 44, 68, .9);
+  border-radius: 8px; padding: 7px 10px; color: #d8eaf0;
+  display: inline-flex; align-items: center; gap: 7px; font-size: 11px;
+  cursor: pointer;
+}
+.trend-legend-item:hover, .trend-legend-item.is-active { border-color: #73e0d5; }
+.trend-legend-item:focus-visible, .trend-legend-clear:focus-visible {
+  outline: 2px solid #75e6d8; outline-offset: 2px;
+}
+.trend-legend-color { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.trend-chart-scroll { overflow-x: auto; max-width: 100%; }
+.trend-line-svg { display: block; max-width: none; }
+.trend-axis-label { fill: #9fb4ce; font: 12px system-ui, sans-serif; }
+.trend-spotlight-list { display: grid; gap: 11px; margin: 15px 0 19px; }
+.trend-spotlight-row { display: grid; grid-template-columns: minmax(100px, 150px) minmax(90px, 1fr) 135px; gap: 12px; align-items: center; }
+.trend-spotlight-name { color: #c8e4eb; font-size: 12px; overflow-wrap: anywhere; }
+.trend-spotlight-track, .trend-coverage-track { display: block; background: #253951; height: 13px; border-radius: 100px; overflow: hidden; }
+.trend-spotlight-fill, .trend-coverage-track > span { display: block; height: 100%; border-radius: inherit; background: #67d9cc; }
+.trend-spotlight-number { color: #e6f7f5; text-align: right; white-space: nowrap; font-size: 12px; font-variant-numeric: tabular-nums; }
+.trend-spotlight-number small { color: #a9c0d0; font-size: 10px; font-weight: normal; }
+.trend-coverage-chart { border-top: 1px solid #334760; margin-top: 14px; padding-top: 16px; }
+.trend-coverage-chart h4 { font-size: 13px; color: #e0eef6; margin: 0 0 12px; }
+.trend-coverage-chart h4 small { font-weight: normal; font-size: 11px; color: #97b4c9; }
+.trend-coverage-row { display: grid; grid-template-columns: minmax(105px, 160px) minmax(70px, 1fr) 65px 85px; align-items: center; gap: 10px; margin: 6px 0; font-size: 12px; color: #afc4d7; }
+.trend-coverage-row > span:first-child { overflow-wrap: anywhere; }
+.trend-coverage-track { height: 6px; }
+.trend-coverage-track > span { background: #829bb4; }
+.trend-coverage-row b, .trend-coverage-row small { text-align: right; font-variant-numeric: tabular-nums; }
+.trend-observation { display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #334760; padding-top: 14px; margin-top: 16px; font-size: 12px; color: #bed4e4; }
+.trend-observation strong { color: #e4f7f1; }
+.trend-observation small { width: 100%; font-size: 11px; line-height: 1.7; color: #8ea9bc; }
+.singer-evidence-list { display: grid; gap: 5px; padding: 0; margin: 9px 0 0; list-style: none; }
+.singer-evidence-list li { padding: 8px 10px; border-radius: 7px; background: #1b3043; color: #d2e4eb; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.singer-evidence-list small { color: #95b4c9; display: block; }
+.singer-evidence-note { font-size: 11px; color: #adc2d6; margin-top: 10px; line-height: 1.8; }
+@media (max-width: 650px) {
+  .trend-visualization { padding: 12px; }
+  .trend-spotlight-row { grid-template-columns: minmax(60px, 100px) minmax(60px, 1fr); gap: 5px 9px; }
+  .trend-spotlight-number { grid-column: 2; text-align: left; }
+  .trend-coverage-row { grid-template-columns: minmax(95px, 120px) minmax(65px, 1fr) 55px; }
+  .trend-coverage-row small { display: none; }
+}

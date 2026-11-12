@@ -96,10 +96,10 @@ function dashboard(rows){
     </div>
     ${playlistVoiceMatrix(rows,p)}
     <div class="two-cols discover-charts">
-      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG GENRES</span><h2>タグから推定したジャンル</h2></div></div>${barList(genreRanking, '曲', 'genre')}</section>
-      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG MOODS</span><h2>タグから推定した雰囲気</h2></div></div>${barList(moodRanking, '曲', 'mood')}</section>
+      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG GENRES</span><h2>メタデータから推定したジャンル</h2></div></div>${barList(genreRanking, '曲', 'genre')}</section>
+      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">TAG MOODS</span><h2>メタデータから推定した雰囲気</h2></div></div>${barList(moodRanking, '曲', 'mood')}</section>
     </div>
-    <p class="facet-disclaimer">※ジャンル・雰囲気は保存済みタグの文字列からの推定です（ジャンル ${rows.filter(r => genreLabels(r).length).length}/${rows.length}曲、雰囲気 ${rows.filter(r => moodLabels(r).length).length}/${rows.length}曲に根拠あり）。音声解析ではなく未分類曲もあります。各項目を押すとライブラリを絞り込めます。</p>
+    <p class="facet-disclaimer">※ジャンル・雰囲気は保存済みタグと概要欄の明示的な分類表記からの推定です（ジャンル ${rows.filter(r => genreLabels(r).length).length}/${rows.length}曲、雰囲気 ${rows.filter(r => moodLabels(r).length).length}/${rows.length}曲に根拠あり）。音声解析ではなく未分類曲もあります。各項目を押すとライブラリを絞り込めます。</p>
     <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">RECENTLY PUBLISHED</span><h2>ライブラリ内の新着投稿</h2></div><button class="text-btn" data-view="library">すべて見る →</button></div>${cards(sortRows(rows,'published_at','desc').slice(0,5))}</section>`;
 }
 function cards(rows){
@@ -148,12 +148,12 @@ function listing(rows){
   <div class="facet-toolbar" aria-label="詳細検索条件">
     <label class="control-label">歌唱キャラ<select id="voice-filter"><option value="">すべて</option>${selectOptions(voices,state.filters.voice)}</select></label>
     <label class="control-label">歌唱者の原表記<select id="variant-filter" ${state.filters.voice?'':'disabled'}><option value="">すべてのバージョン</option>${selectOptions(variants,state.filters.variant)}</select></label>
-    <label class="control-label">ジャンル（タグ推定）<select id="genre-filter"><option value="">すべて</option>${selectOptions(GENRE_LABELS,state.filters.genre)}</select></label>
-    <label class="control-label">雰囲気（タグ推定）<select id="mood-filter"><option value="">すべて</option>${selectOptions(MOOD_LABELS,state.filters.mood)}</select></label>
+    <label class="control-label">ジャンル（タグ・概要欄推定）<select id="genre-filter"><option value="">すべて</option>${selectOptions(GENRE_LABELS,state.filters.genre)}</select></label>
+    <label class="control-label">雰囲気（タグ・概要欄推定）<select id="mood-filter"><option value="">すべて</option>${selectOptions(MOOD_LABELS,state.filters.mood)}</select></label>
     <label class="control-label">投稿年<select id="year-filter"><option value="">すべて</option>${selectOptions(years,state.filters.year)}</select></label>
     <label class="control-label">整理状況<select id="status-filter">
       <option value="" ${!state.filters.status?'selected':''}>すべて</option>
-      ${[['unlisted','どのリストにも未所属'],['no-voice','歌唱者が未判定'],['unrated','未評価'],['missing-metadata','動画情報が不足']].map(([key,label])=>`<option value="${key}" ${state.filters.status===key?'selected':''}>${label}</option>`).join('')}
+      ${[['unlisted','どのリストにも未所属'],['no-voice','歌唱者が未判定'],['voice-review','歌唱者に要確認候補あり'],['unrated','未評価'],['missing-metadata','動画情報が不足']].map(([key,label])=>`<option value="${key}" ${state.filters.status===key?'selected':''}>${label}</option>`).join('')}
     </select></label>
     <label class="control-label creator-control">作者・投稿者<input id="creator-filter" placeholder="作者名で検索" value="${esc(state.filters.creator)}" autocomplete="off" /></label>
     <button class="btn subtle" id="facets-reset" title="検索と詳細条件を解除。ソートは維持">条件クリア</button>

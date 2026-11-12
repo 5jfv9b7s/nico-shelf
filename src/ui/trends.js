@@ -1,4 +1,5 @@
 import { esc, formatCount } from '../lib.js';
+import { renderTrendChart } from './trend-charts.js';
 import {
   calculateTrend, compareTrendEndpoints, orderTrendPlaylists,
   TREND_AXES, TREND_FACETS, videosForTrendCell,
@@ -37,6 +38,7 @@ export function renderTrends({ state, rows, cards, hero }) {
       </div>
       <p class="trend-notice">${esc(axisDescriptions[config.axis])} ${config.axis === 'playlist' ? '番号のない「最近のお気に入り」などは、初期状態では比較から除外します。' : ''}</p>
       ${trend.groups.length ? `
+        ${renderTrendChart(trend, { style: config.chartStyle, focus: config.focus })}
         <div class="trend-metrics"><span>比較グループ <b>${trend.cells.length}</b></span><span>項目 <b>${trend.categories.length}</b></span>${config.axis === 'published' ? `<span>投稿日を確認できた動画 <b>${trend.groups.reduce((sum, group) => sum + group.total, 0)}/${rows.length}</b></span>` : ''}<span>分類率は各グループの全動画を分母に計算</span></div>
         <div class="trend-scroll" tabindex="0" aria-label="分析ヒートマップ（横スクロール可能）">
           <table class="trend-matrix" style="min-width:${Math.max(600, 205 + trend.cells.length * 135)}px">
@@ -56,7 +58,7 @@ export function renderTrends({ state, rows, cards, hero }) {
             </tbody>
           </table>
         </div>
-        <p class="trend-notice">色付きのセルを押すと該当動画を表示します。1曲に複数の歌唱者・タグがある場合、複数項目に計上されるため、割合の合計は100%にならないことがあります。${['genre', 'mood'].includes(config.facet) ? '分類は保存済みタグからの推定であり、音声解析ではありません。' : ''}</p>
+        <p class="trend-notice">色付きのセルを押すと該当動画を表示します。1曲に複数の歌唱者・タグがある場合、複数項目に計上されるため、割合の合計は100%にならないことがあります。${['genre', 'mood'].includes(config.facet) ? '分類はタグと概要欄で明示された情報からの推定であり、音声解析ではありません。' : ''}</p>
         ${endpoints.length ? `<div class="trend-differences"><h3>最初と最後のグループの差 <small>（パーセントポイント）</small></h3>
           <div class="trend-delta-list">${endpoints.slice(0, 5).map((item) => `<div><span>${esc(item.category)}</span><b class="${item.delta > 0 ? 'positive' : item.delta < 0 ? 'negative' : ''}">${item.delta > 0 ? '+' : ''}${item.delta.toFixed(1)} pt</b></div>`).join('')}</div>
           <p class="trend-notice">${esc(trend.cells[0].label)} → ${esc(trend.cells.at(-1).label)}。母数や未分類の割合に影響されるため、好みの変化を断定する数字ではありません。</p>

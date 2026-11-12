@@ -1,51 +1,25 @@
 /** Client-side music discovery. Heuristics are based on supplied metadata/tags,
  * not audio analysis; no user notes or source singer names are overwritten. */
 import {array} from './lib.js';
+import { creditedComposers } from './app/creator-detection.js';
 
-const VOICE_ALIASES = [
-  ['音街ウナ', /音街\s*ウナ|otomachi\s*una|una\s*(?:spicy|sugar)/i],
-  ['重音テト', /重音\s*テト|kasane\s*teto/i],
-  ['初音ミク', /初音\s*ミク|hatsune\s*miku/i],
-  ['足立レイ', /足立\s*レイ|adachi\s*rei/i],
-  ['宮舞モカ', /宮舞\s*モカ|miyamai\s*moca/i],
-  ['東北きりたん', /東北\s*きりたん|tohoku\s*kiritan/i],
-  ['結月ゆかり', /結月\s*ゆかり|yuzuki\s*yukari/i],
-  ['琴葉茜', /琴葉\s*茜/i], ['琴葉葵', /琴葉\s*葵/i],
-  ['可不', /(?:^|[\s「『(/])可不(?:$|[\s」』)/])/i],
-  ['星界', /(?:^|[\s「『(/])星界(?:$|[\s」』)/])/i],
-  ['つくよみちゃん', /つくよみちゃん/i],
-  ['ナースロボ＿タイプＴ', /ナースロボ[_＿\s]*タイプ[tｔＴ]/i],
-  ['ずんだもん', /ずんだもん/i],
-  ['小春六花', /小春\s*六花/i],
-  ['花隈千冬', /花隈\s*千冬/i],
-  ['夏色花梨', /夏色\s*花梨/i],
-  ['GUMI', /\bGUMI\b|megpoid/i],
-  ['IA', /(?:^|[\s「『(/])IA(?:$|[\s」』)/])/i],
-  ['鏡音リン', /鏡音\s*リン/i], ['鏡音レン', /鏡音\s*レン/i],
-  ['巡音ルカ', /巡音\s*ルカ/i], ['MEIKO', /\bMEIKO\b/i], ['KAITO', /\bKAITO\b/i],
-];
+import {
+  canonicalVoice,
+  detectVoiceEvidence,
+  VOICE_RULES,
+} from './app/voice-detection.js';
 
-export function canonicalVoice(value) {
-  const original=String(value||'').trim();
-  if(!original)return '';
-  const found=VOICE_ALIASES.find(([,re])=>re.test(original));
-  if(found)return found[0];
-  return original.replace(/^(?:synthesizer\s*v(?:\s*ai)?|cevio\s*ai|vocaloid\s*[456]?|utau)\s*[:：-]?\s*/i,'')
-    .replace(/\s*\((?:unknown|不明)\)\s*$/i,'').replace(/\s*[-–]\s*(?:sv|ai)\s*$/i,'').trim()||original;
-}
-function splitVerified(s) {return String(s||'').split(/[,、;；\n/&＋+]+/).map(x=>x.trim()).filter(Boolean);}
+export { canonicalVoice, detectVoiceEvidence };
+
+/** These are evidence-backed singers, not every name mentioned in a description. */
 export function rawVoices(video) {
-  const verified=video?.userMeta?.verified_voice;
-  return verified?.trim()?splitVerified(verified):array(video?.voices).map(String).filter(Boolean);
+  return detectVoiceEvidence(video).accepted.map(({ variant }) => variant);
 }
+
 export function canonicalVoices(video) {
-  const result=new Set();
-  for(const voice of rawVoices(video)) {
-    const matched=VOICE_ALIASES.filter(([,re])=>re.test(voice)).map(([name])=>name);
-    for(const name of matched.length?matched:[canonicalVoice(voice)])if(name)result.add(name);
-  }
-  return [...result];
+  return [...new Set(detectVoiceEvidence(video).accepted.map(({ name }) => name))];
 }
+
 export function voiceStats(rows,mode='canonical',limit=12) {
   const counts=new Map();
   for(const row of rows){
@@ -56,8 +30,8 @@ export function voiceStats(rows,mode='canonical',limit=12) {
 }
 
 const GENRES = [
-  ['ロック', /(?:ボカロック|vocarock|ロック|\brock\b|ギターロック|オルタナ|パンク)/i],
-  ['ポップ', /(?:ボカポップ|vocapop|ポップ|\bpop\b|シティポップ)/i],
+  ['ロック', /(?:ボカロック|vocarock|ギターロック|ハードロック|ロック曲|(?:^|[\s、・/])ロック(?:$|[\s曲、・/])|\brock\b|オルタナ|パンク)/i],
+  ['ポップ', /(?:ボカポップ|vocapop|ポップ曲|(?:^|[\s、・/])ポップ(?:$|[\s音曲、・/])|\bpop\b|シティポップ)/i],
   ['電子音楽・EDM', /(?:エレクトロ|エレクトロニカ|テクノ|ハウス|\bedm\b|ドラムンベース|dnb|d&b|トランス|dubstep|シンセウェーブ)/i],
   ['ジャズ・ファンク', /(?:ジャズ|\bjazz\b|ファンク|\bfunk\b|スウィング)/i],
   ['バラード', /(?:バラード|ballad)/i],
@@ -77,28 +51,43 @@ const MOODS = [
 export const GENRE_LABELS=GENRES.map(([name])=>name);
 export const MOOD_LABELS=MOODS.map(([name])=>name);
 /**
- * Explain why a genre or mood label was assigned. A match needs an actual
- * metadata field/tag: unrelated words from separate tags are never combined.
- * This is keyword evidence, not confirmation from listening to the audio.
+ * Genre and mood classification remains explainable. We accept a video tag,
+ * an explicit genre field, or labelled description credits such as
+ * "ジャンル: ボカロック". Unstructured description prose and song titles
+ * are NOT counted, because lyric quotes frequently contain mood words.
  */
-function classificationEvidence(video, rules, candidates) {
+function labelledDescription(description, kind) {
+  const prefix = kind === 'genre'
+    ? /^(?:ジャンル|音楽ジャンル|genre|music\s*genre|曲調)\s*[:：=／/]\s*/i
+    : /^(?:雰囲気|曲の雰囲気|ムード|mood|曲のイメージ)\s*[:：=／/]\s*/i;
+  return String(description ?? '').replace(/<br\s*\/?\s*>/gi, '\n')
+    .split(/\r?\n/).map((line) => line.replace(/<[^>]*>/g, '').trim())
+    .filter((line) => prefix.test(line))
+    .map((line) => line.replace(prefix, '').slice(0, 160));
+}
+
+function classificationEvidence(video, rules, kind) {
+  const sources = [
+    ...(kind === 'genre' && video?.genre ? [{ text: String(video.genre), source: '分類フィールド' }] : []),
+    ...[...array(video?.tags), ...array(video?.vocadb_tags)].map((text) => ({ text: String(text), source: 'タグ' })),
+    ...labelledDescription(video?.description, kind).map((text) => ({ text, source: '概要欄の明示的な表記' })),
+  ];
   return rules.flatMap(([label, expression]) => {
-    const evidence = [...new Set(candidates.map(String).filter((tag) =>
-      tag.trim() && expression.test(tag)
-    ))].slice(0, 3);
-    return evidence.length ? [{ label, evidence }] : [];
+    const unique = new Map();
+    for (const { text, source } of sources) {
+      if (text.trim() && expression.test(text)) unique.set(`${source}\u001f${text}`, { text, source });
+    }
+    const matches = [...unique.values()].slice(0, 4);
+    return matches.length ? [{ label, evidence: matches.map(({ text, source }) => `${source}：${text}`) }] : [];
   });
 }
 
 export function genreEvidence(video) {
-  return classificationEvidence(video, GENRES,
-    [video?.genre ?? '', ...array(video?.tags), ...array(video?.vocadb_tags)]);
+  return classificationEvidence(video, GENRES, 'genre');
 }
 
 export function moodEvidence(video) {
-  // Only tagged descriptions count. Song title and uploader are never evidence.
-  return classificationEvidence(video, MOODS,
-    [...array(video?.tags), ...array(video?.vocadb_tags)]);
+  return classificationEvidence(video, MOODS, 'mood');
 }
 
 export function genreLabels(video) {
@@ -108,9 +97,13 @@ export function genreLabels(video) {
 export function moodLabels(video) {
   return moodEvidence(video).map(({ label }) => label);
 }
+function splitVerified(value) {
+  return String(value ?? '').split(/[,、;；\n/&＋+]+/).map((item) => item.trim()).filter(Boolean);
+}
+
 export function composerNames(video) {
   const verified=video?.userMeta?.verified_composer?.trim();
-  return [...new Set([...(verified?splitVerified(verified):[]),...array(video?.producers),...array(video?.composers),video?.uploader].map(x=>String(x||'').trim()).filter(Boolean))];
+  return [...new Set([...(verified?splitVerified(verified):[]),...array(video?.producers),...array(video?.composers), ...creditedComposers(video?.description),video?.uploader].map(x=>String(x||'').trim()).filter(Boolean))];
 }
 export function filteredDiscovery(rows, filters={}) {
   const needle=String(filters.q||'').toLocaleLowerCase();
@@ -122,6 +115,7 @@ export function filteredDiscovery(rows, filters={}) {
     // Workflow filters help find videos still needing manual organization.
     if(filters.status==='unlisted' && v.memberships?.length)return false;
     if(filters.status==='no-voice' && canonicalVoices(v).length)return false;
+    if(filters.status==='voice-review' && !detectVoiceEvidence(v).suggestions.length)return false;
     if(filters.status==='unrated' && Number(v.userMeta?.rating||0)>0)return false;
     if(filters.status==='missing-metadata' &&
        v.thumb && v.published_at && v.title && v.title!==v.id && array(v.tags).length)return false;
@@ -148,7 +142,7 @@ export function inferredVoicesFromTags(tags) {
   // Variants are only retained when the tag explicitly supplies that variant.
   for(const entry of array(tags)){
     const tag=String(entry);
-    for(const [name,re] of VOICE_ALIASES){
+    for(const [name,re] of VOICE_RULES){
       if(!re.test(tag))continue;
       if(name==='音街ウナ'){
         if(/spicy/i.test(tag))result.add('音街ウナ Spicy');

@@ -79,7 +79,7 @@ test('描画: ダッシュボードは既存の歌唱者集計と分析を表示
   const html = view.content();
   assert.match(html, /歌唱者ランキング/);
   assert.match(html, /マイリスト別・歌唱者の傾向/);
-  assert.match(html, /タグから推定したジャンル/);
+  assert.match(html, /メタデータから推定したジャンル/);
 });
 
 test('描画: 連携確認後にだけ登録ボタンを有効化する', () => {

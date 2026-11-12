@@ -19,8 +19,8 @@ export const TREND_AXES = Object.freeze({
 
 export const TREND_FACETS = Object.freeze({
   voice: '歌唱キャラクター',
-  genre: 'ジャンル（タグ推定）',
-  mood: '雰囲気（タグ推定）',
+  genre: 'ジャンル（タグ・概要欄推定）',
+  mood: '雰囲気（タグ・概要欄推定）',
   creator: '作り手・投稿者',
 });
 

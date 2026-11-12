@@ -73,6 +73,11 @@ root.addEventListener('click',e=>{
     state.trends.selected = current?.group === next.group && current?.category === next.category ? null : next;
     return rerenderContent();
   }
+  if (target.dataset.trendFocus) {
+    state.trends.focus = state.trends.focus === target.dataset.trendFocus ? '' : target.dataset.trendFocus;
+    return rerenderContent();
+  }
+  if (target.id === 'trend-focus-reset') { state.trends.focus = ''; return rerenderContent(); }
   if (target.id === 'trend-clear') { state.trends.selected = null; return rerenderContent(); }
   if(target.id==='sort-dir'){state.activeSavedSearchId='';state.filters.order=state.filters.order==='desc'?'asc':'desc';state.page=1;return rerenderContent();}
   if(target.id==='sort-reset'){state.activeSavedSearchId='';state.filters.sort='views';state.filters.order='desc';state.page=1;return rerenderContent();}
@@ -112,11 +117,13 @@ root.addEventListener('change',e=>{
   if((e.target.id==='target-playlist'||e.target.id==='allow-duplicate')&&state.dialog?.kind==='add'){captureAddForm();render();return;}
   if(e.target.id==='file-import')return guard(()=>handleFile(e.target.files[0]));
   if(e.target.id==='file-sync')return guard(()=>handleSyncFile(e.target.files[0]));
-  if (['trend-axis', 'trend-facet', 'trend-playlist', 'trend-include-other'].includes(e.target.id)) {
+  if (['trend-axis', 'trend-facet', 'trend-playlist', 'trend-include-other', 'trend-chart-style'].includes(e.target.id)) {
     if (e.target.id === 'trend-axis') state.trends.axis = e.target.value;
     if (e.target.id === 'trend-facet') state.trends.facet = e.target.value;
     if (e.target.id === 'trend-playlist') state.trends.playlistId = e.target.value;
     if (e.target.id === 'trend-include-other') state.trends.includeOther = e.target.checked;
+    if (e.target.id === 'trend-chart-style') state.trends.chartStyle = e.target.value === 'spotlight' ? 'spotlight' : 'line';
+    if (e.target.id === 'trend-facet' || e.target.id === 'trend-axis') state.trends.focus = '';
     state.trends.selected = null;
     return rerenderContent();
   }
