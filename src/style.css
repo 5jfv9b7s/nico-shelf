@@ -478,3 +478,174 @@ button.scatter-legend-entry:focus-visible { outline: 2px solid #76dacc; outline-
   flex-wrap: wrap;
 }
 .sync-public-list-options small { color: var(--text-muted, #89939f); }
+
+/* v0.16.1 — readability and keyboard/mobile navigation.
+   These overrides intentionally sit after legacy responsive rules. */
+:root { color-scheme: dark; }
+:focus-visible {
+  outline: 2px solid #98efe3;
+  outline-offset: 3px;
+}
+.mobile-bottom-nav { display: none; }
+
+/* Labels should be legible even in Japanese, without excessive truncation. */
+.nav-help, .small-note, .footer, .panel-note,
+.facet-disclaimer, .panel-footnote, .trend-notice,
+.stat-top, .control-label, .video-sub, .video-stat,
+.voice-clip, .video-tags .list-chip, .empty-chip,
+.facet-chip, .mood-chip, .duration, .dup-badge,
+.stat-card small, .eyebrow, .section-eyebrow,
+.result-heading, .trend-spotlight-number small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.nav-help, .footer, .panel-note { color: #a9bed1; }
+.menu-label, .small-note, .video-sub, .video-stat,
+.voice-clip, .result-heading { color: #a5b9ce; }
+.video-title { font-size: 14px; line-height: 1.5; }
+.nav-item { font-size: 13px; min-height: 42px; }
+.search-field input { font-size: 14px; }
+.control-label select, .control-label input { font-size: 13px; }
+.bar-row { font-size: 13px; gap: 12px; }
+.bar-name {
+  width: auto;
+  flex: 0 1 176px;
+  min-width: 115px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+}
+.facet-row .bar-num { width: auto; flex: none; }
+.list-chip { border-color: #42728b; background: #1e3c50; }
+.facet-chip { border-color: #665b96; background: #302c4c; color: #dfcbfa; }
+.mood-chip { border-color: #755a82; background: #3c2b47; color: #f3d0ec; }
+.video-buttons button { min-width: 40px; min-height: 40px; }
+.video-buttons button:focus-visible { outline-offset: 1px; }
+
+/* Advanced controls remain available without pushing the first video below the fold. */
+.library-extra-filters { margin: -3px 0 13px; }
+.library-extra-filters > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 43px;
+  cursor: pointer;
+  padding: 10px 15px;
+  border: 1px solid #38546a;
+  border-radius: 10px;
+  background: #15283b;
+  color: #dcebf3;
+  font-size: 13px;
+  font-weight: 750;
+}
+.library-extra-filters > summary::before { content: '▸'; color: #79e0d1; }
+.library-extra-filters[open] > summary::before { content: '▾'; }
+.library-extra-filters > summary > span {
+  font-size: 12px;
+  font-weight: 400;
+  color: #acc1d1;
+}
+.library-extra-filters[open] > summary { margin-bottom: 9px; }
+.library-extra-filters .preset-toolbar { margin: 0 0 9px; }
+.library-extra-filters .facet-toolbar { margin: 0 0 9px; }
+.library-extra-filters .facet-disclaimer { margin: 4px 6px 12px; }
+
+.page-picker { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #c6d8e6; }
+.page-picker select {
+  background: #13263b;
+  color: #f0f8fb;
+  border: 1px solid #4b687f;
+  border-radius: 8px;
+  padding: 7px 10px;
+  min-width: 60px;
+  min-height: 40px;
+  font-size: 14px;
+}
+
+/* The trend chart fills the desktop panel, while remaining scrollable on phones. */
+.trend-line-svg { width: 100%; height: auto; min-width: 640px; }
+.trend-spotlight-active { color: #cce5ef; font-size: 13px; padding: 12px 0 3px; }
+.trend-spotlight-active strong { color: #a7f2e4; }
+
+@media (max-width: 600px) {
+  /* Replace the persistent 57px sidebar with full-width bottom tabs. */
+  .shell > .sidebar { display: none; }
+  .workspace { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+  .mobile-bottom-nav {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 70;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: stretch;
+    padding: 4px 3px calc(4px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid #375569;
+    background: #0b1728;
+    box-shadow: 0 -5px 20px #0008;
+  }
+  .mobile-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    min-height: 56px;
+    padding: 5px 1px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #b1c6da;
+    font-size: 10px;
+    line-height: 1.25;
+    cursor: pointer;
+  }
+  .mobile-tab-icon { font-size: 21px; line-height: 1; }
+  .mobile-tab.is-active { color: #a6f4e6; background: #1a3846; }
+  .mobile-tab:focus-visible { outline: 2px solid #a6f4e6; outline-offset: -2px; }
+  .topbar { padding: 0 14px; }
+  .main-content { padding: 18px 14px 40px; }
+  .stat-top { font-size: 11px; }
+  .stat-card { min-height: 119px; }
+  .video-card { align-items: flex-start; gap: 10px; }
+  .video-title, .video-list.as-grid .video-title { font-size: 13px; line-height: 1.5; }
+  .video-sub, .video-tags .list-chip, .facet-chip, .mood-chip,
+  .duration, .voice-clip, .dup-badge { font-size: 11px; }
+  .video-stat { display: none; }
+  .video-buttons { flex-direction: column; gap: 2px; }
+  .video-buttons button, .video-list.as-grid .video-buttons button {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 4px;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+  }
+  .video-list.as-grid .video-buttons { align-self: stretch; justify-content: flex-end; }
+  .video-tags { gap: 5px; }
+  .video-tags .voice-clip { display: inline; white-space: normal; }
+  .library-extra-filters > summary { flex-wrap: wrap; }
+  .library-extra-filters > summary > span { font-size: 11px; }
+  .pagination { gap: 6px; flex-wrap: wrap; }
+  .pagination .btn { padding: 10px; font-size: 12px; }
+  .bar-name { flex-basis: 128px; min-width: 91px; }
+  .trend-line-svg { min-width: 600px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dialogs and feedback must appear above the mobile bottom navigation. */
+.modal-backdrop { z-index: 100; }
+.toast { z-index: 120; }
+@media (max-width: 600px) {
+  .modal-backdrop { padding: 10px; }
+  .modal { max-height: calc(100dvh - 20px); padding: 22px 18px; }
+  .toast { bottom: calc(77px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 24px); }
+}

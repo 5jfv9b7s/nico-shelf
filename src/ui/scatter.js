@@ -161,10 +161,10 @@ export function renderScatter({ state, rows, hero }) {
       </div>
       <div class="scatter-metrics">
         <span>描画できた動画：<strong>${formatCount(result.points.length)}</strong> / ${formatCount(result.eligible)}曲</span>
-        <span>情報不足で非表示：<strong>${formatCount(Math.max(0, uniqueMissing))}</strong>曲</span>
-        <span>削除・非公開で除外：<strong>${formatCount(result.excluded.deleted + result.excluded.private)}</strong>曲</span>
-        <span>公開状態未確認で除外：<strong>${formatCount(result.excluded.unconfirmed)}</strong>曲</span>
-        ${is3D ? '<span>3軸共通のデータを使用（順位相関は2Dのみ）</span>' : `<span>順位相関 ρ：<strong>${correlation}</strong></span>`}
+        ${uniqueMissing > 0 ? `<span>情報不足で非表示：<strong>${formatCount(uniqueMissing)}</strong>曲</span>` : ''}
+        ${result.excluded.deleted + result.excluded.private > 0 ? `<span>削除・非公開で除外：<strong>${formatCount(result.excluded.deleted + result.excluded.private)}</strong>曲</span>` : ''}
+        ${result.excluded.unconfirmed > 0 ? `<span>公開状態未確認で除外：<strong>${formatCount(result.excluded.unconfirmed)}</strong>曲</span>` : ''}
+        ${is3D ? '<span>3軸共通のデータを使用（順位相関は2Dのみ）</span>' : `<span title="スピアマンの順位相関係数。-1〜+1で単調な傾向を表します。因果関係ではありません。">順位相関 ρ：<strong>${correlation}</strong></span>`}
       </div>
       ${is3D ? renderThreeDimensionalPlot(result) : result.points.length ? renderPoints(result) : '<div class="empty-sm">選択した軸の動画情報が不足しています。別の軸を選択するか、メタデータを補完してください。</div>'}
       <div class="scatter-legend"><div class="scatter-legend-header"><span class="scatter-legend-title">歌唱キャラクター（凡例を押すと絞り込み。デュエットの相手も掲載）</span>

@@ -30,7 +30,7 @@ const renderDialog = createDialogRenderer({ state, nicoBridge });
 const { shell, content, loginScreen, missingConfig } = createViewRenderer({ state, renderDialog });
 
 function toast(message,isError=false){
-  let el=document.querySelector('#toast');if(!el){el=document.createElement('div');el.id='toast';document.body.append(el);}
+  let el=document.querySelector('#toast');if(!el){el=document.createElement('div');el.id='toast';el.setAttribute('role','status');el.setAttribute('aria-live','polite');document.body.append(el);}
   el.textContent=message;el.className=`toast show ${isError?'danger':''}`;
   clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>el.classList.remove('show'),4200);
 }

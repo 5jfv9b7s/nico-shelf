@@ -149,7 +149,52 @@ export function scatterTicks(low, high, metric, tickCount = 5) {
       ? Array.from({ length: Math.floor((last - first) / step) + 1 }, (_, index) => first + index * step)
       : [];
   }
-  return Array.from({ length: tickCount }, (_, index) => low + index * (high - low) / (tickCount - 1));
+  if (SCATTER_METRICS[metric]?.logarithmic) {
+    // Tick positions are in log10(value + 1), but labels are clean raw counts.
+    // Always prefer 10/100/1,000/... instead of odd interpolated numbers.
+    const firstPower = Math.ceil(Math.max(0, low));
+    const lastPower = Math.floor(high);
+    const powers = [];
+    for (let exponent = firstPower; exponent <= lastPower; exponent++) {
+      powers.push(exponent);
+    }
+    const stride = Math.max(1, Math.ceil(powers.length / Math.max(1, tickCount + 1)));
+    const ticks = powers.filter((_, index) => index % stride === 0).map((exponent) =>
+      Math.log10((10 ** exponent) + 1));
+    if (low <= 0 && high >= 0 && !ticks.includes(0)) ticks.unshift(0);
+    // A narrow window may contain no full decade. Use readable sub-decade
+    // values (for example 20, 30, 50) instead of leaving the axis blank.
+    if (ticks.length < 2) {
+      const candidates = [];
+      for (let exponent = Math.max(-1, Math.floor(low) - 1); exponent <= Math.ceil(high); exponent++) {
+        for (const multiple of [1, 2, 3, 5, 7]) {
+          const plotted = Math.log10(multiple * (10 ** exponent) + 1);
+          if (plotted >= low && plotted <= high) candidates.push(plotted);
+        }
+      }
+      return [...new Set([...ticks, ...candidates])].sort((a, b) => a - b);
+    }
+    return ticks;
+  }
+  if (metric === 'published') {
+    const start = Math.ceil(low);
+    const end = Math.floor(high);
+    const step = Math.max(1, Math.ceil((end - start) / (tickCount - 1)));
+    const ticks = [];
+    for (let year = start; year <= end; year += step) ticks.push(year);
+    return ticks;
+  }
+  // Choose readable 1/2/5 x 10^n increments for durations and rates.
+  const rawStep = (high - low) / Math.max(1, tickCount - 1);
+  const magnitude = 10 ** Math.floor(Math.log10(Math.max(rawStep, Number.EPSILON)));
+  const niceStep = [1, 2, 5, 10].map((factor) => factor * magnitude)
+    .find((candidate) => candidate >= rawStep) || magnitude * 10;
+  const ticks = [];
+  for (let value = Math.ceil(low / niceStep) * niceStep; value <= high + niceStep * 1e-8; value += niceStep) {
+    ticks.push(Number(value.toPrecision(12)));
+    if (ticks.length > 30) break;
+  }
+  return ticks;
 }
 
 /** Format plotted values in their axis-specific unit. */

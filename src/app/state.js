@@ -1,5 +1,5 @@
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.16.0';
+export const APP_VERSION = '0.16.1';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
@@ -24,7 +24,7 @@ export const NAV_ICONS = {
   dashboard: '▦',
   library: '≡',
   trends: '▥',
-  scatter: '⋮',
+  scatter: '⠿',
   duplicates: '◈',
   favorites: '♡',
   settings: '⚙',
@@ -43,11 +43,12 @@ export function createInitialState() {
     savedSearchesLoaded: false,
     savedSearchesError: '',
     activeSavedSearchId: '',
-    trends: { axis: 'playlist', facet: 'voice', playlistId: '', includeOther: false, selected: null, chartStyle: 'line', focus: '', visibleCount: 10 },
+    trends: { axis: 'playlist', facet: 'voice', playlistId: '', includeOther: false, selected: null, chartStyle: 'matrix', focus: '', visibleCount: 10 },
     scatter: { mode: '2d', x: 'views', y: 'comments', z: 'mylists', voice: '', legendLimit: 30 },
     voiceMode: 'canonical',
     voiceVisibleCount: 15,
     cardMode: 'list',
+    filterPanelsOpen: false,
     page: 1,
     dialog: null,
     preview: null,

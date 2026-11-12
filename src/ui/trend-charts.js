@@ -10,6 +10,7 @@ import { colorForFacet } from '../app/character-colors.js';
 const percentage = (value) => `${value.toFixed(1)}%`;
 
 export const TREND_CHART_STYLES = Object.freeze({
+  matrix: 'ヒートマップを中心に表示',
   line: '上位項目の推移（折れ線）',
   spotlight: '選んだ項目を比較（横棒）',
 });
@@ -57,7 +58,8 @@ function buildLines(result, highlighted) {
 
 function buildSpotlight(result, focus) {
   const category = result.categories.includes(focus) ? focus : result.categories[0];
-  return `<div class="trend-spotlight-list" aria-label="${esc(category)}の割合の比較">
+  return `<div class="trend-spotlight-active">現在比較中：<strong>${esc(category)}</strong>${focus ? '' : '（未選択のため先頭の項目を表示）'}</div>
+  <div class="trend-spotlight-list" aria-label="${esc(category)}の割合の比較">
     ${result.cells.map((group) => {
       const point = group.values[category];
       return `<div class="trend-spotlight-row">
@@ -104,13 +106,14 @@ export function renderTrendChart(result, { style = 'line', focus = '' } = {}) {
       <select id="trend-focus-select"><option value="">全項目</option>${result.categories.map((name) =>
         `<option value="${esc(name)}" ${selected === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select>
     </label><label class="control-label">グラフ形式
-      <select id="trend-chart-style"><option value="line" ${style !== 'spotlight' ? 'selected' : ''}>折れ線</option>
+      <select id="trend-chart-style"><option value="matrix" ${style === 'matrix' ? 'selected' : ''}>ヒートマップ中心</option>
+      <option value="line" ${style === 'line' ? 'selected' : ''}>折れ線</option>
       <option value="spotlight" ${style === 'spotlight' ? 'selected' : ''}>横棒で比較</option></select>
     </label></div>
-    <div class="trend-legend" aria-label="注目する項目を選択">${legend}
+    ${style !== 'matrix' ? `<div class="trend-legend" aria-label="注目する項目を選択">${legend}
       ${selected ? '<button class="trend-legend-clear" type="button" id="trend-focus-reset">全体を表示</button>' : ''}
     </div>
-    ${style === 'spotlight' ? buildSpotlight(result, selected) : buildLines(result, selected)}
+    ${style === 'spotlight' ? buildSpotlight(result, selected) : buildLines(result, selected)}` : '<p class="trend-notice">下のヒートマップで各項目を比較できます。折れ線・横棒は「グラフ形式」から表示できます。</p>'}
     ${buildCoverage(result)}
     ${result.cells.length >= 2 ? `<div class="trend-observation" aria-label="観察できる変化">
       <span>上昇：<strong>${esc(sentence(biggestRise, '+'))}</strong></span>

@@ -19,7 +19,7 @@ export function createViewRenderer({ state, renderDialog }) {
 function makeRows() {
   return buildLibraryRows(state.library);
 }
-function navItem(id,label,ico,active){return `<button class="nav-item ${active?'is-active':''}" data-view="${esc(id)}"><span class="nav-icon">${ico}</span><span>${esc(label)}</span></button>`;}
+function navItem(id,label,ico,active){return `<button class="nav-item ${active?'is-active':''}" data-view="${esc(id)}" ${active ? 'aria-current="page"' : ''}><span class="nav-icon">${ico}</span><span>${esc(label)}</span></button>`;}
 function counts() {
   return countLibrary(state.library);
 }
@@ -40,6 +40,14 @@ function shell(){
       <main id="main-content" class="main-content">${content()}</main>
       <footer class="footer"><span>NICO SHELF · MY MUSIC ARCHIVE</span><span>ニコニコ動画の公式サービスではありません</span></footer>
     </div>
+    <nav class="mobile-bottom-nav" aria-label="モバイル用ナビゲーション">
+      ${['dashboard','library','trends','scatter','favorites','settings'].map((id) => `
+        <button type="button" class="mobile-tab ${state.view === id || (id === 'library' && (state.view.startsWith('playlist:') || state.view === 'duplicates')) ? 'is-active' : ''}"
+          data-view="${esc(id)}" aria-current="${state.view === id ? 'page' : 'false'}">
+          <span class="mobile-tab-icon" aria-hidden="true">${NAV_ICONS[id]}</span>
+          <span>${esc(VIEWS[id] === 'データと設定' ? '設定' : VIEWS[id] === 'ダッシュボード' ? 'ホーム' : VIEWS[id] === '音楽の変遷' ? '変遷' : VIEWS[id] === 'お気に入り' ? 'お気に入り' : VIEWS[id])}</span>
+        </button>`).join('')}
+    </nav>
     ${state.dialog?renderDialog():''}
   </div>`;
 }
@@ -59,7 +67,7 @@ function barList(data, noun = '曲', facetKind = '', useCharacterColors = false)
     return `${opening}<span class="bar-index">${String(index + 1).padStart(2, '0')}</span>
       <span class="bar-name" title="${esc(name)}">${esc(name)}</span>
       <span class="bar-track"><span class="bar-fill" style="width:${Math.min(100, 100 * count / max)}%;${useCharacterColors ? `background:${colorForCharacter(name)};` : ''}"></span></span>
-      <span class="bar-num">${count}${noun}${isFilter ? ' ↗' : ''}</span>${isFilter ? '</button>' : '</div>'}`;
+      <span class="bar-num">${count}${noun}${isFilter ? ' ・絞り込む' : ''}</span>${isFilter ? '</button>' : '</div>'}`;
   }).join('');
 }
 function playlistVoiceMatrix(rows,playlists){
@@ -113,7 +121,7 @@ function cards(rows){
       <div class="video-sub"><span>${esc(v.uploader||'投稿者不明')}</span><span class="sub-divider">·</span><span>${esc(v.id)}</span><span class="sub-divider">·</span><span>${formatDate(v.published_at)}</span></div>
       <div class="video-tags">${v.memberships.map(m=>`<span class="list-chip" title="取得時のリスト内順番: ${Number.isFinite(Number(m.position))?m.position:'不明'}">${esc(m.name)}</span>`).join('')||'<span class="empty-chip">未分類</span>'}<span class="voice-clip" title="${esc(rawVoices(v).join(' / '))}">${esc(canonicalVoices(v).slice(0,3).join(' / '))}</span>${genreLabels(v).slice(0,2).map(g=>`<span class="facet-chip">${esc(g)}</span>`).join('')}${moodLabels(v).slice(0,1).map(g=>`<span class="mood-chip">${esc(g)}</span>`).join('')}</div></div>
       <div class="video-stat"><span>▶ ${formatCount(v.views)}</span><span>♡ ${formatCount(v.likes)}</span></div>
-      <div class="video-buttons"><button class="heart-btn ${v.userMeta?.favorite?'hearted':''}" title="お気に入り" data-favorite="${esc(v.id)}">${v.userMeta?.favorite?'♥':'♡'}</button><button class="related-btn" title="似た曲を探す" aria-label="${esc(v.title||v.id)}に関連する曲を探す" data-related="${esc(v.id)}">≋</button><button class="more-btn" title="メモと評価" data-detail="${esc(v.id)}">···</button></div></article>`;
+      <div class="video-buttons"><button class="heart-btn ${v.userMeta?.favorite?'hearted':''}" title="お気に入り" aria-label="${esc(v.title||v.id)}をお気に入りに${v.userMeta?.favorite ? 'から外す' : '追加する'}" data-favorite="${esc(v.id)}">${v.userMeta?.favorite?'♥':'♡'}</button><button class="related-btn" title="関連する曲を探す" aria-label="${esc(v.title||v.id)}に関連する曲を探す" data-related="${esc(v.id)}">≋</button><button class="more-btn" title="メモと評価" aria-label="${esc(v.title||v.id)}のメモ・評価" data-detail="${esc(v.id)}">···</button></div></article>`;
   }).join('')}</div>`;
 }
 function listing(rows){
@@ -137,6 +145,8 @@ function listing(rows){
     <button class="btn subtle" id="sort-reset" title="ソートだけ初期化、絞り込みは維持">↺ リセット</button>
     <button class="btn subtle" id="toggle-card-mode" title="一覧とジャケット型表示を切り替え">${state.cardMode==='list'?'▦ ジャケット表示':'≡ リスト表示'}</button>
   </div>
+  <details class="library-extra-filters" ${state.filterPanelsOpen ? 'open' : ''}>
+    <summary>保存検索・詳細フィルター <span>条件を指定して絞り込む</span></summary>
   <div class="preset-toolbar" aria-label="保存した検索条件">
     <label class="control-label preset-picker">保存検索
       <select id="saved-search-select" ${state.savedSearchesError?'disabled':''}>
@@ -156,12 +166,13 @@ function listing(rows){
     <label class="control-label">投稿年<select id="year-filter"><option value="">すべて</option>${selectOptions(years,state.filters.year)}</select></label>
     <label class="control-label">整理状況<select id="status-filter">
       <option value="" ${!state.filters.status?'selected':''}>すべて</option>
-      ${[['unlisted','どのリストにも未所属'],['no-voice','歌唱者が未判定'],['voice-review','歌唱者に要確認候補あり'],['unrated','未評価'],['missing-metadata','動画情報が不足']].map(([key,label])=>`<option value="${key}" ${state.filters.status===key?'selected':''}>${label}</option>`).join('')}
+      ${[['duplicate','複数リストに所属（重複）'],['unlisted','どのリストにも未所属'],['no-voice','歌唱者が未判定'],['voice-review','歌唱者に要確認候補あり'],['unrated','未評価'],['missing-metadata','動画情報が不足']].map(([key,label])=>`<option value="${key}" ${state.filters.status===key?'selected':''}>${label}</option>`).join('')}
     </select></label>
     <label class="control-label creator-control">作者・投稿者<input id="creator-filter" placeholder="作者名で検索" value="${esc(state.filters.creator)}" autocomplete="off" /></label>
     <button class="btn subtle" id="facets-reset" title="検索と詳細条件を解除。ソートは維持">条件クリア</button>
   </div>
-  <div class="facet-disclaimer">ジャンルと雰囲気はタグを根拠とする推定分類です。未分類の曲は条件指定時に除外されます。</div>
+  <div class="facet-disclaimer">ジャンルと雰囲気はタグ・概要欄などからの推定分類です。未分類の曲は条件指定時に除外されます。</div>
+  </details>
   ${state.filters.sort==='registration'?`<div class="inline-hint">登録順はインポート時の一覧表示順です。正確な登録日時とは限りません。${!playlist?'マイリストを選ぶと順番を比較できます。':''}</div>`:''}
   <div class="result-heading"><span><b>${formatCount(sorted.length)}</b> 件の動画</span><span>ソート：${esc(SORTS[state.filters.sort])} ${state.filters.order==='desc'?'降順':'昇順'}</span></div>
   <div class="result-actions">
@@ -170,7 +181,8 @@ function listing(rows){
     <button class="btn subtle" id="export-filtered" ${!sorted.length?'disabled':''}>⇩ 結果をCSVに出力</button>
   </div>
   ${pageRows.length?cards(pageRows):`<div class="empty-panel"><span>♫</span><h2>動画が見つかりません</h2><p>絞り込み条件を変えるか、データをインポートしてください。</p></div>`}
-  ${totalPages>1?`<nav class="pagination"><button class="btn subtle" data-page="${state.page-1}" ${state.page===1?'disabled':''}>← 前へ</button><span>${state.page} / ${totalPages}</span><button class="btn subtle" data-page="${state.page+1}" ${state.page===totalPages?'disabled':''}>次へ →</button></nav>`:''}`;
+  ${totalPages>1?`<nav class="pagination" aria-label="ページを移動"><button class="btn subtle" data-page="${state.page-1}" ${state.page===1?'disabled':''}>← 前へ</button><label class="page-picker">ページ
+    <select id="page-jump" aria-label="移動先のページ">${Array.from({ length: totalPages }, (_, i) => `<option value="${i+1}" ${state.page === i+1 ? 'selected' : ''}>${i+1}</option>`).join('')}</select><span>/ ${totalPages}</span></label><button class="btn subtle" data-page="${state.page+1}" ${state.page===totalPages?'disabled':''}>次へ →</button></nav>`:''}`;
 }
 function settings(){return `${hero('SETTINGS','データと設定','マイリストの取り込み・バックアップ・アカウント管理')}
   <section class="settings-grid"><div class="panel setting-panel"><div class="setting-icon">⇩</div><h2>データをインポート</h2><p>v0.3のJSONバックアップ、またはCSVをSupabaseへ取り込みます。同じIDは上書き更新されます。</p><button class="btn primary" data-action="import">インポート</button></div>

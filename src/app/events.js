@@ -149,7 +149,21 @@ root.addEventListener('keydown', (event) => {
     showDialog('detail', { id: point.dataset.scatterVideo });
   }
 });
+root.addEventListener('toggle', (event) => {
+  if (event.target.matches?.('.library-extra-filters')) {
+    state.filterPanelsOpen = event.target.open;
+  }
+}, true);
+
 root.addEventListener('change',e=>{
+  if (e.target.id === 'page-jump') {
+    const page = Number(e.target.value);
+    if (Number.isInteger(page) && page > 0) {
+      state.page = page;
+      rerenderContent();
+    }
+    return;
+  }
   if (state.dialog?.kind === 'related') {
     if (e.target.id === 'related-mode') {
       state.dialog.mode = ['balanced', 'musical', 'explore'].includes(e.target.value)
@@ -169,7 +183,7 @@ root.addEventListener('change',e=>{
     if (e.target.id === 'trend-facet') state.trends.facet = e.target.value;
     if (e.target.id === 'trend-playlist') state.trends.playlistId = e.target.value;
     if (e.target.id === 'trend-include-other') state.trends.includeOther = e.target.checked;
-    if (e.target.id === 'trend-chart-style') state.trends.chartStyle = e.target.value === 'spotlight' ? 'spotlight' : 'line';
+    if (e.target.id === 'trend-chart-style') state.trends.chartStyle = ['spotlight', 'line', 'matrix'].includes(e.target.value) ? e.target.value : 'matrix';
     if (e.target.id === 'trend-visible-count') state.trends.visibleCount = e.target.value === 'all' ? 'all' : Number(e.target.value);
     if (e.target.id === 'trend-focus-select') state.trends.focus = e.target.value;
     if (e.target.id === 'trend-facet' || e.target.id === 'trend-axis') state.trends.focus = '';

@@ -115,6 +115,7 @@ export function filteredDiscovery(rows, filters={}) {
     if(filters.favorites&&!v.userMeta?.favorite)return false;
     // Workflow filters help find videos still needing manual organization.
     if(filters.status==='unlisted' && v.memberships?.length)return false;
+    if(filters.status==='duplicate' && (v.memberships?.length || 0) < 2)return false;
     if(filters.status==='no-voice' && canonicalVoices(v).length)return false;
     if(filters.status==='voice-review' && !detectVoiceEvidence(v).suggestions.length)return false;
     if(filters.status==='unrated' && Number(v.userMeta?.rating||0)>0)return false;
