@@ -78,9 +78,21 @@ function renderPoints(result) {
   </div>`;
 }
 
+/** Keep axis options grouped, since there are now both NicoNico and private metrics. */
 function metricOptions(value) {
-  return Object.entries(SCATTER_METRICS).map(([key, metric]) =>
-    `<option value="${esc(key)}" ${key === value ? 'selected' : ''}>${esc(metric.label)}</option>`).join('');
+  const groupedMetrics = new Map();
+  for (const [key, metric] of Object.entries(SCATTER_METRICS)) {
+    if (!groupedMetrics.has(metric.group)) groupedMetrics.set(metric.group, []);
+    groupedMetrics.get(metric.group).push([key, metric]);
+  }
+
+  return [...groupedMetrics].map(([group, options]) => `
+    <optgroup label="${esc(group)}">
+      ${options.map(([key, metric]) => `
+        <option value="${esc(key)}" ${key === value ? 'selected' : ''}>${esc(metric.label)}</option>
+      `).join('')}
+    </optgroup>
+  `).join('');
 }
 
 /** The plot uses the signed-in user's already-loaded metadata; no API calls. */
@@ -100,7 +112,7 @@ export function renderScatter({ state, rows, hero }) {
     }
   }
   const legendNames = [...singerFrequency].sort((a, b) => b[1] - a[1]).map(([name]) => name);
-  return `${hero('DATA EXPLORER', '楽曲の散布図', '保存している動画情報から、再生数・反応・動画時間・投稿時期の関係を眺める。')}
+  return `${hero('DATA EXPLORER', '楽曲の散布図', '再生数・マイリスト登録数・反応率・自分の評価などを、自由な軸で比較する。')}
     <section class="panel scatter-panel">
       <div class="scatter-controls" aria-label="散布図の表示条件">
         <label class="control-label">横軸（X）<select id="scatter-x">${metricOptions(x)}</select></label>
@@ -124,6 +136,6 @@ export function renderScatter({ state, rows, hero }) {
             : `<span class="scatter-legend-entry"><i style="background:${UNCLASSIFIED_COLOR}"></i>歌唱者不明</span>`).join('')}</div>
         ${legendNames.length > (legendLimit === 'all' ? Infinity : legendLimit) ? `<small>ほか${legendNames.length - legendLimit}種類。全員表示に切り替えられます。</small>` : ''}
       </div>
-      <p class="trend-notice">点にカーソルを重ねると動画名と数値を表示し、クリックすると詳細を開きます。複数歌唱者の曲は白い輪郭で表示し、色は先頭の歌唱者を採用します。設定色のない歌唱者には名前に基づく安定した自動色を使います（公式カラーではありません）。再生数・コメント数・いいね数は0も扱える対数目盛を使用。順位相関は2つの数値の傾向を示すだけで、因果関係や曲の好みを証明しません。投稿時期は聴取した時期ではありません。削除・非公開・取得失敗の動画は描画と相関計算に含めません（取得失敗は削除確定ではありません）。動画データやメモは削除しません。</p>
+      <p class="trend-notice">点にカーソルを重ねると動画名と数値を表示し、クリックすると詳細を開きます。複数歌唱者の曲は白い輪郭で表示し、色は先頭の歌唱者を採用します。設定色のない歌唱者には名前に基づく安定した自動色を使います（公式カラーではありません）。再生数・コメント数・いいね数・ニコニコ全体のマイリスト数は0も扱える対数目盛を使用。反応率は1,000再生あたりの件数で、再生数0や情報未取得の場合は描画しません。自分の所属マイリスト数とニコニコ全体のマイリスト数は別指標です。未評価の動画は評価軸では描画しません。順位相関は2つの数値の傾向を示すだけで、因果関係や曲の好みを証明しません。投稿時期は聴取した時期ではありません。削除・非公開・取得失敗の動画は描画と相関計算に含めません（取得失敗は削除確定ではありません）。動画データやメモは削除しません。</p>
     </section>`;
 }
