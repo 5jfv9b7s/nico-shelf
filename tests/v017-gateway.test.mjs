@@ -153,7 +153,7 @@ test('公開リストの追加前にプレビューを表示し、取得先未�
   state.pendingPublicImport = null;
   state.publicSourceStatus = 'unavailable';
   const unavailable = renderDialog();
-  assert.match(unavailable, /準備中/);
+  assert.match(unavailable, /取得できません/);
   assert.match(unavailable, /id="public-sync-add" disabled/);
 });
 

@@ -6,7 +6,7 @@ import {
   snapshotFromBridgeParts, diffSignature,
 } from './sync.js';
 import { NicoTabBridge } from './bridge.js';
-import { fetchPublicSnapshot, fetchPublicMylist, parsePublicMylistId } from './public-sync.js';
+import { fetchPublicSnapshot, fetchPublicMylist, parsePublicMylistId, findExistingPublicPlaylist } from './public-sync.js';
 import { registrationLists, registrationDecision } from './registration.js';
 import { needsMetadata, mergeMetadata, inferredVoicesFromTags } from './discovery.js';
 import { createInitialState } from './app/state.js';
@@ -18,6 +18,7 @@ import { createViewRenderer } from './ui/views.js';
 import { buildLibraryRows } from './app/library.js';
 import { mountScatter3D } from './ui/scatter3d.js';
 import { createDialogRenderer } from './ui/dialogs.js';
+import { captureSyncDialogUi, restoreSyncDialogUi, updateSyncStatus } from './app/sync-dialog-ui.js';
 
 /**
  * Controller: connects UI events to Supabase and NicoNico bridge operations.
@@ -44,9 +45,17 @@ function mountInteractiveScatter() {
   });
 }
 function render(){
+  const modalState = state.dialog?.kind === 'sync' ? captureSyncDialogUi(root) : null;
   root.innerHTML=!configured?missingConfig():!state.user?loginScreen():shell();
+  if (state.dialog?.kind === 'sync') restoreSyncDialogUi(root, modalState);
   mountInteractiveScatter();
 }
+/** Keep the dialog and scroll position intact during long gateway requests. */
+function setSyncProgress(message) {
+  state.syncProgress = message;
+  updateSyncStatus(root, message);
+}
+
 function rerenderContent(){
   const el=document.querySelector('#main-content');
   if (el) el.innerHTML=content();
@@ -69,6 +78,7 @@ function showDialog(kind, extra = {}) {
     state.sync = null;
     state.pendingPublicImport = null;
     state.syncProgress = '';
+    state.publicImportInput = '';
     state.publicSourceStatus = 'checking';
     state.publicSyncSelected = state.library.playlists.filter(p => /^[1-9]\d{0,15}$/.test(String(p.id))).map(p => String(p.id));
   }
@@ -387,23 +397,22 @@ async function runImport(){
  * No-extension sync for explicitly public playlists. The public read-only
  * Worker endpoint fetches published data; Supabase/RLS still protect DB writes.
  */
-async function syncFromPublic() {
+async function syncFromPublic(onlyLists = null) {
   if (state.busy || state.dialog?.kind !== 'sync') return;
   const ids = new Set(state.publicSyncSelected || []);
-  const lists = state.library.playlists.filter(
+  const lists = onlyLists ?? state.library.playlists.filter(
     (p) => ids.has(String(p.id)) && /^[1-9]\d{0,15}$/.test(String(p.id))
   );
   if (!lists.length) throw new Error('公開マイリストを1つ以上選択してください');
 
   state.busy = true;
   state.sync = null;
-  state.syncProgress = '公開マイリストを取得しています…';
+  setSyncProgress('公開マイリストを取得しています…');
   render();
   try {
     const snapshot = await fetchPublicSnapshot(lists, {
       onProgress: (message) => {
-        state.syncProgress = message;
-        render();
+        setSyncProgress(message);
       },
     });
     // Obtain current DB state *after* the network call: another device might
@@ -427,21 +436,22 @@ async function syncFromPublic() {
 async function importPublicPlaylist() {
   if (state.busy || state.dialog?.kind !== 'sync') return;
   if (state.publicSourceStatus !== 'configured') throw new Error('公開マイリストの接続先がまだ利用可能ではありません');
-  const requested = document.querySelector('#public-sync-new-list')?.value || '';
+  const requested = state.publicImportInput || document.querySelector('#public-sync-new-list')?.value || '';
   const id = parsePublicMylistId(requested);
   if (!id) throw new Error('ニコニコの公開マイリストURLまたは数値IDを入力してください');
-  if (state.library.playlists.some((p) => String(p.id) === id)) {
-    throw new Error('既に登録済みのリストです。下の「登録済みリストの同期」を利用してください');
-  }
+  // A URL should work the same whether this is the first import or a refresh.
+  const existing = findExistingPublicPlaylist(state.library.playlists, id);
+  if (existing) return syncFromPublic([existing]);
   state.busy = true;
   state.pendingPublicImport = null;
-  state.syncProgress = `${id} の公開マイリストを読み取っています…`;
+  setSyncProgress(`${id} の公開マイリストを読み取っています…`);
   render();
   try {
     const remote = await fetchPublicMylist(id, {
-      onProgress: (message) => { state.syncProgress = message; render(); },
+      onProgress: setSyncProgress,
     });
     state.pendingPublicImport = remote;
+    state.publicImportInput = '';
     state.syncProgress = `取得成功。${remote.items.length}件を確認して、追加を確定してください。`;
   } catch (error) {
     state.syncProgress = `取得できませんでした：${error.message}。ライブラリは変更していません。`;

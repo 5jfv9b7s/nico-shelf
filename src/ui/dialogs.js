@@ -25,25 +25,25 @@ function modal(){
     const changes=diff?diff.added+diff.removed+diff.reordered:0;
     const liveConnected=nicoBridge.connected;
     const syncing=state.busy && state.dialog?.kind==='sync';
-    contents=`<div class="modal-head"><div class="eyebrow">SYNC / REVIEW FIRST</div><h2>ニコニコとの差分同期</h2><p>マイリストURLからの取り込みと、登録済みリストの同期を行います。反映前に内容を確認できます。</p></div>
+    contents=`<div class="modal-head"><div class="eyebrow">SYNC / REVIEW FIRST</div><h2>マイリストを取り込む・更新する</h2><p>ニコニコの公開マイリストはURLから取り込めます。データは確認してから保存します。</p></div>
       <div class="sync-live-panel public-import-primary">
-        <div class="sync-connection"><b>① 公開マイリストを取り込む</b><small>ニコニコのマイリストURLを貼り付けて、内容を確認してから追加します。拡張機能は不要です（取得サーバーの設定・実通信確認が必要）。</small></div>
-        ${state.publicSourceStatus==='unavailable'?'<p class="sync-warning" role="status">現在、URLからの自動取得は準備中です。登録済みデータはそのまま保持します。ほかのインポート方法は下から選べます。</p>':state.publicSourceStatus==='checking'?'<p class="modal-note" role="status">接続機能の設定を確認しています…</p>':state.publicSourceStatus==='configured'?'<p class="modal-note">取得サーバーの設定を確認しました。ニコニコへの実通信が成功するかは、取得時に確認します。</p>':''}
+        <div class="sync-connection"><b>URLを貼って取り込む</b><small>ニコニコの公開マイリストURLを貼り付けるだけ。拡張機能は不要です。</small></div>
+        ${state.publicSourceStatus==='unavailable'?'<p class="sync-warning" role="status">ただいま公開マイリストを取得できません。時間を空けて再度お試しください。登録済みデータは変更されません。</p>':state.publicSourceStatus==='checking'?'<p class="modal-note" role="status">接続機能の設定を確認しています…</p>':state.publicSourceStatus==='configured'?'<p class="modal-note">URLを入力して「内容を確認する」を押してください。最初の取得は少し時間がかかる場合があります。</p>':''}
         <label class="field-label">ニコニコのマイリストURL / ID
-          <input id="public-sync-new-list" placeholder="https://www.nicovideo.jp/mylist/75327830" autocomplete="off" inputmode="url" ${state.pendingPublicImport||state.busy||state.publicSourceStatus!=='configured'?'disabled':''}/>
+          <input id="public-sync-new-list" placeholder="https://www.nicovideo.jp/mylist/12345678" value="${esc(state.publicImportInput||'')}" autocomplete="off" inputmode="url" ${state.pendingPublicImport||state.busy||state.publicSourceStatus!=='configured'?'disabled':''}/>
         </label>
         <button class="btn primary full" id="public-sync-add" ${state.busy||state.pendingPublicImport||state.publicSourceStatus!=='configured'?'disabled':''}>${state.busy?'取得中…':'内容を確認する'}</button>
         ${state.pendingPublicImport?`<div class="public-import-preview">
-          <strong>② 取り込む内容を確認</strong>
+          <strong>取り込む内容を確認</strong>
           <h3>${esc(state.pendingPublicImport.name)}</h3>
           <p>${formatCount(state.pendingPublicImport.items.length)}件の動画を取り込みます。保存済みの動画・メモ・評価は変更しません。</p>
           <ol>${state.pendingPublicImport.items.slice(0,7).map(item=>`<li>${esc(item.title||item.video_id)} <small>${esc(item.video_id)}</small></li>`).join('')}</ol>
           ${state.pendingPublicImport.items.length>7?`<p>ほか${state.pendingPublicImport.items.length-7}件</p>`:''}
           <div class="inline-actions"><button class="btn subtle" id="public-import-cancel" ${state.busy?'disabled':''}>キャンセル</button><button class="btn primary" id="public-import-confirm" ${state.busy?'disabled':''}>このリストを追加する</button></div>
         </div>`:''}
-        ${state.syncProgress?`<p class="sync-progress" role="status">${esc(state.syncProgress)}</p>`:''}
+        <p id="sync-public-progress" class="sync-progress" role="status" aria-live="polite" ${state.syncProgress?'':'hidden'}>${esc(state.syncProgress||'')}</p>
       </div>
-      <details class="sync-fallback"><summary>③ 登録済みの公開マイリストを同期する</summary>
+      <details class="sync-fallback"><summary>登録済みの公開マイリストを更新する</summary>
         <div class="sync-public-list-options">
           ${lib.playlists.filter(p=>/^[1-9]\d{0,15}$/.test(String(p.id))).map(p=>`<label class="check-field"><input type="checkbox" data-public-sync-list value="${esc(p.id)}" ${(state.publicSyncSelected||[]).includes(String(p.id))?'checked':''} /> ${esc(p.name)} <small>（ID: ${esc(p.id)}）</small></label>`).join('') || '<small>登録済みのリストはありません。</small>'}
         </div>

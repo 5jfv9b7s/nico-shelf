@@ -145,6 +145,14 @@ root.addEventListener('change', (event) => {
 });
 
 root.addEventListener('keydown', (event) => {
+  // URL + Enter is the shortest first-run flow; do not submit when unavailable.
+  if (event.key === 'Enter' && event.target.id === 'public-sync-new-list') {
+    event.preventDefault();
+    if (!state.busy && !state.pendingPublicImport && state.publicSourceStatus === 'configured') {
+      return guard(importPublicPlaylist);
+    }
+    return;
+  }
   if (event.key !== 'Enter' && event.key !== ' ') return;
   const point = event.target.closest('[data-scatter-video]');
   if (point) {
@@ -224,6 +232,7 @@ let composing = false;
 root.addEventListener('compositionstart',e=>{if(e.target.id==='search'||e.target.id==='creator-filter')composing=true;});
 root.addEventListener('compositionend',e=>{if(e.target.id==='search'||e.target.id==='creator-filter'){const name=e.target.id;composing=false;state.activeSavedSearchId='';state.filters[name==='search'?'q':'creator']=e.target.value;state.page=1;rerenderContent();document.querySelector(`#${name}`)?.focus();}});
 root.addEventListener('input',e=>{
+  if(e.target.id==='public-sync-new-list'){state.publicImportInput=e.target.value;return;}
   if(e.target.id==='video-id'){if(state.dialog?.kind==='add'){state.dialog.vid=e.target.value;state.dialog.probe=null;refreshMembership();const b=document.querySelector('#nico-register');if(b)b.disabled=true;const p=document.querySelector('#nico-inspect');if(p)p.disabled=!videoId(e.target.value)||!nicoBridge.connected;}return;}
   if(e.target.id==='search'||e.target.id==='creator-filter'){
     if(composing||e.isComposing)return;

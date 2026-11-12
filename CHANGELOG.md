@@ -1,3 +1,14 @@
+## 0.17.1 — Simpler first-run import and resilient public sync
+
+- Use one URL field for both first-time import and re-sync of an existing list.
+- Enter key starts a public import preview; the user still explicitly confirms writes.
+- Preserve URL field text, expanded disclosures, and scroll position during status refreshes and long requests.
+- Update progress in-place instead of replacing the whole DOM after every page.
+- Retry one transient gateway / browser connection error; never retry access-denied, rate-limited, malformed or incomplete responses. No DB write on failed fetch.
+- Extend the Worker-to-Render gateway timeout from 15 to 28 seconds to accommodate slow first requests.
+- Keep legacy Tampermonkey, Supabase RLS and gateway authentication unchanged.
+- 210 local automated tests; deployment smoke testing still required.
+
 ## 0.17.0 — URL-first onboarding and optional public mylist gateway
 
 - Public-mylist URL entry is prominently displayed, with full read-only preview before any DB write.

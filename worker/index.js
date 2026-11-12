@@ -80,7 +80,7 @@ async function requestGatewayPage(env, listId, page) {
     response = await fetch(url.toString(), {
       headers: { 'X-Nico-Shelf-Gateway-Key': config.token, Accept: 'application/json' },
       redirect: 'manual',
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(28000),
     });
   } catch (error) {
     return failure('GATEWAY_NETWORK', 'gateway', '公開マイリストの取得サービスに接続できません', 502,

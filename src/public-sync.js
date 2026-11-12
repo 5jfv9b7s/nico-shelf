@@ -3,6 +3,42 @@ import { snapshotFromBridgeParts } from './sync.js';
 const ID_RE = /^[1-9]\d{0,15}$/;
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20;
+const TRANSIENT_GATEWAY_ERRORS = new Set(['GATEWAY_NETWORK', 'GATEWAY_ERROR']);
+const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+/** Retry a read-only page once on temporary gateway outages (e.g. cold starts).
+ * Never retry access denials, rate limits, incomplete data or deleted lists.
+ */
+export async function requestPublicPage(url, {
+  fetchPage = fetch, onProgress = () => {}, sleep = pause,
+} = {}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let response;
+    try {
+      response = await fetchPage(url, { cache: 'no-store' });
+    } catch (error) {
+      const retryableNetworkError = error instanceof TypeError || error?.name === 'TimeoutError';
+      if (attempt > 0 || !retryableNetworkError) throw error;
+      onProgress('取得サーバーへの接続を再確認しています…');
+      await sleep(1500);
+      continue;
+    }
+    const body = await response.json().catch(() => ({}));
+    if (attempt === 0 && response.status === 502 && TRANSIENT_GATEWAY_ERRORS.has(body.code)) {
+      onProgress('取得サーバーが応答するまで再接続しています…');
+      await sleep(1500);
+      continue;
+    }
+    return { response, body };
+  }
+  throw new Error('公開マイリストの取得サービスに接続できません');
+}
+
+
+/** Use the same URL flow to import a new list or resync an existing one. */
+export function findExistingPublicPlaylist(playlists, id) {
+  return playlists.find((playlist) => String(playlist.id) === id) || null;
+}
 
 /** Accept an ID or the conventional public mylist URL. No arbitrary URLs. */
 export function parsePublicMylistId(value) {
@@ -60,15 +96,14 @@ export function assemblePublicMylistPages(pages, listId) {
   };
 }
 
-export async function fetchPublicMylist(listId, { onProgress = () => {}, fetchPage = fetch } = {}) {
+export async function fetchPublicMylist(listId, { onProgress = () => {}, fetchPage = fetch, sleep = pause } = {}) {
   if (!ID_RE.test(listId)) throw new Error('マイリストIDが不正です');
   const pages = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     onProgress(`${listId}: ${page}ページ目を取得中…`);
-    const response = await fetchPage(`/api/public-mylists/${listId}?page=${page}`, {
-      cache: 'no-store',
-    });
-    const pageResult = await response.json().catch(() => ({}));
+    const { response, body: pageResult } = await requestPublicPage(
+      `/api/public-mylists/${listId}?page=${page}`, { fetchPage, onProgress, sleep },
+    );
     if (!response.ok) {
       const detail = pageResult.error || `HTTP ${response.status}`;
       const diagnostic = pageResult.code ? ` [${pageResult.code}]` : '';

@@ -1,5 +1,5 @@
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.17.0';
+export const APP_VERSION = '0.17.1';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
@@ -56,6 +56,7 @@ export function createInitialState() {
     syncProgress: '',
     publicSyncSelected: null,
     publicSourceStatus: 'unknown',
+    publicImportInput: '',
     pendingPublicImport: null,
     busy: false,
     error: '',

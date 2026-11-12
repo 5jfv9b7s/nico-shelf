@@ -662,3 +662,10 @@ button.scatter-legend-entry:focus-visible { outline: 2px solid #76dacc; outline-
 .public-import-preview li { margin: 4px 0; overflow-wrap: anywhere; }
 .public-import-preview small { color: #aabbd0; }
 .public-import-preview .inline-actions { margin-top: 10px; }
+
+/* v0.17.1 — public import progress and minimal onboarding */
+.sync-progress[hidden] { display: none; }
+.public-import-primary .sync-connection small { font-size: 12px; line-height: 1.7; color: #b7d5df; }
+.public-import-primary .modal-note { font-size: 12px; }
+.public-import-primary .field-label { font-size: 12px; }
+.public-import-primary .btn.primary { min-height: 44px; }
