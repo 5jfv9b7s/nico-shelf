@@ -150,7 +150,9 @@ export function calculateTrend(library, rows, options = {}) {
     }
     return { ...group, counts, classified };
   });
-  const limit = Number.isInteger(options.limit) ? Math.max(1, Math.min(options.limit, 12)) : 7;
+  const limit = options.limit === 'all' ? Infinity
+    : Number.isInteger(Number(options.limit)) && Number(options.limit) > 0
+      ? Math.min(Number(options.limit), 100) : 10;
   const categories = [...totals].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
     .slice(0, limit).map(([name]) => name);
   const cells = groupResults.map((group) => ({

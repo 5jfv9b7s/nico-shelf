@@ -1,5 +1,6 @@
 import { esc, formatCount } from '../lib.js';
 import { renderTrendChart } from './trend-charts.js';
+import { colorForFacet } from '../app/character-colors.js';
 import {
   calculateTrend, compareTrendEndpoints, orderTrendPlaylists,
   TREND_AXES, TREND_FACETS, videosForTrendCell,
@@ -12,7 +13,7 @@ const optionHtml = (entries, selected) => entries.map(([value, label]) =>
 /** Read-only trend view; events are handled by the existing app event controller. */
 export function renderTrends({ state, rows, cards, hero }) {
   const config = state.trends;
-  const trend = calculateTrend(state.library, rows, config);
+  const trend = calculateTrend(state.library, rows, { ...config, limit: config.visibleCount ?? 10 });
   const playlists = orderTrendPlaylists(state.library.playlists, config);
   const selectedPlaylist = playlists.find((playlist) => playlist.id === config.playlistId) ?? playlists[0];
   const axisDescriptions = {
@@ -33,6 +34,7 @@ export function renderTrends({ state, rows, cards, hero }) {
       <div class="trend-controls" aria-label="変遷分析の条件">
         <label class="control-label">比較の軸<select id="trend-axis">${optionHtml(Object.entries(TREND_AXES), config.axis)}</select></label>
         <label class="control-label">分析項目<select id="trend-facet">${optionHtml(Object.entries(TREND_FACETS), config.facet)}</select></label>
+        <label class="control-label">表示項目数<select id="trend-visible-count">${optionHtml([[5, '上位5'], [10, '上位10'], [20, '上位20'], [30, '上位30'], ['all', 'すべて']], config.visibleCount ?? 10)}</select></label>
         ${config.axis === 'position' ? `<label class="control-label">対象マイリスト<select id="trend-playlist">${optionHtml(playlists.map((p) => [p.id, p.name]), selectedPlaylist?.id)}</select></label>` : ''}
         ${config.axis !== 'published' ? `<label class="trend-checkbox"><input type="checkbox" id="trend-include-other" ${config.includeOther ? 'checked' : ''}/>番号のないリストも含める</label>` : ''}
       </div>
@@ -51,7 +53,7 @@ export function renderTrends({ state, rows, cards, hero }) {
                 const active = selected?.group === group.key && selected.category === category;
                 return `<td><button type="button" class="trend-cell ${active ? 'is-selected' : ''}" data-trend-group="${esc(group.key)}" data-trend-category="${esc(category)}" ${count ? '' : 'disabled'}
                   aria-label="${esc(group.label)}の${esc(category)}：${count}曲、${percentage(percent)}">
-                  <span class="trend-cell-fill" style="width:${Math.min(100, percent).toFixed(2)}%"></span>
+                  <span class="trend-cell-fill" style="width:${Math.min(100, percent).toFixed(2)}%;background:${colorForFacet(category, trend.facet, trend.categories.indexOf(category))}66"></span>
                   <span class="trend-cell-text">${percentage(percent)} <small>(${count})</small></span></button></td>`;
               }).join('')}</tr>`).join('')}
               <tr class="trend-coverage"><th scope="row">判定情報がある動画</th>${trend.cells.map((group) => `<td>${group.total ? percentage(100 * group.classified / group.total) : '—'} <small>(${group.classified}/${group.total})</small></td>`).join('')}</tr>

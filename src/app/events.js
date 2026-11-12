@@ -42,7 +42,7 @@ export function registerEventHandlers({
   } = actions;
 
 root.addEventListener('click',e=>{
-  const target=e.target.closest('button,[data-view],[data-page],[data-close]');if(!target)return;
+  const target=e.target.closest('button,[data-view],[data-page],[data-close],[data-scatter-video]');if(!target)return;
   if(target.id==='login')return guard(login);
   if(target.id==='logout')return guard(async()=>{const {error}=await client.auth.signOut();if(error)throw error;});
   if(!state.user)return;
@@ -64,6 +64,15 @@ root.addEventListener('click',e=>{
     state.filters[key] = target.dataset.facetValue;
     state.page = 1;
     return render();
+  }
+  if (target.dataset.scatterVideo) return showDialog('detail', { id: target.dataset.scatterVideo });
+  if (target.dataset.scatterVoice) {
+    state.scatter.voice = state.scatter.voice === target.dataset.scatterVoice ? '' : target.dataset.scatterVoice;
+    return rerenderContent();
+  }
+  if (target.id === 'scatter-reset') {
+    state.scatter = { x: 'views', y: 'comments', voice: '', legendLimit: 30 };
+    return rerenderContent();
   }
   if(target.dataset.favorite)return guard(()=>toggleFavorite(target.dataset.favorite));
   if(target.dataset.detail)return showDialog('detail',{id:target.dataset.detail});
@@ -102,6 +111,14 @@ root.addEventListener('click',e=>{
   if(target.id==='export')return exportJson();
   if(target.id==='erase')return guard(eraseData);
 });
+root.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const point = event.target.closest('[data-scatter-video]');
+  if (point) {
+    event.preventDefault();
+    showDialog('detail', { id: point.dataset.scatterVideo });
+  }
+});
 root.addEventListener('change',e=>{
   if (state.dialog?.kind === 'related') {
     if (e.target.id === 'related-mode') {
@@ -117,14 +134,21 @@ root.addEventListener('change',e=>{
   if((e.target.id==='target-playlist'||e.target.id==='allow-duplicate')&&state.dialog?.kind==='add'){captureAddForm();render();return;}
   if(e.target.id==='file-import')return guard(()=>handleFile(e.target.files[0]));
   if(e.target.id==='file-sync')return guard(()=>handleSyncFile(e.target.files[0]));
-  if (['trend-axis', 'trend-facet', 'trend-playlist', 'trend-include-other', 'trend-chart-style'].includes(e.target.id)) {
+  if (['trend-axis', 'trend-facet', 'trend-playlist', 'trend-include-other', 'trend-chart-style', 'trend-visible-count', 'trend-focus-select'].includes(e.target.id)) {
     if (e.target.id === 'trend-axis') state.trends.axis = e.target.value;
     if (e.target.id === 'trend-facet') state.trends.facet = e.target.value;
     if (e.target.id === 'trend-playlist') state.trends.playlistId = e.target.value;
     if (e.target.id === 'trend-include-other') state.trends.includeOther = e.target.checked;
     if (e.target.id === 'trend-chart-style') state.trends.chartStyle = e.target.value === 'spotlight' ? 'spotlight' : 'line';
+    if (e.target.id === 'trend-visible-count') state.trends.visibleCount = e.target.value === 'all' ? 'all' : Number(e.target.value);
+    if (e.target.id === 'trend-focus-select') state.trends.focus = e.target.value;
     if (e.target.id === 'trend-facet' || e.target.id === 'trend-axis') state.trends.focus = '';
     state.trends.selected = null;
+    return rerenderContent();
+  }
+  if (['scatter-x', 'scatter-y', 'scatter-voice', 'scatter-legend-limit'].includes(e.target.id)) {
+    if (e.target.id === 'scatter-legend-limit') state.scatter.legendLimit = e.target.value === 'all' ? 'all' : Number(e.target.value);
+    else state.scatter[{ 'scatter-x': 'x', 'scatter-y': 'y', 'scatter-voice': 'voice' }[e.target.id]] = e.target.value;
     return rerenderContent();
   }
   if(e.target.id==='saved-search-select')return useSearchPreset(e.target.value);
@@ -136,6 +160,10 @@ root.addEventListener('change',e=>{
     state.page=1;rerenderContent();
   }
   if(e.target.id==='voice-mode'){state.voiceMode=e.target.value==='raw'?'raw':'canonical';rerenderContent();}
+  if (e.target.id === 'voice-count') {
+    state.voiceVisibleCount = e.target.value === 'all' ? 'all' : Number(e.target.value);
+    return rerenderContent();
+  }
   if(e.target.id==='sort-field'){
     state.activeSavedSearchId='';
     state.filters.sort=e.target.value;

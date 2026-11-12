@@ -325,3 +325,92 @@
   .trend-coverage-row { grid-template-columns: minmax(95px, 120px) minmax(65px, 1fr) 55px; }
   .trend-coverage-row small { display: none; }
 }
+
+/* v0.14 — shared character-colour palette and scatter explorer. */
+.scatter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 15px 0;
+}
+.scatter-controls .control-label { flex: 1 1 180px; min-width: 150px; }
+.scatter-controls select {
+  display: block;
+  width: 100%;
+  border: 1px solid #3b5670;
+  border-radius: 8px;
+  background: #102039;
+  color: #e4edf7;
+  padding: 10px;
+  margin-top: 5px;
+}
+.scatter-controls button { min-height: 40px; }
+.scatter-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 20px;
+  margin: 8px 0 14px;
+  font-size: 12px;
+  color: #b2cbd9;
+}
+.scatter-metrics strong { color: #f1f8fc; font-variant-numeric: tabular-nums; }
+.scatter-chart-scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.scatter-svg {
+  display: block;
+  width: 100%;
+  min-width: 660px;
+  height: auto;
+  overflow: visible;
+  background: #0f2035;
+  border: 1px solid #2f4561;
+  border-radius: 12px;
+}
+.scatter-grid-line { stroke: #354860; stroke-dasharray: 3 6; stroke-width: 1; }
+.scatter-axis-line { stroke: #7892aa; stroke-width: 1.5; }
+.scatter-axis-label { fill: #a7bdd1; font: 11px system-ui, sans-serif; }
+.scatter-axis-title { fill: #e1edf5; font: 13px system-ui, sans-serif; }
+.scatter-svg [data-scatter-video] { cursor: pointer; transition: r .1s, fill-opacity .1s; }
+.scatter-svg [data-scatter-video]:hover,
+.scatter-svg [data-scatter-video]:focus-visible {
+  fill-opacity: 1;
+  stroke: white;
+  stroke-width: 2;
+  r: 6px;
+  outline: none;
+}
+.scatter-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 15px; margin: 16px 0 10px; }
+.scatter-legend-title { font-size: 11px; color: #a7bfd1; font-weight: 700; width: 100%; }
+.scatter-legend-entry { display: inline-flex; gap: 7px; align-items: center; color: #c4d7e6; font-size: 11px; }
+.scatter-legend-entry i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 1px solid #fff3; }
+@media(max-width: 650px) {
+  .scatter-controls { gap: 8px; padding: 4px 0 10px; }
+  .scatter-controls .control-label { min-width: calc(50% - 6px); flex: 1 1 calc(50% - 6px); }
+  .scatter-controls button { width: 100%; }
+  .scatter-panel { padding: 14px; }
+  .scatter-svg { width: 660px; }
+}
+
+/* v0.14.2 — More visible singers without overflowing long charts. */
+.voice-rank-heading { align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.voice-rank-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.voice-rank-controls .control-label { min-width: 100px; }
+.voice-rank-controls select { max-width: 150px; }
+.trend-legend { max-height: 164px; overflow-y: auto; padding: 3px 5px 5px 0; }
+.trend-chart-heading select { max-width: 220px; }
+.trend-line-svg { min-width: 680px; }
+.scatter-legend { display: block; }
+.scatter-legend-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 9px; margin-bottom: 9px; }
+.scatter-legend-header .scatter-legend-title { width: auto; }
+.scatter-legend-items { display: flex; flex-wrap: wrap; gap: 7px 10px; max-height: 180px; overflow-y: auto; }
+button.scatter-legend-entry {
+  border: 1px solid #334b61; border-radius: 999px; background: #16283c;
+  padding: 5px 9px; cursor: pointer; font: inherit;
+}
+button.scatter-legend-entry:hover, button.scatter-legend-entry.is-active { border-color: #76dacc; background: #24485a; }
+button.scatter-legend-entry:focus-visible { outline: 2px solid #76dacc; outline-offset: 2px; }
+@media (max-width: 650px) {
+  .voice-rank-controls { width: 100%; }
+  .scatter-legend-header .control-label { flex: 1 1 100%; }
+  .trend-line-svg { min-width: 600px; }
+}

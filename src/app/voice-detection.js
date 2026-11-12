@@ -36,6 +36,35 @@ export const VOICE_RULES = Object.freeze([
   ['巡音ルカ', /巡音\s*ルカ/i],
   ['MEIKO', /\bMEIKO\b/i],
   ['KAITO', /\bKAITO\b/i],
+  ['東北イタコ', /東北\s*イタコ|tohoku\s*itako/i],
+  ['四国めたん', /四国\s*めたん/i],
+  ['九州そら', /九州\s*そら/i],
+  ['中国うさぎ', /中国\s*うさぎ/i],
+  ['歌愛ユキ', /歌愛\s*ユキ/i],
+  ['v flower', /v[_\s-]*flower|ブイフラワ|vフラワ/i],
+  ['鳴花ヒメ', /鳴花\s*ヒメ/i],
+  ['鳴花ミコト', /鳴花\s*ミコト/i],
+  ['紲星あかり', /紲星\s*あかり/i],
+  ['弦巻マキ', /弦巻\s*マキ/i],
+  ['桜乃そら', /桜乃\s*そら/i],
+  ['さとうささら', /さとう\s*ささら/i],
+  ['すずきつづみ', /すずき\s*つづみ/i],
+  ['波音リツ', /波音\s*リツ/i],
+  ['雪歌ユフ', /雪歌\s*ユフ/i],
+  ['桃音モモ', /桃音\s*モモ/i],
+  ['唄音ウタ', /唄音\s*ウタ|デフォ子/i],
+  ['亞北ネル', /[亞亜]北\s*ネル/i],
+  ['弱音ハク', /弱音\s*ハク/i],
+  ['裏命', /裏命/i],
+  ['羽累', /羽累/i],
+  ['狐子', /狐子/i],
+  ['神威がくぽ', /神威\s*がくぽ|がくっぽいど/i],
+  ['夢ノ結唱 POPY', /夢ノ結唱\s*POPY/i],
+  ['夢ノ結唱 ROSE', /夢ノ結唱\s*ROSE/i],
+  ['OИE', /O[ИN]E(?=\s*(?:[\]】)]|$))/i],
+  ['VY1', /\bVY1\b/i],
+  ['VY2', /\bVY2\b/i],
+
 ]);
 
 function splitSingerFields(input) {
@@ -45,6 +74,9 @@ function splitSingerFields(input) {
 export function canonicalVoice(value) {
   const original = String(value ?? '').trim();
   if (!original) return '';
+  if (/^(?:flower|v[_\s-]?flower)$/i.test(original)) return 'v flower';
+  if (/^デフォ子$/.test(original)) return '唄音ウタ';
+  if (/^あかり$/.test(original)) return original; // Too ambiguous to infer a character.
   const matched = VOICE_RULES.find(([, expression]) => expression.test(original));
   if (matched) return matched[0];
   return original

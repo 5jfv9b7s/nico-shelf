@@ -1,9 +1,10 @@
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.13.0';
+export const APP_VERSION = '0.14.2';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
   trends: '音楽の変遷',
+  scatter: '散布図',
   duplicates: '重複した動画',
   favorites: 'お気に入り',
   settings: 'データと設定',
@@ -23,6 +24,7 @@ export const NAV_ICONS = {
   dashboard: '▦',
   library: '≡',
   trends: '▥',
+  scatter: '⋮',
   duplicates: '◈',
   favorites: '♡',
   settings: '⚙',
@@ -41,8 +43,10 @@ export function createInitialState() {
     savedSearchesLoaded: false,
     savedSearchesError: '',
     activeSavedSearchId: '',
-    trends: { axis: 'playlist', facet: 'voice', playlistId: '', includeOther: false, selected: null, chartStyle: 'line', focus: '' },
+    trends: { axis: 'playlist', facet: 'voice', playlistId: '', includeOther: false, selected: null, chartStyle: 'line', focus: '', visibleCount: 10 },
+    scatter: { x: 'views', y: 'comments', voice: '', legendLimit: 30 },
     voiceMode: 'canonical',
+    voiceVisibleCount: 15,
     cardMode: 'list',
     page: 1,
     dialog: null,

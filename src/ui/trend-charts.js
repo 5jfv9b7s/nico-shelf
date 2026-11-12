@@ -5,8 +5,8 @@
  */
 import { esc, formatCount } from '../lib.js';
 import { compareTrendEndpoints } from '../app/trends.js';
+import { colorForFacet } from '../app/character-colors.js';
 
-const COLORS = Object.freeze(['#69ded0', '#f2ba76', '#9ca9ff', '#f48eaa', '#9bcf89']);
 const percentage = (value) => `${value.toFixed(1)}%`;
 
 export const TREND_CHART_STYLES = Object.freeze({
@@ -16,7 +16,7 @@ export const TREND_CHART_STYLES = Object.freeze({
 
 function buildLines(result, highlighted) {
   const { cells } = result;
-  const categories = result.categories.slice(0, COLORS.length);
+  const categories = result.categories;
   const width = Math.max(680, 120 + cells.length * 92);
   const height = 294;
   const left = 58;
@@ -31,7 +31,7 @@ function buildLines(result, highlighted) {
     <text x="${left - 10}" y="${y(value) + 4}" text-anchor="end" class="trend-axis-label">${value}%</text>`).join('');
 
   const series = categories.map((name, seriesIndex) => {
-    const color = COLORS[seriesIndex];
+    const color = colorForFacet(name, result.facet, seriesIndex);
     const muted = highlighted && highlighted !== name;
     const coords = cells.map((group, index) => ({
       group, px: x(index), py: y(group.values[name].percent),
@@ -62,7 +62,7 @@ function buildSpotlight(result, focus) {
       const point = group.values[category];
       return `<div class="trend-spotlight-row">
         <span class="trend-spotlight-name" title="${esc(group.label)}">${esc(group.label)}</span>
-        <span class="trend-spotlight-track"><span class="trend-spotlight-fill" style="width:${point.percent.toFixed(2)}%"></span></span>
+        <span class="trend-spotlight-track"><span class="trend-spotlight-fill" style="width:${point.percent.toFixed(2)}%;background:${colorForFacet(category, result.facet)}"></span></span>
         <b class="trend-spotlight-number">${percentage(point.percent)} <small>（${point.count}/${group.total}曲）</small></b>
       </div>`;
     }).join('')}
@@ -85,11 +85,11 @@ function buildCoverage(result) {
 export function renderTrendChart(result, { style = 'line', focus = '' } = {}) {
   if (!result.categories.length || !result.cells.length) return '';
   const selected = result.categories.includes(focus) ? focus : '';
-  const plottedCategories = result.categories.slice(0, COLORS.length);
+  const plottedCategories = result.categories;
   const legend = plottedCategories.map((category, index) => `
     <button type="button" class="trend-legend-item ${selected === category ? 'is-active' : ''}"
       data-trend-focus="${esc(category)}" aria-pressed="${selected === category}">
-      <span class="trend-legend-color" style="background:${COLORS[index]}"></span>${esc(category)}
+      <span class="trend-legend-color" style="background:${colorForFacet(category, result.facet, index)}"></span>${esc(category)}
     </button>`).join('');
   const changes = compareTrendEndpoints(result).filter((item) => Math.abs(item.delta) >= 0.05);
   const biggestRise = changes.filter((item) => item.delta > 0).sort((a, b) => b.delta - a.delta)[0];
@@ -99,8 +99,11 @@ export function renderTrendChart(result, { style = 'line', focus = '' } = {}) {
   return `<section class="trend-visualization" aria-label="好みの変遷を視覚化">
     <div class="trend-chart-heading"><div>
       <h3>割合の推移を比較</h3>
-      <p>各グループの全動画に対する割合。色は項目ごとに共通です。</p>
-    </div><label class="control-label">グラフ形式
+      <p>各グループの全動画に対する割合。<strong>${result.categories.length}項目</strong>を表示。凡例はスクロールできます。</p>
+    </div><label class="control-label">強調する項目
+      <select id="trend-focus-select"><option value="">全項目</option>${result.categories.map((name) =>
+        `<option value="${esc(name)}" ${selected === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select>
+    </label><label class="control-label">グラフ形式
       <select id="trend-chart-style"><option value="line" ${style !== 'spotlight' ? 'selected' : ''}>折れ線</option>
       <option value="spotlight" ${style === 'spotlight' ? 'selected' : ''}>横棒で比較</option></select>
     </label></div>

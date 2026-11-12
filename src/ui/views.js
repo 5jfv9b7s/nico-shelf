@@ -8,6 +8,8 @@ import { APP_VERSION, VIEWS, SORTS, NAV_ICONS } from '../app/state.js';
 import { safeThumb } from './media.js';
 import { selectLibraryResults } from '../app/search.js';
 import { renderTrends } from './trends.js';
+import { renderScatter } from './scatter.js';
+import { colorForCharacter } from '../app/character-colors.js';
 
 /**
  * Pure-ish HTML templates: read the injected UI state, but never write to the DB.
@@ -27,7 +29,7 @@ function shell(){
     <aside class="sidebar">
       <button class="brand" data-view="dashboard" aria-label="トップへ"><span class="brand-mark">♫</span><span><b>NICO SHELF</b><small>YOUR MUSIC ARCHIVE</small></span></button>
       <div class="menu-label">DISCOVER</div>
-      <nav>${['dashboard','library','trends','duplicates','favorites'].map(x=>navItem(x,VIEWS[x],NAV_ICONS[x],state.view===x)).join('')}</nav>
+      <nav>${['dashboard','library','trends','scatter','duplicates','favorites'].map(x=>navItem(x,VIEWS[x],NAV_ICONS[x],state.view===x)).join('')}</nav>
       <div class="menu-label playlist-head">MY LISTS <span>${p.length}</span></div>
       <nav class="playlist-menu">${p.map(x=>`<button class="nav-item ${state.view===`playlist:${x.id}`?'is-active':''}" data-view="playlist:${esc(x.id)}"><span class="playlist-dot"></span><span class="text-ellipsis">${esc(x.name)}</span><small>${all.filter(e=>e.playlist_id===x.id).length}</small></button>`).join('')||'<p class="nav-help">インポートすると表示されます</p>'}</nav>
       <div class="sidebar-foot"><button class="nav-item ${state.view==='settings'?'is-active':''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v${APP_VERSION} β</b><br>クラウド管理・非公式アプリ</div></div>
@@ -45,7 +47,7 @@ function hero(kicker,title,desc,action=''){return `<div class="heading"><div><di
 function statsCards(){const c=counts();return `<div class="stat-grid">
   ${[[c.videos,'VIDEO LIBRARY','保存済み動画'],[c.entries,'PLAYLIST ENTRIES','登録件数'],[c.duplicates,'DUPLICATED','複数リストに所属'],[state.library.playlists.length,'MYLISTS','管理中のリスト']].map(([n,label,sub],i)=>`<div class="stat-card"><div class="stat-top"><span>${label}</span><span class="stat-symbol">${['◈','≡','◎','♫'][i]}</span></div><strong>${formatCount(n)}</strong><small>${sub}</small></div>`).join('')}
   </div>`;}
-function barList(data, noun = '曲', facetKind = '') {
+function barList(data, noun = '曲', facetKind = '', useCharacterColors = false) {
   const max = Math.max(1, ...data.map((entry) => entry[1]));
   if (!data.length) return '<div class="empty-sm">まだ集計できる情報がありません</div>';
 
@@ -56,7 +58,7 @@ function barList(data, noun = '曲', facetKind = '') {
       : '<div class="bar-row">';
     return `${opening}<span class="bar-index">${String(index + 1).padStart(2, '0')}</span>
       <span class="bar-name" title="${esc(name)}">${esc(name)}</span>
-      <span class="bar-track"><span class="bar-fill" style="width:${Math.min(100, 100 * count / max)}%"></span></span>
+      <span class="bar-track"><span class="bar-fill" style="width:${Math.min(100, 100 * count / max)}%;${useCharacterColors ? `background:${colorForCharacter(name)};` : ''}"></span></span>
       <span class="bar-num">${count}${noun}${isFilter ? ' ↗' : ''}</span>${isFilter ? '</button>' : '</div>'}`;
   }).join('');
 }
@@ -68,14 +70,15 @@ function playlistVoiceMatrix(rows,playlists){
     if(am)return -1;if(bm)return 1;
     return a.name.localeCompare(b.name,'ja');
   });
-  const voices=voiceStats(rows,state.voiceMode,6).map(([name])=>name);
+  const count = state.voiceVisibleCount === 'all' ? Infinity : (state.voiceVisibleCount ?? 15);
+  const voices=voiceStats(rows,state.voiceMode,count).map(([name])=>name);
   const totals=ordered.map(p=>rows.filter(v=>v.memberships.some(m=>m.id===p.id)).length);
-  return `<section class="panel"><div class="panel-title"><div><span class="section-eyebrow">VOICE BY PLAYLIST</span><h2>マイリスト別・歌唱者の傾向</h2></div><span class="panel-note">収録割合（重複歌唱あり）</span></div>
+  return `<section class="panel"><div class="panel-title"><div><span class="section-eyebrow">VOICE BY PLAYLIST</span><h2>マイリスト別・歌唱者の傾向</h2></div><span class="panel-note">収録割合（重複歌唱あり）・ランキングの表示人数に連動</span></div>
     <div class="matrix-wrap"><table class="voice-matrix"><thead><tr><th>歌唱者</th>${ordered.map((p,i)=>`<th>${esc(p.name)}<small>${totals[i]}件</small></th>`).join('')}</tr></thead>
     <tbody>${voices.map(name=>`<tr><th>${esc(name)}</th>${ordered.map((p,i)=>{
       const n=rows.filter(v=>v.memberships.some(m=>m.id===p.id)&&(state.voiceMode==='raw'?rawVoices(v):canonicalVoices(v)).includes(name)).length;
       const pct=totals[i]?Math.round(1000*n/totals[i])/10:0;
-      return `<td><span class="matrix-bar" style="width:${Math.min(100,pct)}%"></span><span class="matrix-value">${pct}% <small>(${n})</small></span></td>`;
+      return `<td><span class="matrix-bar" style="width:${Math.min(100,pct)}%;background:${colorForCharacter(name)}44;border-left:3px solid ${colorForCharacter(name)}"></span><span class="matrix-value">${pct}% <small>(${n})</small></span></td>`;
     }).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="panel-footnote">歌唱者名は名寄せルールに基づく表示です。原表記と手動修正は保持しています。</div>
   </section>`;
@@ -91,7 +94,7 @@ function dashboard(rows){
     <div class="trend-entry-banner"><span><strong>♫ 音楽の変遷</strong><small>マイリストの順番・投稿年から、好きな曲の傾向を比較</small></span><button class="btn subtle" data-view="trends">分析を見る →</button></div>
     ${c.videos===0?`<div class="welcome-banner"><div class="welcome-icon">♫</div><div><h2>最初のライブラリを作りましょう</h2><p>v0.3のJSONバックアップ、またはCSVから取り込めます。あなたのデータはGoogleアカウントごとに分離して保存されます。</p><div class="inline-actions"><button class="btn primary" data-action="import">インポートする</button><button class="btn subtle" data-action="playlist">空のリストを作る</button></div></div></div>`:''}
     <div class="two-cols">
-      <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">VOICE RANKING</span><h2>歌唱者ランキング</h2></div><label class="control-label compact">集計単位<select id="voice-mode"><option value="canonical" ${state.voiceMode==='canonical'?'selected':''}>キャラクター別</option><option value="raw" ${state.voiceMode==='raw'?'selected':''}>元の歌唱者表記</option></select></label></div>${barList(voiceStats(rows,state.voiceMode,8))}</section>
+      <section class="panel"><div class="panel-title voice-rank-heading"><div><span class="section-eyebrow">VOICE RANKING</span><h2>歌唱者ランキング</h2></div><div class="voice-rank-controls"><label class="control-label compact">集計単位<select id="voice-mode"><option value="canonical" ${state.voiceMode==='canonical'?'selected':''}>キャラクター別</option><option value="raw" ${state.voiceMode==='raw'?'selected':''}>元の歌唱者表記</option></select></label><label class="control-label compact">表示人数<select id="voice-count">${[[5,'上位5'],[10,'上位10'],[15,'上位15'],[20,'上位20'],[30,'上位30'],['all','全員']].map(([num,label])=>`<option value="${num}" ${(state.voiceVisibleCount??15)===num?'selected':''}>${label}</option>`).join('')}</select></label></div></div>${barList(voiceStats(rows,state.voiceMode,state.voiceVisibleCount==='all'?Infinity:(state.voiceVisibleCount??15)), '曲', '', true)}</section>
       <section class="panel"><div class="panel-title"><div><span class="section-eyebrow">MY PLAYLISTS</span><h2>マイリスト別の登録件数</h2></div><span class="panel-note">${p.length} lists</span></div>${barList(p.map(x=>[x.name,state.library.entries.filter(e=>e.playlist_id===x.id&&e.present!==false).length]),'件')}<div class="panel-bottom"><button class="text-btn" data-action="playlist">＋ マイリストを作成</button></div></section>
     </div>
     ${playlistVoiceMatrix(rows,p)}
@@ -180,6 +183,7 @@ function content(){
   const rows = makeRows();
   if (state.view === 'dashboard') return dashboard(rows);
   if (state.view === 'trends') return renderTrends({ state, rows, cards, hero });
+  if (state.view === 'scatter') return renderScatter({ state, rows, hero });
   if (state.view === 'settings') return settings();
   return listing(rows);
 }
