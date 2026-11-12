@@ -47,6 +47,7 @@ export const VOICE_RULES = Object.freeze([
   ['紲星あかり', /紲星\s*あかり/i],
   ['弦巻マキ', /弦巻\s*マキ/i],
   ['桜乃そら', /桜乃\s*そら/i],
+  ['彩澄りりせ', /彩澄\s*(?:りりせ|リリセ)/i],
   ['さとうささら', /さとう\s*ささら/i],
   ['すずきつづみ', /すずき\s*つづみ/i],
   ['波音リツ', /波音\s*リツ/i],
@@ -61,7 +62,8 @@ export const VOICE_RULES = Object.freeze([
   ['神威がくぽ', /神威\s*がくぽ|がくっぽいど/i],
   ['夢ノ結唱 POPY', /夢ノ結唱\s*POPY/i],
   ['夢ノ結唱 ROSE', /夢ノ結唱\s*ROSE/i],
-  ['OИE', /O[ИN]E(?=\s*(?:[\]】)]|$))/i],
+  // Do not detect the singer OИE inside words such as ZONE.
+  ['OИE', /(?<![A-Za-z0-9_])O[ИN]E(?![A-Za-z0-9_])/i],
   ['VY1', /\bVY1\b/i],
   ['VY2', /\bVY2\b/i],
 

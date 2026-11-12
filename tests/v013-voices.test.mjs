@@ -123,3 +123,25 @@ test('タイトルの歌唱者クレジットに続くデュエット表記を�
 test('ジャンル名を含む無関係な作品名からは分類しない', () => {
   assert.deepEqual(genreLabels(song({ tags: ['ロックマン', 'ポップコーン'] })), []);
 });
+
+
+test('「桜乃そら、彩澄りりせ」のタイトルとタグから2人を歌唱者として判定する', () => {
+  const row = song({
+    id: 'sm46636822',
+    title: 'secret base ～君がくれたもの～ (ZONE) ／ 桜乃そら、彩澄りりせ (SynthesizerV2) カバー',
+    tags: ['桜乃そら', '彩澄りりせ', 'SynthesizerV'],
+  });
+  assert.deepEqual(canonicalVoices(row), ['桜乃そら', '彩澄りりせ']);
+  assert.equal(detectVoiceEvidence(row).suggestions.length, 0);
+});
+
+test('ZONEの文字列から歌唱者「OИE」を誤検出しない', () => {
+  assert.deepEqual(canonicalVoices(song({ title: 'ZONEのカバー曲' })), []);
+  assert.deepEqual(canonicalVoices(song({ title: 'ONE feat. 桜乃そら' })), ['桜乃そら']);
+  assert.deepEqual(canonicalVoices(song({ title: 'テスト曲 / OИE' })), ['OИE']);
+});
+
+test('歌唱者の原表記が空でも、タイトルの明示的な歌唱表記を認識する', () => {
+  const row = song({ title: 'cover ／ 桜乃そら、彩澄りりせ', voices: [] });
+  assert.deepEqual(canonicalVoices(row), ['桜乃そら', '彩澄りりせ']);
+});
