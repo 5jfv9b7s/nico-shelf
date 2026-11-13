@@ -20,6 +20,7 @@ import { mountScatter3D } from './ui/scatter3d.js';
 import { createDialogRenderer } from './ui/dialogs.js';
 import { captureSyncDialogUi, restoreSyncDialogUi, updateSyncStatus } from './app/sync-dialog-ui.js';
 import { checkPublicSourceStatus } from './app/public-source-status.js';
+import { createNavigationScrollHandler } from './app/scroll.js';
 
 /**
  * Controller: connects UI events to Supabase and NicoNico bridge operations.
@@ -30,6 +31,7 @@ const state = createInitialState();
 const nicoBridge = new NicoTabBridge();
 const renderDialog = createDialogRenderer({ state, nicoBridge });
 const { shell, content, loginScreen, missingConfig } = createViewRenderer({ state, renderDialog });
+const scrollAfterNavigation = createNavigationScrollHandler();
 
 function toast(message,isError=false){
   let el=document.querySelector('#toast');if(!el){el=document.createElement('div');el.id='toast';el.setAttribute('role','status');el.setAttribute('aria-live','polite');document.body.append(el);}
@@ -50,6 +52,7 @@ function render(){
   root.innerHTML=!configured?missingConfig():!state.user?loginScreen():shell();
   if (state.dialog?.kind === 'sync') restoreSyncDialogUi(root, modalState);
   mountInteractiveScatter();
+  scrollAfterNavigation(state);
 }
 /** Keep the dialog and scroll position intact during long gateway requests. */
 function setSyncProgress(message) {
@@ -61,6 +64,7 @@ function rerenderContent(){
   const el=document.querySelector('#main-content');
   if (el) el.innerHTML=content();
   mountInteractiveScatter();
+  scrollAfterNavigation(state);
 }
 function rerenderSidebar(){render();}
 async function loadPublicSourceStatus() {

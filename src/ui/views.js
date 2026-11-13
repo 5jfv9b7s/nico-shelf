@@ -48,6 +48,7 @@ function shell(){
           <span>${esc(VIEWS[id] === 'データと設定' ? '設定' : VIEWS[id] === 'ダッシュボード' ? 'ホーム' : VIEWS[id] === '音楽の変遷' ? '変遷' : VIEWS[id] === 'お気に入り' ? 'お気に入り' : VIEWS[id])}</span>
         </button>`).join('')}
     </nav>
+    ${!state.dialog ? '<button type="button" class="back-to-top" id="back-to-top" aria-label="ページ上部へ戻る"><span aria-hidden="true">↑</span>上へ</button>' : ''}
     ${state.dialog?renderDialog():''}
   </div>`;
 }
@@ -117,7 +118,7 @@ function cards(rows){
   return `<div class="video-list ${state.cardMode==='grid'?'as-grid':''}">${rows.map(v=>{
     const thumb=safeThumb(v.thumb);const dup=v.memberships.length>1;
     return `<article class="video-card"><a class="cover" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v.title||v.id)}をニコニコで視聴"><span class="cover-fallback">♫</span>${thumb?`<img src="${esc(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />`:''}<span class="duration">${formatDuration(v.duration)}</span></a>
-      <div class="video-info"><div class="video-title-row"><a class="video-title" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer" title="ニコニコで動画を開く">${esc(v.title||v.id)} <span class="external-arrow">↗</span></a>${dup?'<span class="dup-badge">重複</span>':''}</div>
+      <div class="video-info"><div class="video-title-row"><a class="video-title" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer" title="${esc(v.title||v.id)}"><span class="video-title-text">${esc(v.title||v.id)}</span><span class="external-arrow" aria-hidden="true">↗</span></a>${dup?'<span class="dup-badge">重複</span>':''}</div>
       <div class="video-sub"><span>${esc(v.uploader||'投稿者不明')}</span><span class="sub-divider">·</span><span>${esc(v.id)}</span><span class="sub-divider">·</span><span>${formatDate(v.published_at)}</span></div>
       <div class="video-tags">${v.memberships.map(m=>`<span class="list-chip" title="取得時のリスト内順番: ${Number.isFinite(Number(m.position))?m.position:'不明'}">${esc(m.name)}</span>`).join('')||'<span class="empty-chip">未分類</span>'}<span class="voice-clip" title="${esc(rawVoices(v).join(' / '))}">${esc(canonicalVoices(v).slice(0,3).join(' / '))}</span>${genreLabels(v).slice(0,2).map(g=>`<span class="facet-chip">${esc(g)}</span>`).join('')}${moodLabels(v).slice(0,1).map(g=>`<span class="mood-chip">${esc(g)}</span>`).join('')}</div></div>
       <div class="video-stat"><span>▶ ${formatCount(v.views)}</span><span>♡ ${formatCount(v.likes)}</span></div>

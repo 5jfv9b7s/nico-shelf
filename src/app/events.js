@@ -1,5 +1,6 @@
 import { videoId } from '../lib.js';
 import { DEFAULT_3D_CAMERA } from './scatter3d.js';
+import { scrollPageToTop } from './scroll.js';
 
 /**
  * DOM event delegation belongs here, away from the data-fetching controller.
@@ -50,6 +51,7 @@ root.addEventListener('click',e=>{
   if(target.id==='login')return guard(login);
   if(target.id==='logout')return guard(async()=>{const {error}=await client.auth.signOut();if(error)throw error;});
   if(!state.user)return;
+  if (target.id === 'back-to-top') return scrollPageToTop(true);
   if(target.dataset.close){if(e.target.closest('.modal')&&!target.classList.contains('close-btn'))return;return closeDialog();}
   if(target.dataset.view){state.view=target.dataset.view;state.page=1;state.activeSavedSearchId='';Object.assign(state.filters,{q:'',playlist:'',sort:'views',order:'desc',voice:'',variant:'',genre:'',mood:'',year:'',creator:'',status:''});return render();}
   if(target.dataset.page){state.page=Math.max(1,Number(target.dataset.page));return rerenderContent();}

@@ -1,5 +1,5 @@
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.17.2';
+export const APP_VERSION = '0.17.4';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
