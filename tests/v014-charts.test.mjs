@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { canonicalVoice } from '../src/app/voice-detection.js';
-import { colorForCharacter, colorForFacet, UNCLASSIFIED_COLOR } from '../src/app/character-colors.js';
+import {
+  colorForCharacter,
+  colorForFacet,
+  UNCLASSIFIED_COLOR,
+} from '../src/app/character-colors.js';
 import { createScatterData, metricValue, transformMetric } from '../src/app/scatter.js';
 import { renderScatter } from '../src/ui/scatter.js';
 import { renderTrendChart } from '../src/ui/trend-charts.js';
@@ -11,10 +15,45 @@ import { createInitialState } from '../src/app/state.js';
 import { createViewRenderer } from '../src/ui/views.js';
 
 const rows = [
-  { id: 'sm1', title: 'ウナの曲', voices: ['音街ウナ Spicy'], views: 1000, comments: 35, likes: 5, duration: 160, published_at: '2023-05-01' },
-  { id: 'sm2', title: 'ミクとテト', voices: ['初音ミク', '重音テトSV'], views: 10000, comments: 300, likes: 50, duration: 190, published_at: '2024-05-01' },
-  { id: 'sm3', title: '未取得', voices: ['足立レイ'], views: null, comments: null, likes: null, duration: 140 },
-  { id: 'sm4', title: 'ゼロ再生', voices: ['音街ウナ'], views: 0, comments: 0, likes: 0, duration: 90, published_at: '2025-01-01' },
+  {
+    id: 'sm1',
+    title: 'ウナの曲',
+    voices: ['音街ウナ Spicy'],
+    views: 1000,
+    comments: 35,
+    likes: 5,
+    duration: 160,
+    published_at: '2023-05-01',
+  },
+  {
+    id: 'sm2',
+    title: 'ミクとテト',
+    voices: ['初音ミク', '重音テトSV'],
+    views: 10000,
+    comments: 300,
+    likes: 50,
+    duration: 190,
+    published_at: '2024-05-01',
+  },
+  {
+    id: 'sm3',
+    title: '未取得',
+    voices: ['足立レイ'],
+    views: null,
+    comments: null,
+    likes: null,
+    duration: 140,
+  },
+  {
+    id: 'sm4',
+    title: 'ゼロ再生',
+    voices: ['音街ウナ'],
+    views: 0,
+    comments: 0,
+    likes: 0,
+    duration: 90,
+    published_at: '2025-01-01',
+  },
 ];
 
 function stateWithRows() {
@@ -30,7 +69,7 @@ test('キャラクター色は版違いで共通・未知キャラにも安定�
   assert.equal(colorForCharacter('初音ミク'), '#39C5BB');
   assert.equal(colorForCharacter('音街ウナ'), '#8575D8');
   assert.equal(colorForCharacter('宮舞モカ'), '#5DABC5');
-  assert.notEqual(colorForCharacter('宮舞モカ'), colorForCharacter('初音ミク')); 
+  assert.notEqual(colorForCharacter('宮舞モカ'), colorForCharacter('初音ミク'));
   assert.match(colorForCharacter('未登録キャラ'), /^#[0-9A-F]{6}$/);
   assert.equal(colorForCharacter('未登録キャラ'), colorForCharacter('未登録キャラ'));
   assert.equal(colorForCharacter(''), UNCLASSIFIED_COLOR);
@@ -50,7 +89,10 @@ test('散布図は実在する0と欠損nullを区別して動画IDで重複排�
 
 test('歌唱キャラ絞り込みは複数歌唱者を含め、色を選択キャラへ統一する', () => {
   const result = createScatterData(rows, { x: 'published', y: 'views', voice: '重音テト' });
-  assert.deepEqual(result.points.map((p) => p.id), ['sm2']);
+  assert.deepEqual(
+    result.points.map((p) => p.id),
+    ['sm2'],
+  );
   assert.equal(result.points[0].colorVoice, '重音テト');
   assert.equal(result.eligible, 1);
 });
@@ -62,9 +104,16 @@ test('投稿年は2000〜2100の日時だけを採用・欠損日時は落とす
 });
 
 test('順位相関は増加傾向で正・定数では算出しない', () => {
-  const pos = createScatterData(rows.slice(0, 2).concat({ id: 'sm5', views: 30000, comments: 900 }), { x: 'views', y: 'comments' });
+  const pos = createScatterData(
+    rows.slice(0, 2).concat({ id: 'sm5', views: 30000, comments: 900 }),
+    { x: 'views', y: 'comments' },
+  );
   assert.ok(pos.correlation > 0.98);
-  const constant = createScatterData([{ id: 'sm1', views: 0, comments: 1 }, { id: 'sm2', views: 0, comments: 2 }, { id: 'sm3', views: 0, comments: 3 }]);
+  const constant = createScatterData([
+    { id: 'sm1', views: 0, comments: 1 },
+    { id: 'sm2', views: 0, comments: 2 },
+    { id: 'sm3', views: 0, comments: 3 },
+  ]);
   assert.equal(constant.correlation, null);
 });
 
@@ -90,7 +139,10 @@ test('ユーザー入力の動画タイトルがSVGタグとして実行され�
 });
 
 test('既存グラフでも歌唱キャラが同じ色で描画される', () => {
-  const library = { playlists: [{ id: 'a', name: 'ぼかうた1' }], entries: [{ playlist_id: 'a', video_id: 'sm1', present: true }] };
+  const library = {
+    playlists: [{ id: 'a', name: 'ぼかうた1' }],
+    entries: [{ playlist_id: 'a', video_id: 'sm1', present: true }],
+  };
   const trend = calculateTrend(library, rows, { facet: 'voice' });
   const html = renderTrendChart(trend, { style: 'line' });
   assert.ok(html.includes(colorForCharacter('音街ウナ')));

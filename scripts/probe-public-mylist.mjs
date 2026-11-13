@@ -13,7 +13,11 @@ try {
   else {
     const data = await response.json();
     const list = data?.data?.mylist;
-    console.log(list?.items && Array.isArray(list.items) ? `Public mylist response: ${list.items.length} first-page items` : 'Unexpected JSON structure');
+    console.log(
+      list?.items && Array.isArray(list.items)
+        ? `Public mylist response: ${list.items.length} first-page items`
+        : 'Unexpected JSON structure',
+    );
     if (!Array.isArray(list?.items)) process.exitCode = 1;
   }
 } catch (error) {

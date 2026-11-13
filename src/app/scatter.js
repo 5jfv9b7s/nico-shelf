@@ -14,15 +14,47 @@ import { scatterExclusionReason } from './scatter-availability.js';
 export const SCATTER_METRICS = Object.freeze({
   views: { label: '再生数', unit: '回', logarithmic: true, group: '動画の基本情報' },
   comments: { label: 'コメント数', unit: '件', logarithmic: true, group: '動画の基本情報' },
-  mylists: { label: 'ニコニコのマイリスト数', unit: '件', logarithmic: true, group: '動画の基本情報' },
+  mylists: {
+    label: 'ニコニコのマイリスト数',
+    unit: '件',
+    logarithmic: true,
+    group: '動画の基本情報',
+  },
   likes: { label: 'いいね数', unit: '件', logarithmic: true, group: '動画の基本情報' },
   duration: { label: '動画時間', unit: '分', logarithmic: false, group: '動画の基本情報' },
   published: { label: '投稿時期', unit: '年', logarithmic: false, group: '動画の基本情報' },
-  mylistRate: { label: 'マイリスト率（1,000再生あたり）', unit: '件', logarithmic: false, group: '再生数に対する反応' },
-  commentRate: { label: 'コメント率（1,000再生あたり）', unit: '件', logarithmic: false, group: '再生数に対する反応' },
-  likeRate: { label: 'いいね率（1,000再生あたり）', unit: '件', logarithmic: false, group: '再生数に対する反応' },
-  membershipCount: { label: '自分の所属マイリスト数', unit: '件', logarithmic: false, integer: true, group: '自分のライブラリ' },
-  rating: { label: '自分の評価（1〜5）', unit: '', logarithmic: false, integer: true, group: '自分のライブラリ' },
+  mylistRate: {
+    label: 'マイリスト率（1,000再生あたり）',
+    unit: '件',
+    logarithmic: false,
+    group: '再生数に対する反応',
+  },
+  commentRate: {
+    label: 'コメント率（1,000再生あたり）',
+    unit: '件',
+    logarithmic: false,
+    group: '再生数に対する反応',
+  },
+  likeRate: {
+    label: 'いいね率（1,000再生あたり）',
+    unit: '件',
+    logarithmic: false,
+    group: '再生数に対する反応',
+  },
+  membershipCount: {
+    label: '自分の所属マイリスト数',
+    unit: '件',
+    logarithmic: false,
+    integer: true,
+    group: '自分のライブラリ',
+  },
+  rating: {
+    label: '自分の評価（1〜5）',
+    unit: '',
+    logarithmic: false,
+    integer: true,
+    group: '自分のライブラリ',
+  },
 });
 
 /** Missing data is `null`, NEVER zero. Rates need a positive play count. */
@@ -77,8 +109,7 @@ export function transformMetric(value, metric) {
 
 /** Midranks support rank correlation even when many videos have tied counts. */
 function rank(values) {
-  const pairs = values.map((value, index) => ({ value, index }))
-    .sort((a, b) => a.value - b.value);
+  const pairs = values.map((value, index) => ({ value, index })).sort((a, b) => a.value - b.value);
   const ranks = Array(values.length);
   for (let i = 0; i < pairs.length;) {
     let j = i + 1;
@@ -94,10 +125,15 @@ function pearson(x, y) {
   if (x.length < 3) return null;
   const mx = x.reduce((sum, value) => sum + value, 0) / x.length;
   const my = y.reduce((sum, value) => sum + value, 0) / y.length;
-  let xx = 0; let yy = 0; let xy = 0;
+  let xx = 0;
+  let yy = 0;
+  let xy = 0;
   x.forEach((value, index) => {
-    const dx = value - mx; const dy = y[index] - my;
-    xx += dx * dx; yy += dy * dy; xy += dx * dy;
+    const dx = value - mx;
+    const dy = y[index] - my;
+    xx += dx * dx;
+    yy += dy * dy;
+    xy += dx * dy;
   });
   return xx && yy ? Math.max(-1, Math.min(1, xy / Math.sqrt(xx * yy))) : null;
 }
@@ -125,14 +161,28 @@ export function createScatterData(videos, { x = 'views', y = 'comments', voice =
     const yValue = metricValue(video, y);
     if (xValue === null || yValue === null) continue;
     points.push({
-      video, id: video.id, voices, colorVoice: voice || voices[0] || '',
-      xValue, yValue,
-      xPlot: transformMetric(xValue, x), yPlot: transformMetric(yValue, y),
+      video,
+      id: video.id,
+      voices,
+      colorVoice: voice || voices[0] || '',
+      xValue,
+      yValue,
+      xPlot: transformMetric(xValue, x),
+      yPlot: transformMetric(yValue, y),
     });
   }
   return {
-    x, y, voice, points, eligible, total: unique.size, excluded,
-    correlation: x === y ? null : pearson(rank(points.map((p) => p.xValue)), rank(points.map((p) => p.yValue))),
+    x,
+    y,
+    voice,
+    points,
+    eligible,
+    total: unique.size,
+    excluded,
+    correlation:
+      x === y
+        ? null
+        : pearson(rank(points.map((p) => p.xValue)), rank(points.map((p) => p.yValue))),
   };
 }
 
@@ -146,7 +196,10 @@ export function scatterTicks(low, high, metric, tickCount = 5) {
     const last = Math.floor(high);
     const step = Math.max(1, Math.ceil((last - first) / (tickCount - 1)));
     return first <= last
-      ? Array.from({ length: Math.floor((last - first) / step) + 1 }, (_, index) => first + index * step)
+      ? Array.from(
+          { length: Math.floor((last - first) / step) + 1 },
+          (_, index) => first + index * step,
+        )
       : [];
   }
   if (SCATTER_METRICS[metric]?.logarithmic) {
@@ -159,16 +212,21 @@ export function scatterTicks(low, high, metric, tickCount = 5) {
       powers.push(exponent);
     }
     const stride = Math.max(1, Math.ceil(powers.length / Math.max(1, tickCount + 1)));
-    const ticks = powers.filter((_, index) => index % stride === 0).map((exponent) =>
-      Math.log10((10 ** exponent) + 1));
+    const ticks = powers
+      .filter((_, index) => index % stride === 0)
+      .map((exponent) => Math.log10(10 ** exponent + 1));
     if (low <= 0 && high >= 0 && !ticks.includes(0)) ticks.unshift(0);
     // A narrow window may contain no full decade. Use readable sub-decade
     // values (for example 20, 30, 50) instead of leaving the axis blank.
     if (ticks.length < 2) {
       const candidates = [];
-      for (let exponent = Math.max(-1, Math.floor(low) - 1); exponent <= Math.ceil(high); exponent++) {
+      for (
+        let exponent = Math.max(-1, Math.floor(low) - 1);
+        exponent <= Math.ceil(high);
+        exponent++
+      ) {
         for (const multiple of [1, 2, 3, 5, 7]) {
-          const plotted = Math.log10(multiple * (10 ** exponent) + 1);
+          const plotted = Math.log10(multiple * 10 ** exponent + 1);
           if (plotted >= low && plotted <= high) candidates.push(plotted);
         }
       }
@@ -187,10 +245,15 @@ export function scatterTicks(low, high, metric, tickCount = 5) {
   // Choose readable 1/2/5 x 10^n increments for durations and rates.
   const rawStep = (high - low) / Math.max(1, tickCount - 1);
   const magnitude = 10 ** Math.floor(Math.log10(Math.max(rawStep, Number.EPSILON)));
-  const niceStep = [1, 2, 5, 10].map((factor) => factor * magnitude)
-    .find((candidate) => candidate >= rawStep) || magnitude * 10;
+  const niceStep =
+    [1, 2, 5, 10].map((factor) => factor * magnitude).find((candidate) => candidate >= rawStep) ||
+    magnitude * 10;
   const ticks = [];
-  for (let value = Math.ceil(low / niceStep) * niceStep; value <= high + niceStep * 1e-8; value += niceStep) {
+  for (
+    let value = Math.ceil(low / niceStep) * niceStep;
+    value <= high + niceStep * 1e-8;
+    value += niceStep
+  ) {
     ticks.push(Number(value.toPrecision(12)));
     if (ticks.length > 30) break;
   }
@@ -206,6 +269,7 @@ export function readableMetric(value, metric) {
   }
   if (metric === 'rating') return Number(value.toFixed(1)).toString();
   return new Intl.NumberFormat('ja-JP', {
-    notation: value >= 10000 ? 'compact' : 'standard', maximumFractionDigits: 1,
+    notation: value >= 10000 ? 'compact' : 'standard',
+    maximumFractionDigits: 1,
   }).format(Math.round(value));
 }

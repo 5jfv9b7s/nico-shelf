@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CHARACTER_COLORS, colorForCharacter, hasCharacterColor } from '../src/app/character-colors.js';
+import {
+  CHARACTER_COLORS,
+  colorForCharacter,
+  hasCharacterColor,
+} from '../src/app/character-colors.js';
 import { canonicalVoice, detectVoiceEvidence, namesInText } from '../src/app/voice-detection.js';
 import { calculateTrend } from '../src/app/trends.js';
 import { renderTrendChart } from '../src/ui/trend-charts.js';
@@ -12,25 +16,57 @@ import { createViewRenderer } from '../src/ui/views.js';
 
 const HERO = () => '';
 const video = (index, name) => ({
-  id: `sm${index}`, title: `曲${index}`, voices: [name], views: 1000 + index * 2,
-  comments: 100 + index, likes: index + 1, duration: 100 + index,
-  published_at: `202${index % 6}-03-02`, tags: [],
+  id: `sm${index}`,
+  title: `曲${index}`,
+  voices: [name],
+  views: 1000 + index * 2,
+  comments: 100 + index,
+  likes: index + 1,
+  duration: 100 + index,
+  published_at: `202${index % 6}-03-02`,
+  tags: [],
 });
 const SAMPLE_SINGERS = [
-  '音街ウナ', '初音ミク', '重音テト', '足立レイ', '宮舞モカ', '東北きりたん',
-  '結月ゆかり', '鏡音リン', '鏡音レン', '巡音ルカ', '波音リツ',
-  '鳴花ヒメ', '鳴花ミコト', '神威がくぽ', '四国めたん', '裏命',
-  '歌愛ユキ', '弦巻マキ', '雪歌ユフ', 'v flower',
-  '東北イタコ', 'OИE', '夢ノ結唱 POPY', '創作の未知キャラ', '別の未知キャラ',
+  '音街ウナ',
+  '初音ミク',
+  '重音テト',
+  '足立レイ',
+  '宮舞モカ',
+  '東北きりたん',
+  '結月ゆかり',
+  '鏡音リン',
+  '鏡音レン',
+  '巡音ルカ',
+  '波音リツ',
+  '鳴花ヒメ',
+  '鳴花ミコト',
+  '神威がくぽ',
+  '四国めたん',
+  '裏命',
+  '歌愛ユキ',
+  '弦巻マキ',
+  '雪歌ユフ',
+  'v flower',
+  '東北イタコ',
+  'OИE',
+  '夢ノ結唱 POPY',
+  '創作の未知キャラ',
+  '別の未知キャラ',
 ];
 function libraryWithSingers() {
   const videos = SAMPLE_SINGERS.map((name, i) => video(i + 1, name));
   const playlists = [
-    { id: 'first', name: 'ぼかうた1' }, { id: 'second', name: 'ぼかうた2' },
+    { id: 'first', name: 'ぼかうた1' },
+    { id: 'second', name: 'ぼかうた2' },
   ];
-  const entries = videos.flatMap((item, i) => [{
-    playlist_id: i % 2 ? 'second' : 'first', video_id: item.id, present: true, position: i,
-  }]);
+  const entries = videos.flatMap((item, i) => [
+    {
+      playlist_id: i % 2 ? 'second' : 'first',
+      video_id: item.id,
+      present: true,
+      position: i,
+    },
+  ]);
   return { videos, playlists, entries, meta: [] };
 }
 
@@ -48,10 +84,22 @@ test('新しい歌唱者の名寄せはタイトルの明示クレジットを�
   assert.equal(canonicalVoice('デフォ子'), '唄音ウタ');
   assert.equal(canonicalVoice('flower'), 'v flower');
   assert.equal(canonicalVoice('神威がくぽ'), '神威がくぽ');
-  assert.deepEqual(namesInText('歌唱：鳴花ヒメと鳴花ミコト').map(({ name }) => name), ['鳴花ヒメ', '鳴花ミコト']);
-  assert.deepEqual(detectVoiceEvidence({ title: '青い曲 feat. 東北イタコ', tags: [] }).accepted.map(({name}) => name), ['東北イタコ']);
+  assert.deepEqual(
+    namesInText('歌唱：鳴花ヒメと鳴花ミコト').map(({ name }) => name),
+    ['鳴花ヒメ', '鳴花ミコト'],
+  );
+  assert.deepEqual(
+    detectVoiceEvidence({ title: '青い曲 feat. 東北イタコ', tags: [] }).accepted.map(
+      ({ name }) => name,
+    ),
+    ['東北イタコ'],
+  );
   // Loose description mentions must not automatically increase vocal counts.
-  const evidence = detectVoiceEvidence({title:'曲',description:'イラスト：東北イタコ\n素敵な歌愛ユキさん',tags:[]});
+  const evidence = detectVoiceEvidence({
+    title: '曲',
+    description: 'イラスト：東北イタコ\n素敵な歌愛ユキさん',
+    tags: [],
+  });
   assert.deepEqual(evidence.accepted, []);
 });
 
@@ -82,7 +130,7 @@ test('変遷画面に表示数と強調キャラ選択欄があり、入力がHT
   state.library = libraryWithSingers();
   state.trends.visibleCount = 30;
   state.trends.focus = '東北イタコ';
-  const html = renderTrends({ state, rows: state.library.videos, hero: HERO, cards:()=>'' });
+  const html = renderTrends({ state, rows: state.library.videos, hero: HERO, cards: () => '' });
   assert.match(html, /id="trend-visible-count"/);
   assert.match(html, /上位30/);
   assert.match(html, /option value="30" selected/);
@@ -94,7 +142,7 @@ test('ダッシュボードは表示人数を選べ、マイリスト別比較�
   state.user = { id: 'u1', email: 'sample@example.com', user_metadata: {} };
   state.library = libraryWithSingers();
   state.voiceVisibleCount = 'all';
-  const renderer = createViewRenderer({ state, renderDialog:()=>'' });
+  const renderer = createViewRenderer({ state, renderDialog: () => '' });
   const html = renderer.content();
   assert.match(html, /id="voice-count"/);
   assert.match(html, /全員/);
@@ -115,7 +163,6 @@ test('散布図の凡例は30件／全員対応。凡例の歌唱者クリック
   assert.match(events, /trend-visible-count/);
   assert.match(events, /voice-count/);
 });
-
 
 test('散布図の凡例にはデュエットの2人目も登場し、クリックで絞り込める', () => {
   const state = createInitialState();

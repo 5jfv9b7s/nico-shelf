@@ -1,10 +1,15 @@
+import { AUTH_ENV, authenticatedRequest } from './fixtures/session.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handlePublicMylistRequest } from '../worker/index.js';
 import { fetchPublicMylist } from '../src/public-sync.js';
 
 const endpoint = 'https://nico-shelf.example/api/public-mylists/75327830?page=1';
-const rateLimit = { PUBLIC_MYLIST_SOURCE: 'direct', PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => ({ success: true }) } };
+const rateLimit = {
+  ...AUTH_ENV,
+  PUBLIC_MYLIST_SOURCE: 'direct',
+  PUBLIC_MYLIST_RATE_LIMIT: { limit: async () => ({ success: true }) },
+};
 
 async function requestWith(mock) {
   const old = globalThis.fetch;
@@ -13,7 +18,7 @@ async function requestWith(mock) {
   console.error = () => {};
   globalThis.fetch = mock;
   try {
-    const response = await handlePublicMylistRequest(new Request(endpoint), rateLimit);
+    const response = await handlePublicMylistRequest(authenticatedRequest(endpoint), rateLimit);
     return { status: response.status, body: await response.json() };
   } finally {
     globalThis.fetch = old;
@@ -22,7 +27,9 @@ async function requestWith(mock) {
 }
 
 test('ネットワークエラーは通信段階のコードを返し、空リストとして処理しない', async () => {
-  const { status, body } = await requestWith(async () => { throw new TypeError('fetch failed'); });
+  const { status, body } = await requestWith(async () => {
+    throw new TypeError('fetch failed');
+  });
   assert.equal(status, 502);
   assert.equal(body.code, 'NICO_NETWORK');
   assert.equal(body.stage, 'fetch');
@@ -30,23 +37,32 @@ test('ネットワークエラーは通信段階のコードを返し、空リ�
 });
 
 test('タイムアウトは通信失敗と区別される', async () => {
-  const { body } = await requestWith(async () => { throw new DOMException('timeout', 'TimeoutError'); });
+  const { body } = await requestWith(async () => {
+    throw new DOMException('timeout', 'TimeoutError');
+  });
   assert.equal(body.code, 'NICO_TIMEOUT');
 });
 
 test('予期しないリダイレクトでは転送先へアクセスしない', async () => {
   const { status, body } = await requestWith(async (_url, options) => {
     assert.equal(options.redirect, 'manual');
-    return new Response(null, { status: 302, headers: { Location: 'https://external.example/login' } });
+    return new Response(null, {
+      status: 302,
+      headers: { Location: 'https://external.example/login' },
+    });
   });
   assert.equal(status, 502);
   assert.equal(body.code, 'NICO_REDIRECT');
 });
 
 test('HTMLチャレンジページとJSONを区別してエラーコードを返す', async () => {
-  const { status, body } = await requestWith(async () => new Response('<html>access denied</html>', {
-    status: 200, headers: { 'Content-Type': 'text/html' },
-  }));
+  const { status, body } = await requestWith(
+    async () =>
+      new Response('<html>access denied</html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+  );
   assert.equal(status, 502);
   assert.equal(body.code, 'NICO_NON_JSON');
   assert.equal(body.stage, 'response');
@@ -54,9 +70,13 @@ test('HTMLチャレンジページとJSONを区別してエラーコードを返
 });
 
 test('JSON破損は解析失敗、データ構造変更は形式不一致として区別', async () => {
-  const malformed = await requestWith(async () => new Response('not-json', {
-    status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  }));
+  const malformed = await requestWith(
+    async () =>
+      new Response('not-json', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      }),
+  );
   assert.equal(malformed.body.code, 'NICO_INVALID_JSON');
   const schema = await requestWith(async () => Response.json({ data: { unexpected: [] } }));
   assert.equal(schema.body.code, 'NICO_INVALID_DATA');
@@ -74,9 +94,11 @@ test('上流HTTPエラーは本来のステータスを保存して区別', asyn
 
 test('画面のエラーメッセージに診断コードを表示し、同期を中止する', async () => {
   await assert.rejects(
-    () => fetchPublicMylist('75327830', {
-      fetchPage: async () => Response.json({ error: 'ネットワークエラー', code: 'NICO_NETWORK' }, { status: 502 }),
-    }),
+    () =>
+      fetchPublicMylist('75327830', {
+        fetchPage: async () =>
+          Response.json({ error: 'ネットワークエラー', code: 'NICO_NETWORK' }, { status: 502 }),
+      }),
     /75327830: ネットワークエラー \[NICO_NETWORK\]/,
   );
 });
@@ -88,9 +110,15 @@ test('認証情報を転送せず、正常な公開APIなら公開動画だけ�
     assert.equal(options.headers.Authorization, undefined);
     assert.equal(options.headers.Cookie, undefined);
     assert.equal(options.headers['X-Niconico-Language'], 'ja-jp');
-    return Response.json({ data: { mylist: {
-      name: '公開マイリスト', items: [{ video: { id: 'sm123', title: '曲' } }], totalItemCount: 1,
-    } } });
+    return Response.json({
+      data: {
+        mylist: {
+          name: '公開マイリスト',
+          items: [{ video: { id: 'sm123', title: '曲' } }],
+          totalItemCount: 1,
+        },
+      },
+    });
   });
   assert.equal(status, 200);
   assert.deepEqual(body.items, [{ video_id: 'sm123', title: '曲' }]);

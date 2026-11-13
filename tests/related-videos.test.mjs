@@ -8,8 +8,16 @@ import { createDialogRenderer } from '../src/ui/dialogs.js';
 import { createViewRenderer } from '../src/ui/views.js';
 
 const video = (id, fields = {}) => ({
-  id, title: id, tags: [], voices: [], producers: [], composers: [],
-  vocadb_tags: [], memberships: [], userMeta: null, ...fields,
+  id,
+  title: id,
+  tags: [],
+  voices: [],
+  producers: [],
+  composers: [],
+  vocadb_tags: [],
+  memberships: [],
+  userMeta: null,
+  ...fields,
 });
 
 const fixture = () => {
@@ -17,12 +25,24 @@ const fixture = () => {
   state.user = { id: 'self', email: 'self@example.test', user_metadata: {} };
   state.library = {
     videos: [
-      video('sm1', { title: '始まり', voices: ['音街ウナ-SV'], tags: ['ボカロック', '疾走感'], producers: ['作曲A'] }),
-      video('sm2', { title: '近い曲', voices: ['音街ウナ Spicy'], tags: ['ボカロック', '疾走感'], producers: ['作曲A'] }),
+      video('sm1', {
+        title: '始まり',
+        voices: ['音街ウナ-SV'],
+        tags: ['ボカロック', '疾走感'],
+        producers: ['作曲A'],
+      }),
+      video('sm2', {
+        title: '近い曲',
+        voices: ['音街ウナ Spicy'],
+        tags: ['ボカロック', '疾走感'],
+        producers: ['作曲A'],
+      }),
       video('sm3', { title: 'ロック', voices: ['初音ミク'], tags: ['ボカロック'] }),
       video('sm4', { title: '無関係', voices: [], tags: ['ジャズ'] }),
     ],
-    entries: [], playlists: [], meta: [],
+    entries: [],
+    playlists: [],
+    meta: [],
   };
   return state;
 };
@@ -32,17 +52,32 @@ test('関連曲は本人の候補のみ、元動画を除外し、共有信号�
   const results = recommendRelatedVideos(library.videos[0], library.videos);
   assert.equal(results[0].video.id, 'sm2');
   assert.equal(results[1].video.id, 'sm3');
-  assert.equal(results.some((x) => x.video.id === 'sm1'), false);
-  assert.equal(results.some((x) => x.video.id === 'sm4'), false);
+  assert.equal(
+    results.some((x) => x.video.id === 'sm1'),
+    false,
+  );
+  assert.equal(
+    results.some((x) => x.video.id === 'sm4'),
+    false,
+  );
   assert.match(results[0].reasons.join(' / '), /歌唱キャラ：音街ウナ/);
   assert.match(results[0].reasons.join(' / '), /共通タグ：/);
 });
 
 test('IDごとに安定して同順位をソートし、件数上限に従う', () => {
   const source = video('sm0', { voices: ['足立レイ'] });
-  const candidates = [video('sm3', { voices: ['足立レイ'] }), video('sm2', { voices: ['足立レイ'] })];
-  assert.deepEqual(recommendRelatedVideos(source, [source, ...candidates]).map((x) => x.video.id), ['sm2', 'sm3']);
-  assert.deepEqual(recommendRelatedVideos(source, [source, ...candidates], { limit: 1 }).map((x) => x.video.id), ['sm2']);
+  const candidates = [
+    video('sm3', { voices: ['足立レイ'] }),
+    video('sm2', { voices: ['足立レイ'] }),
+  ];
+  assert.deepEqual(
+    recommendRelatedVideos(source, [source, ...candidates]).map((x) => x.video.id),
+    ['sm2', 'sm3'],
+  );
+  assert.deepEqual(
+    recommendRelatedVideos(source, [source, ...candidates], { limit: 1 }).map((x) => x.video.id),
+    ['sm2'],
+  );
   assert.deepEqual(recommendRelatedVideos(source, [source, ...candidates], { limit: 0 }), []);
   assert.deepEqual(recommendRelatedVideos(source, [], {}), []);
 });
@@ -61,7 +96,10 @@ test('歌唱者の元表記が違っても同一キャラとして一致', () =>
 });
 
 test('分類根拠には実際に一致したタグだけを表示する', () => {
-  const song = video('sm1', { tags: ['ボカロック', '切ない', 'かわいい'], genre: '音楽・サウンド' });
+  const song = video('sm1', {
+    tags: ['ボカロック', '切ない', 'かわいい'],
+    genre: '音楽・サウンド',
+  });
   assert.deepEqual(genreEvidence(song), [{ label: 'ロック', evidence: ['タグ：ボカロック'] }]);
   assert.deepEqual(moodEvidence(song), [
     { label: 'かわいい・癒し', evidence: ['タグ：かわいい'] },
@@ -72,7 +110,11 @@ test('分類根拠には実際に一致したタグだけを表示する', () =>
 });
 
 test('タグがない場合はジャンルも雰囲気も推定しない', () => {
-  const song = video('sm1', { title: '切ないロック', uploader: 'かわいい作者', genre: '音楽・サウンド' });
+  const song = video('sm1', {
+    title: '切ないロック',
+    uploader: 'かわいい作者',
+    genre: '音楽・サウンド',
+  });
   assert.deepEqual(genreEvidence(song), []);
   assert.deepEqual(moodEvidence(song), []);
 });
@@ -104,15 +146,19 @@ test('関連曲HTMLは動画由来の文言をエスケープする', () => {
 
 test('大量の動画でも候補は上限内で返り、順序が安定する', () => {
   const source = video('sm0', { tags: ['ボカロック'], voices: ['音街ウナ'] });
-  const songs = Array.from({ length: 1100 }, (_, i) => video(`sm${i+1}`, {
-    tags: ['ボカロック'], voices: ['音街ウナ Spicy'],
-  }));
+  const songs = Array.from({ length: 1100 }, (_, i) =>
+    video(`sm${i + 1}`, {
+      tags: ['ボカロック'],
+      voices: ['音街ウナ Spicy'],
+    }),
+  );
   const result = recommendRelatedVideos(source, [source, ...songs]);
   assert.equal(result.length, 8);
-  assert.deepEqual(result.map((entry) => entry.video.id),
-    recommendRelatedVideos(source, [source, ...songs]).map((entry) => entry.video.id));
+  assert.deepEqual(
+    result.map((entry) => entry.video.id),
+    recommendRelatedVideos(source, [source, ...songs]).map((entry) => entry.video.id),
+  );
 });
-
 
 test('探し方は3つあり、未知の選択値は安全にバランスへ戻る', () => {
   assert.deepEqual(Object.keys(RELATED_MODES), ['balanced', 'musical', 'explore']);
@@ -127,8 +173,13 @@ test('ジャンル・雰囲気重視では歌唱者が同じだけの曲を候�
   const source = video('sm0', { voices: ['音街ウナ'], tags: ['ボカロック', '疾走感'] });
   const singerOnly = video('sm1', { voices: ['音街ウナ'] });
   const musical = video('sm2', { voices: ['初音ミク'], tags: ['ボカロック', '疾走感'] });
-  const results = recommendRelatedVideos(source, [source, singerOnly, musical], { mode: 'musical' });
-  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm2']);
+  const results = recommendRelatedVideos(source, [source, singerOnly, musical], {
+    mode: 'musical',
+  });
+  assert.deepEqual(
+    results.map(({ video: entry }) => entry.id),
+    ['sm2'],
+  );
   assert.match(results[0].reasons.join('、'), /ジャンル：ロック/);
 });
 
@@ -136,7 +187,10 @@ test('ジャンル・雰囲気重視は、共通タグだけの場合も候補�
   const source = video('sm0', { tags: ['変拍子', '実験音楽'] });
   const candidate = video('sm1', { tags: ['変拍子'] });
   const results = recommendRelatedVideos(source, [source, candidate], { mode: 'musical' });
-  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm1']);
+  assert.deepEqual(
+    results.map(({ video: entry }) => entry.id),
+    ['sm1'],
+  );
 });
 
 test('別作者・投稿者発掘では一致名を除外する（表記ゆれ・大文字小文字も比較）', () => {
@@ -144,7 +198,10 @@ test('別作者・投稿者発掘では一致名を除外する（表記ゆれ�
   const same = video('sm1', { voices: ['音街ウナ Spicy'], uploader: 'creator a' });
   const different = video('sm2', { voices: ['音街ウナ-SV'], uploader: 'Creator B' });
   const results = recommendRelatedVideos(source, [source, same, different], { mode: 'explore' });
-  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm2']);
+  assert.deepEqual(
+    results.map(({ video: entry }) => entry.id),
+    ['sm2'],
+  );
   assert.doesNotMatch(results[0].reasons.join('、'), /作者・投稿者：/);
 });
 
@@ -153,8 +210,13 @@ test('未評価のみを絞り込み、評価済みの曲を返さない', () =>
   const rated = video('sm1', { voices: ['足立レイ'], userMeta: { rating: 4 } });
   const unrated = video('sm2', { voices: ['足立レイ'], userMeta: { rating: 0 } });
   const missing = video('sm3', { voices: ['足立レイ'] });
-  const results = recommendRelatedVideos(source, [source, rated, unrated, missing], { unratedOnly: true });
-  assert.deepEqual(results.map(({ video: entry }) => entry.id), ['sm2', 'sm3']);
+  const results = recommendRelatedVideos(source, [source, rated, unrated, missing], {
+    unratedOnly: true,
+  });
+  assert.deepEqual(
+    results.map(({ video: entry }) => entry.id),
+    ['sm2', 'sm3'],
+  );
 });
 
 test('一般的なプラットフォームタグはおすすめ根拠にしない', () => {
@@ -183,9 +245,18 @@ test('モード変更はDBを操作せず、ダイアログ内で再描画する
   const root = { addEventListener: (event, callback) => listeners.set(event, callback) };
   let renders = 0;
   registerEventHandlers({
-    root, state, client: {}, nicoBridge: {}, render: () => { renders++; },
-    rerenderContent: () => {}, showDialog: () => {}, closeDialog: () => {},
-    refreshMembership: () => {}, actions: {},
+    root,
+    state,
+    client: {},
+    nicoBridge: {},
+    render: () => {
+      renders++;
+    },
+    rerenderContent: () => {},
+    showDialog: () => {},
+    closeDialog: () => {},
+    refreshMembership: () => {},
+    actions: {},
   });
   listeners.get('change')({ target: { id: 'related-mode', value: 'musical' } });
   assert.equal(state.dialog.mode, 'musical');

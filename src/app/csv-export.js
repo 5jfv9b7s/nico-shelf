@@ -1,11 +1,30 @@
 import { array } from '../lib.js';
-import { canonicalVoices, composerNames, genreLabels, moodLabels, rawVoices } from '../discovery.js';
+import {
+  canonicalVoices,
+  composerNames,
+  genreLabels,
+  moodLabels,
+  rawVoices,
+} from '../discovery.js';
 
 const HEADERS = [
-  '動画ID', '曲名・動画タイトル', '動画URL', '歌唱キャラ', '歌唱者の原表記',
-  '作者・投稿者', 'ジャンル（タグ推定）', '雰囲気（タグ推定）', '投稿日',
-  '再生数', '再生時間（秒）', '所属マイリスト', '所属数',
-  'お気に入り', '評価', '個人タグ', 'メモ',
+  '動画ID',
+  '曲名・動画タイトル',
+  '動画URL',
+  '歌唱キャラ',
+  '歌唱者の原表記',
+  '作者・投稿者',
+  'ジャンル（タグ推定）',
+  '雰囲気（タグ推定）',
+  '投稿日',
+  '再生数',
+  '再生時間（秒）',
+  '所属マイリスト',
+  '所属数',
+  'お気に入り',
+  '評価',
+  '個人タグ',
+  'メモ',
 ];
 
 /**
@@ -35,7 +54,9 @@ export function makeLibraryCsv(rows) {
       row.published_at ? String(row.published_at).slice(0, 10) : '',
       row.views ?? '',
       row.duration ?? '',
-      array(row.memberships).map((item) => item.name).join(' / '),
+      array(row.memberships)
+        .map((item) => item.name)
+        .join(' / '),
       array(row.memberships).length,
       row.userMeta?.favorite ? 'はい' : 'いいえ',
       row.userMeta?.rating ?? 0,

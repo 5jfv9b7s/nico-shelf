@@ -5,7 +5,13 @@
  * - A chart is re-mounted after main content is replaced by the app renderer.
  */
 import { colorForCharacter, UNCLASSIFIED_COLOR } from '../app/character-colors.js';
-import { createScatter3DData, axisBounds, normalizedPoint, projectPoint, DEFAULT_3D_CAMERA } from '../app/scatter3d.js';
+import {
+  createScatter3DData,
+  axisBounds,
+  normalizedPoint,
+  projectPoint,
+  DEFAULT_3D_CAMERA,
+} from '../app/scatter3d.js';
 import { readableMetric, SCATTER_METRICS } from '../app/scatter.js';
 
 let stopPreviousChart = () => {};
@@ -15,16 +21,20 @@ const clamp = (value, lower, upper) => Math.min(upper, Math.max(lower, value));
 
 function describePoint(point, result) {
   const singer = point.voices.join('・') || '歌唱者未判定';
-  const metrics = ['x', 'y', 'z'].map((axis) =>
-    `${SCATTER_METRICS[result[axis]].label}: ${readableMetric(point[`${axis}Value`], result[axis])}`);
+  const metrics = ['x', 'y', 'z'].map(
+    (axis) =>
+      `${SCATTER_METRICS[result[axis]].label}: ${readableMetric(point[`${axis}Value`], result[axis])}`,
+  );
   return `${point.video.title || point.id}\n${singer}\n${metrics.join('\n')}`;
 }
 
 function drawAxes(ctx, position, width, height) {
   const corners = [];
-  for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
-    corners.push([x, y, z]);
-  }
+  for (const x of [-1, 1])
+    for (const y of [-1, 1])
+      for (const z of [-1, 1]) {
+        corners.push([x, y, z]);
+      }
   // Draw 12 edges of a faint reference cube for spatial orientation.
   ctx.strokeStyle = '#4A637D';
   ctx.lineWidth = 1;
@@ -45,7 +55,11 @@ function drawAxes(ctx, position, width, height) {
 
   const origin = [-1, -1, -1];
   const names = ['X', 'Y', 'Z'];
-  const ends = [[1, -1, -1], [-1, 1, -1], [-1, -1, 1]];
+  const ends = [
+    [1, -1, -1],
+    [-1, 1, -1],
+    [-1, -1, 1],
+  ];
   ctx.font = 'bold 14px system-ui, sans-serif';
   ends.forEach((end, index) => {
     const from = position(origin);
@@ -95,15 +109,21 @@ function makeRenderer(canvas, tooltip, result, camera) {
     const scale = Math.min(width * 0.315, height * 0.32) * camera.zoom;
     const position = (coordinates) => {
       const projected = projectPoint(coordinates, camera);
-      return { x: width * 0.50 + projected.x * scale, y: height * 0.52 - projected.y * scale, depth: projected.depth };
+      return {
+        x: width * 0.5 + projected.x * scale,
+        y: height * 0.52 - projected.y * scale,
+        depth: projected.depth,
+      };
     };
     drawAxes(ctx, position, width, height);
 
     // Order from back to front to make the 3D relationship visible.
-    screenPoints = result.points.map((point) => ({
-      point,
-      ...position(normalizedPoint(point, bounds)),
-    })).sort((a, b) => a.depth - b.depth);
+    screenPoints = result.points
+      .map((point) => ({
+        point,
+        ...position(normalizedPoint(point, bounds)),
+      }))
+      .sort((a, b) => a.depth - b.depth);
 
     screenPoints.forEach((entry) => {
       const { point, x, y } = entry;
@@ -188,8 +208,11 @@ export function mountScatter3D({ root, state, rows, onOpenVideo }) {
       drag.y = event.clientY;
       return;
     }
-    renderer.showHover(renderer.nearest(event.clientX - rect.left, event.clientY - rect.top),
-      event.clientX - rect.left, event.clientY - rect.top);
+    renderer.showHover(
+      renderer.nearest(event.clientX - rect.left, event.clientY - rect.top),
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+    );
   };
   const onPointerUp = (event) => {
     if (!drag || drag.id !== event.pointerId) return;
@@ -203,11 +226,16 @@ export function mountScatter3D({ root, state, rows, onOpenVideo }) {
   };
   const onWheel = (event) => {
     event.preventDefault();
-    camera.zoom = clamp(camera.zoom * (event.deltaY > 0 ? 0.90 : 1.10), 0.6, 2.2);
+    camera.zoom = clamp(camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1), 0.6, 2.2);
     renderer.draw();
   };
   const onKeyDown = (event) => {
-    const change = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, 0.12], ArrowDown: [0, -0.12] }[event.key];
+    const change = {
+      ArrowLeft: [-0.12, 0],
+      ArrowRight: [0.12, 0],
+      ArrowUp: [0, 0.12],
+      ArrowDown: [0, -0.12],
+    }[event.key];
     if (change) {
       event.preventDefault();
       camera.yaw += change[0];
@@ -219,17 +247,22 @@ export function mountScatter3D({ root, state, rows, onOpenVideo }) {
       renderer.draw();
     }
   };
-  const onPointerLeave = () => { if (!drag) renderer.showHover(null, 0, 0); };
+  const onPointerLeave = () => {
+    if (!drag) renderer.showHover(null, 0, 0);
+  };
 
   const listeners = [
-    ['pointerdown', onPointerDown], ['pointermove', onPointerMove],
-    ['pointerup', onPointerUp], ['pointercancel', onPointerUp],
-    ['pointerleave', onPointerLeave], ['keydown', onKeyDown],
+    ['pointerdown', onPointerDown],
+    ['pointermove', onPointerMove],
+    ['pointerup', onPointerUp],
+    ['pointercancel', onPointerUp],
+    ['pointerleave', onPointerLeave],
+    ['keydown', onKeyDown],
   ];
   for (const [name, listener] of listeners) canvas.addEventListener(name, listener);
   canvas.addEventListener('wheel', onWheel, { passive: false });
-  const observer = typeof ResizeObserver === 'function'
-    ? new ResizeObserver(() => renderer.draw()) : null;
+  const observer =
+    typeof ResizeObserver === 'function' ? new ResizeObserver(() => renderer.draw()) : null;
   observer?.observe(canvas);
 
   stopPreviousChart = () => {

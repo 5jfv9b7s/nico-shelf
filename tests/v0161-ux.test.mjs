@@ -58,7 +58,10 @@ test('非公開・削除対応は維持し、重複リストも詳細検索か�
     { id: 'sm1', memberships: [{ id: 'a' }, { id: 'b' }] },
     { id: 'sm2', memberships: [{ id: 'a' }] },
   ];
-  assert.deepEqual(filteredDiscovery(rows, { status: 'duplicate' }).map((row) => row.id), ['sm1']);
+  assert.deepEqual(
+    filteredDiscovery(rows, { status: 'duplicate' }).map((row) => row.id),
+    ['sm1'],
+  );
 });
 
 test('対数目盛りは100、1000、10000など切りのよい件数を使う', () => {
@@ -70,7 +73,7 @@ test('対数目盛りは100、1000、10000など切りのよい件数を使う',
 
 test('画面全体のaria-liveを撤去し、トーストだけを読み上げる', () => {
   assert.doesNotMatch(source('index.html'), /id="app"[^>]*aria-live=/);
-  assert.match(source('src/main.js'), /setAttribute\('role','status'\)/);
+  assert.match(source('src/main.js'), /setAttribute\('role',\s*'status'\)/);
 });
 
 test('スマホのボタンは大きく、モーション削減設定を尊重する', () => {

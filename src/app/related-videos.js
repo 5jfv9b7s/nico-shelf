@@ -16,23 +16,43 @@ export const RELATED_MODES = Object.freeze({
 
 const MODE_WEIGHTS = Object.freeze({
   balanced: { voice: 3.5, creator: 2.2, genre: 1.6, mood: 1.3, tag: 1 },
-  musical:  { voice: 0.35, creator: 0.35, genre: 3.2, mood: 3, tag: 1.7 },
-  explore:  { voice: 3.5, creator: 0, genre: 2.2, mood: 1.7, tag: 1.2 },
+  musical: { voice: 0.35, creator: 0.35, genre: 3.2, mood: 3, tag: 1.7 },
+  explore: { voice: 3.5, creator: 0, genre: 2.2, mood: 1.7, tag: 1.2 },
 });
 
 // General platform, voice-platform and creator-category tags are weak evidence.
 // Keep this list conservative so niche musical tags are not discarded.
 const GENERIC_TAGS = new Set([
-  'vocaloid', 'vocaloidオリジナル曲', 'vocaloid新曲リンク',
-  'utau', 'utauオリジナル曲', 'utauカバー曲',
-  'cevio', 'cevioai', 'synthesizerv', 'ボカロ', 'ボーカロイド',
-  'ボカロオリジナル曲', 'オリジナル曲', 'ニコニコインディーズ',
-  '音楽', '音楽・サウンド', 'ニコニコ動画', '初音ミク', '重音テト',
-  '音街ウナ', '足立レイ', '歌ってみた', '作業用bgm',
+  'vocaloid',
+  'vocaloidオリジナル曲',
+  'vocaloid新曲リンク',
+  'utau',
+  'utauオリジナル曲',
+  'utauカバー曲',
+  'cevio',
+  'cevioai',
+  'synthesizerv',
+  'ボカロ',
+  'ボーカロイド',
+  'ボカロオリジナル曲',
+  'オリジナル曲',
+  'ニコニコインディーズ',
+  '音楽',
+  '音楽・サウンド',
+  'ニコニコ動画',
+  '初音ミク',
+  '重音テト',
+  '音街ウナ',
+  '足立レイ',
+  '歌ってみた',
+  '作業用bgm',
 ]);
 
 const normalizeText = (value) =>
-  String(value ?? '').normalize('NFKC').trim().toLocaleLowerCase();
+  String(value ?? '')
+    .normalize('NFKC')
+    .trim()
+    .toLocaleLowerCase();
 
 function informativeTags(video) {
   const matches = new Map();
@@ -75,7 +95,10 @@ export function recommendRelatedVideos(source, videos, options = {}) {
 
   const mode = Object.hasOwn(RELATED_MODES, options.mode) ? options.mode : 'balanced';
   const weight = MODE_WEIGHTS[mode];
-  const limit = Math.max(0, Math.min(30, Number.isFinite(options.limit) ? Math.trunc(options.limit) : 8));
+  const limit = Math.max(
+    0,
+    Math.min(30, Number.isFinite(options.limit) ? Math.trunc(options.limit) : 8),
+  );
   if (limit === 0) return [];
 
   const tagFrequency = new Map();
@@ -109,7 +132,9 @@ export function recommendRelatedVideos(source, videos, options = {}) {
     const candidateTags = tagsById.get(video.id) ?? informativeTags(video);
     const sharedTags = [...sourceTags.keys()]
       .filter((tag) => candidateTags.has(tag))
-      .sort((a, b) => (tagFrequency.get(a) ?? 0) - (tagFrequency.get(b) ?? 0) || a.localeCompare(b));
+      .sort(
+        (a, b) => (tagFrequency.get(a) ?? 0) - (tagFrequency.get(b) ?? 0) || a.localeCompare(b),
+      );
 
     // Genre/mood discovery must not suggest a song just because its singer
     // or uploader matches. At least one musical metadata signal is required.

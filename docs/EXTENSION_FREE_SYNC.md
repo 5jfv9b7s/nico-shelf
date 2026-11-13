@@ -1,3 +1,5 @@
+> **v0.17.5の現在の仕様** — 公開マイリストの内容取得にはログイン済みセッションのローカルJWT検証を適用します。Workerの `SUPABASE_URL` と、旧HS256方式の場合の `SUPABASE_JWT_SECRET` を設定してください。以下のv0.16.xの認証不要という記述は当時の履歴です。現在の設定は [PUBLIC_GATEWAY.md](PUBLIC_GATEWAY.md) を参照してください。
+
 > **2026-11-13 更新：** この文書のv0.16.x時点のCloudflare直結手順は、実環境でニコニコAPIからHTTP 403を返されるため、実際の公開同期手段としては利用できません。v0.17以降は [`PUBLIC_GATEWAY.md`](PUBLIC_GATEWAY.md) を参照してください。別Nodeホストでも取得できるとはまだ確認されていません。
 
 # v0.16.3 追記 — Cloudflare Workersのredirect互換性

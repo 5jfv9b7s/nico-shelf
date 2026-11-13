@@ -2,23 +2,60 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { createScatter3DData, axisBounds, normalizedPoint, projectPoint, DEFAULT_3D_CAMERA } from '../src/app/scatter3d.js';
+import {
+  createScatter3DData,
+  axisBounds,
+  normalizedPoint,
+  projectPoint,
+  DEFAULT_3D_CAMERA,
+} from '../src/app/scatter3d.js';
 import { createInitialState } from '../src/app/state.js';
 import { renderScatter } from '../src/ui/scatter.js';
 import { mountScatter3D } from '../src/ui/scatter3d.js';
 
 const videos = [
-  { id: 'sm101', title: '音街ウナの曲', views: 1200, comments: 35, mylists: 120, likes: 13, voices: ['音街ウナ'] },
-  { id: 'sm102', title: '初音ミクの曲', views: 25000, comments: 800, mylists: 870, likes: 210, voices: ['初音ミク'] },
+  {
+    id: 'sm101',
+    title: '音街ウナの曲',
+    views: 1200,
+    comments: 35,
+    mylists: 120,
+    likes: 13,
+    voices: ['音街ウナ'],
+  },
+  {
+    id: 'sm102',
+    title: '初音ミクの曲',
+    views: 25000,
+    comments: 800,
+    mylists: 870,
+    likes: 210,
+    voices: ['初音ミク'],
+  },
   { id: 'sm103', title: 'データ不足', views: 540, comments: 13, mylists: null, voices: [] },
-  { id: 'sm104', title: '削除された動画', status: 'deleted', views: 1200, comments: 25, mylists: 40, voices: ['音街ウナ'] },
+  {
+    id: 'sm104',
+    title: '削除された動画',
+    status: 'deleted',
+    views: 1200,
+    comments: 25,
+    mylists: 40,
+    voices: ['音街ウナ'],
+  },
   { id: 'sm105', title: '非公開動画', status: 'private', views: 5000, comments: 500, mylists: 800 },
   { id: 'sm106', title: '確認失敗', status: '取得失敗', views: 10000, comments: 300, mylists: 700 },
 ];
 
 test('3軸とも情報のある公開動画だけ描画して、同じ動画IDを重複排除する', () => {
-  const result = createScatter3DData([...videos, videos[0]], { x: 'views', y: 'comments', z: 'mylists' });
-  assert.deepEqual(result.points.map((point) => point.id), ['sm101', 'sm102']);
+  const result = createScatter3DData([...videos, videos[0]], {
+    x: 'views',
+    y: 'comments',
+    z: 'mylists',
+  });
+  assert.deepEqual(
+    result.points.map((point) => point.id),
+    ['sm101', 'sm102'],
+  );
   assert.equal(result.eligible, 3);
   assert.equal(result.excluded.deleted, 1);
   assert.equal(result.excluded.private, 1);
@@ -28,8 +65,16 @@ test('3軸とも情報のある公開動画だけ描画して、同じ動画ID�
 });
 
 test('既存のX・Yと同じ指標をZでも使える', () => {
-  const result = createScatter3DData(videos, { x: 'views', y: 'mylistRate', z: 'likes', voice: '音街ウナ' });
-  assert.deepEqual(result.points.map((point) => point.id), ['sm101']);
+  const result = createScatter3DData(videos, {
+    x: 'views',
+    y: 'mylistRate',
+    z: 'likes',
+    voice: '音街ウナ',
+  });
+  assert.deepEqual(
+    result.points.map((point) => point.id),
+    ['sm101'],
+  );
   assert.equal(result.points[0].zValue, 13);
   assert.throws(() => createScatter3DData(videos, { z: 'not-a-metric' }), /Unknown Z-axis metric/);
 });
@@ -45,7 +90,9 @@ test('3D投影は回転によって座標が変わり、手動カメラ初期値
 
 test('欠損のない座標は可視化範囲に正規化され、定数軸も正しく処理', () => {
   const a = createScatter3DData(videos.slice(0, 2));
-  const bounds = Object.fromEntries(['x', 'y', 'z'].map((name) => [name, axisBounds(a.points, `${name}Plot`)]));
+  const bounds = Object.fromEntries(
+    ['x', 'y', 'z'].map((name) => [name, axisBounds(a.points, `${name}Plot`)]),
+  );
   for (const point of a.points) {
     const scaled = normalizedPoint(point, bounds);
     assert.equal(scaled.length, 3);
@@ -73,19 +120,49 @@ test('2Dを壊さず3D切替とZ軸11項目、カメラ操作UIを表示する',
 test('レンダラーはキャンバスを操作し、クリックで動画IDだけをハンドラへ渡す', () => {
   const handlers = new Map();
   const drawn = [];
-  const ctx = new Proxy({ setTransform() {}, clearRect() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}, fillText() {}, arc() {}, fill() {} }, {
-    set(target, key, value) { target[key] = value; return true; },
-  });
+  const ctx = new Proxy(
+    {
+      setTransform() {},
+      clearRect() {},
+      fillRect() {},
+      beginPath() {},
+      moveTo() {},
+      lineTo() {},
+      stroke() {},
+      fillText() {},
+      arc() {},
+      fill() {},
+    },
+    {
+      set(target, key, value) {
+        target[key] = value;
+        return true;
+      },
+    },
+  );
   const canvas = {
-    width: 0, height: 0, clientWidth: 780, clientHeight: 500,
-    style: {}, getContext: () => ctx,
+    width: 0,
+    height: 0,
+    clientWidth: 780,
+    clientHeight: 500,
+    style: {},
+    getContext: () => ctx,
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 780, height: 500 }),
-    addEventListener(type, fn) { handlers.set(type, fn); },
-    removeEventListener(type) { handlers.delete(type); },
-    setPointerCapture() {}, hasPointerCapture: () => false,
+    addEventListener(type, fn) {
+      handlers.set(type, fn);
+    },
+    removeEventListener(type) {
+      handlers.delete(type);
+    },
+    setPointerCapture() {},
+    hasPointerCapture: () => false,
   };
   const tooltip = { style: {}, hidden: true, textContent: '' };
-  const root = { querySelector(selector) { return selector.includes('canvas') ? canvas : tooltip; } };
+  const root = {
+    querySelector(selector) {
+      return selector.includes('canvas') ? canvas : tooltip;
+    },
+  };
   const state = createInitialState();
   state.scatter.mode = '3d';
   const originalWindow = globalThis.window;
@@ -108,8 +185,9 @@ test('レンダラーはキャンバスを操作し、クリックで動画IDだ
 
     // A real click on a visible projected dot opens that video's details.
     const data = createScatter3DData(videos, state.scatter);
-    const bounds = Object.fromEntries(['x', 'y', 'z'].map((name) =>
-      [name, axisBounds(data.points, `${name}Plot`)]));
+    const bounds = Object.fromEntries(
+      ['x', 'y', 'z'].map((name) => [name, axisBounds(data.points, `${name}Plot`)]),
+    );
     const projected = projectPoint(normalizedPoint(data.points[0], bounds), state.scatter.camera);
     const chartHeight = Math.round(780 * 0.65);
     const scale = Math.min(780 * 0.315, chartHeight * 0.32) * state.scatter.camera.zoom;

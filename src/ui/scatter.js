@@ -2,9 +2,16 @@
 import { esc, formatCount } from '../lib.js';
 import { voiceStats } from '../discovery.js';
 import { availableForScatter } from '../app/scatter-availability.js';
-import { colorForCharacter, hasCharacterColor, UNCLASSIFIED_COLOR } from '../app/character-colors.js';
 import {
-  createScatterData, readableMetric, scatterTicks, SCATTER_METRICS,
+  colorForCharacter,
+  hasCharacterColor,
+  UNCLASSIFIED_COLOR,
+} from '../app/character-colors.js';
+import {
+  createScatterData,
+  readableMetric,
+  scatterTicks,
+  SCATTER_METRICS,
 } from '../app/scatter.js';
 import { createScatter3DData } from '../app/scatter3d.js';
 
@@ -27,44 +34,51 @@ function axisSvg(result, key, scale, low, high) {
   const inverse = SCATTER_METRICS[metric].logarithmic
     ? (plotValue) => Math.max(0, 10 ** plotValue - 1)
     : (plotValue) => plotValue;
-  return ticks.map((tick) => {
-    const coordinate = scale(tick);
-    if (vertical) {
-      return `<line x1="${chart.left}" y1="${coordinate}" x2="${chart.right}" y2="${coordinate}" class="scatter-grid-line" />
+  return ticks
+    .map((tick) => {
+      const coordinate = scale(tick);
+      if (vertical) {
+        return `<line x1="${chart.left}" y1="${coordinate}" x2="${chart.right}" y2="${coordinate}" class="scatter-grid-line" />
         <text x="${chart.left - 12}" y="${coordinate + 4}" text-anchor="end" class="scatter-axis-label">${esc(readableMetric(inverse(tick), metric))}</text>`;
-    }
-    return `<line x1="${coordinate}" y1="${chart.top}" x2="${coordinate}" y2="${chart.bottom}" class="scatter-grid-line" />
+      }
+      return `<line x1="${coordinate}" y1="${chart.top}" x2="${coordinate}" y2="${chart.bottom}" class="scatter-grid-line" />
       <text x="${coordinate}" y="${chart.bottom + 24}" text-anchor="middle" class="scatter-axis-label">${esc(readableMetric(inverse(tick), metric))}</text>`;
-  }).join('');
+    })
+    .join('');
 }
 
 function pointJitter(id, salt) {
   // Small deterministic offset makes identical data points easier to spot.
   let hash = salt;
   for (const character of String(id)) hash = (hash * 31 + character.codePointAt(0)) >>> 0;
-  return (hash % 101 - 50) / 28;
+  return ((hash % 101) - 50) / 28;
 }
 
 function renderPoints(result) {
   const plot = SVG_SIZE;
   const xBounds = axisExtent(result.points.map((point) => point.xPlot));
   const yBounds = axisExtent(result.points.map((point) => point.yPlot));
-  const xScale = (value) => plot.left + (value - xBounds[0]) / (xBounds[1] - xBounds[0]) * (plot.right - plot.left);
-  const yScale = (value) => plot.bottom - (value - yBounds[0]) / (yBounds[1] - yBounds[0]) * (plot.bottom - plot.top);
+  const xScale = (value) =>
+    plot.left + ((value - xBounds[0]) / (xBounds[1] - xBounds[0])) * (plot.right - plot.left);
+  const yScale = (value) =>
+    plot.bottom - ((value - yBounds[0]) / (yBounds[1] - yBounds[0])) * (plot.bottom - plot.top);
 
-  const points = result.points.map((point) => {
-    const color = point.colorVoice ? colorForCharacter(point.colorVoice) : UNCLASSIFIED_COLOR;
-    const title = `${point.video.title || point.id}\n${point.voices.join(' / ') || '歌唱者不明'}\n` +
-      `${SCATTER_METRICS[result.x].label}: ${readableMetric(point.xValue, result.x)}\n` +
-      `${SCATTER_METRICS[result.y].label}: ${readableMetric(point.yValue, result.y)}`;
-    const outlined = point.voices.length > 1;
-    return `<circle data-scatter-video="${esc(point.id)}" tabindex="0" role="button"
+  const points = result.points
+    .map((point) => {
+      const color = point.colorVoice ? colorForCharacter(point.colorVoice) : UNCLASSIFIED_COLOR;
+      const title =
+        `${point.video.title || point.id}\n${point.voices.join(' / ') || '歌唱者不明'}\n` +
+        `${SCATTER_METRICS[result.x].label}: ${readableMetric(point.xValue, result.x)}\n` +
+        `${SCATTER_METRICS[result.y].label}: ${readableMetric(point.yValue, result.y)}`;
+      const outlined = point.voices.length > 1;
+      return `<circle data-scatter-video="${esc(point.id)}" tabindex="0" role="button"
       aria-label="${esc(title.replaceAll('\n', '、'))}（詳細を表示）"
       cx="${(xScale(point.xPlot) + pointJitter(point.id, 17)).toFixed(2)}" cy="${(yScale(point.yPlot) + pointJitter(point.id, 47)).toFixed(2)}"
       r="${outlined ? 4.6 : 3.5}" fill="${color}" fill-opacity="0.73"
       stroke="${outlined ? '#EAF6FF' : '#0D182A'}" stroke-width="${outlined ? 1.25 : 0.55}">
       <title>${esc(title)}</title></circle>`;
-  }).join('');
+    })
+    .join('');
 
   return `<div class="scatter-chart-scroll" tabindex="0" aria-label="散布図。横方向にスクロールできます">
     <svg class="scatter-svg" viewBox="0 0 ${plot.width} ${plot.height}" role="group" aria-label="${esc(SCATTER_METRICS[result.x].label)}と${esc(SCATTER_METRICS[result.y].label)}の散布図。点を選ぶと動画詳細を開きます">
@@ -87,13 +101,21 @@ function metricOptions(value) {
     groupedMetrics.get(metric.group).push([key, metric]);
   }
 
-  return [...groupedMetrics].map(([group, options]) => `
+  return [...groupedMetrics]
+    .map(
+      ([group, options]) => `
     <optgroup label="${esc(group)}">
-      ${options.map(([key, metric]) => `
+      ${options
+        .map(
+          ([key, metric]) => `
         <option value="${esc(key)}" ${key === value ? 'selected' : ''}>${esc(metric.label)}</option>
-      `).join('')}
+      `,
+        )
+        .join('')}
     </optgroup>
-  `).join('');
+  `,
+    )
+    .join('');
 }
 
 /** A canvas is mounted after the page renders; HTML never embeds personal data. */
@@ -102,14 +124,16 @@ function renderThreeDimensionalPlot(result) {
     return '<div class="empty-sm">3軸すべての情報がそろう動画がありません。軸を変えるかメタデータを補完してください。</div>';
   }
 
-  const axisReadout = ['x', 'y', 'z'].map((axis) => {
-    const metric = result[axis];
-    const values = result.points.map((point) => point[`${axis}Value`]);
-    const minimum = Math.min(...values);
-    const maximum = Math.max(...values);
-    return `<span class="scatter3d-axis-range"><b>${axis.toUpperCase()}: ${esc(SCATTER_METRICS[metric].label)}</b>
+  const axisReadout = ['x', 'y', 'z']
+    .map((axis) => {
+      const metric = result[axis];
+      const values = result.points.map((point) => point[`${axis}Value`]);
+      const minimum = Math.min(...values);
+      const maximum = Math.max(...values);
+      return `<span class="scatter3d-axis-range"><b>${axis.toUpperCase()}: ${esc(SCATTER_METRICS[metric].label)}</b>
       <small>${esc(readableMetric(minimum, metric))} ～ ${esc(readableMetric(maximum, metric))}${SCATTER_METRICS[metric].logarithmic ? '（対数目盛）' : ''}</small></span>`;
-  }).join('');
+    })
+    .join('');
 
   return `<div class="scatter3d-frame">
     <canvas id="scatter-3d-canvas" tabindex="0" role="img"
@@ -134,7 +158,9 @@ export function renderScatter({ state, rows, hero }) {
   const result = is3D
     ? createScatter3DData(rows, { x, y, z, voice })
     : createScatterData(rows, { x, y, voice });
-  const voices = voiceStats(rows.filter(availableForScatter), 'canonical', 100).map(([name]) => name);
+  const voices = voiceStats(rows.filter(availableForScatter), 'canonical', 100).map(
+    ([name]) => name,
+  );
   const correlation = result.correlation === null ? '算出不可' : result.correlation?.toFixed(2);
   const uniqueMissing = result.eligible - result.points.length;
   // Include duet partners in the legend, even when the point is coloured by
@@ -168,11 +194,24 @@ export function renderScatter({ state, rows, hero }) {
       </div>
       ${is3D ? renderThreeDimensionalPlot(result) : result.points.length ? renderPoints(result) : '<div class="empty-sm">選択した軸の動画情報が不足しています。別の軸を選択するか、メタデータを補完してください。</div>'}
       <div class="scatter-legend"><div class="scatter-legend-header"><span class="scatter-legend-title">歌唱キャラクター（凡例を押すと絞り込み。デュエットの相手も掲載）</span>
-        <label class="control-label compact">凡例の表示数<select id="scatter-legend-limit">${[[15,'上位15'],[30,'上位30'],['all','全員']].map(([n,label]) =>
-          `<option value="${n}" ${legendLimit===n?'selected':''}>${label}</option>`).join('')}</select></label></div>
-        <div class="scatter-legend-items">${legendNames.slice(0, legendLimit === 'all' ? undefined : legendLimit).map((name) =>
-          name ? `<button type="button" class="scatter-legend-entry ${voice === name ? 'is-active' : ''}" data-scatter-voice="${esc(name)}" title="${hasCharacterColor(name) ? '設定色（公式HEX値とは限りません）' : '名前から割り当てた自動色'}"><i style="background:${colorForCharacter(name)}"></i>${esc(name)}</button>`
-            : `<span class="scatter-legend-entry"><i style="background:${UNCLASSIFIED_COLOR}"></i>歌唱者不明</span>`).join('')}</div>
+        <label class="control-label compact">凡例の表示数<select id="scatter-legend-limit">${[
+          [15, '上位15'],
+          [30, '上位30'],
+          ['all', '全員'],
+        ]
+          .map(
+            ([n, label]) =>
+              `<option value="${n}" ${legendLimit === n ? 'selected' : ''}>${label}</option>`,
+          )
+          .join('')}</select></label></div>
+        <div class="scatter-legend-items">${legendNames
+          .slice(0, legendLimit === 'all' ? undefined : legendLimit)
+          .map((name) =>
+            name
+              ? `<button type="button" class="scatter-legend-entry ${voice === name ? 'is-active' : ''}" data-scatter-voice="${esc(name)}" title="${hasCharacterColor(name) ? '設定色（公式HEX値とは限りません）' : '名前から割り当てた自動色'}"><i style="background:${colorForCharacter(name)}"></i>${esc(name)}</button>`
+              : `<span class="scatter-legend-entry"><i style="background:${UNCLASSIFIED_COLOR}"></i>歌唱者不明</span>`,
+          )
+          .join('')}</div>
         ${legendNames.length > (legendLimit === 'all' ? Infinity : legendLimit) ? `<small>ほか${legendNames.length - legendLimit}種類。全員表示に切り替えられます。</small>` : ''}
       </div>
       <p class="trend-notice">${is3D ? '3Dは3つの数値を立体的に投影しています。ドラッグやキーボードで回転し、別の角度から重なりを確かめてください。見やすさや操作性を優先したい場合は2Dに戻せます。' : ''}点にカーソルを重ねると動画名と数値を表示し、クリックすると詳細を開きます。複数歌唱者の曲は白い輪郭で表示し、色は先頭の歌唱者を採用します。設定色のない歌唱者には名前に基づく安定した自動色を使います（公式カラーではありません）。再生数・コメント数・いいね数・ニコニコ全体のマイリスト数は0も扱える対数目盛を使用。反応率は1,000再生あたりの件数で、再生数0や情報未取得の場合は描画しません。自分の所属マイリスト数とニコニコ全体のマイリスト数は別指標です。未評価の動画は評価軸では描画しません。順位相関は2つの数値の傾向を示すだけで、因果関係や曲の好みを証明しません。投稿時期は聴取した時期ではありません。削除・非公開・取得失敗の動画は描画と相関計算に含めません（取得失敗は削除確定ではありません）。動画データやメモは削除しません。</p>

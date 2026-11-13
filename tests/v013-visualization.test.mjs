@@ -10,7 +10,10 @@ const rows = [
   { id: 'sm3', voices: ['音街ウナ'], tags: ['かわいい'] },
 ];
 const library = {
-  playlists: [{ id: 'a', name: 'ぼかうた1' }, { id: 'b', name: 'ぼかうた2' }],
+  playlists: [
+    { id: 'a', name: 'ぼかうた1' },
+    { id: 'b', name: 'ぼかうた2' },
+  ],
   entries: [
     { playlist_id: 'a', video_id: 'sm1', present: true },
     { playlist_id: 'a', video_id: 'sm2', present: true },
@@ -45,6 +48,9 @@ test('適切なデータがない場合はチャートを描かない', () => {
 
 test('グラフの色付き棒はブロックとしてレイアウトする', async () => {
   const css = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
-  assert.match(css, /\.trend-spotlight-fill,\s*\.trend-coverage-track > span\s*\{[^}]*display:\s*block/s);
+  assert.match(
+    css,
+    /\.trend-spotlight-fill,\s*\.trend-coverage-track > span\s*\{[^}]*display:\s*block/s,
+  );
   assert.match(css, /\.trend-chart-scroll\s*\{[^}]*overflow-x:\s*auto/);
 });

@@ -5,17 +5,29 @@
 export const MAX_SAVED_SEARCHES = 20;
 
 const FILTER_KEYS = [
-  'q', 'playlist', 'sort', 'order', 'voice', 'variant',
-  'genre', 'mood', 'year', 'creator', 'status',
+  'q',
+  'playlist',
+  'sort',
+  'order',
+  'voice',
+  'variant',
+  'genre',
+  'mood',
+  'year',
+  'creator',
+  'status',
 ];
 
 const ALLOWED_SORTS = new Set([
-  'views', 'published_at', 'duration', 'comments',
-  'mylists', 'title', 'registration',
+  'views',
+  'published_at',
+  'duration',
+  'comments',
+  'mylists',
+  'title',
+  'registration',
 ]);
-const ALLOWED_STATUSES = new Set([
-  '', 'unlisted', 'no-voice', 'unrated', 'missing-metadata',
-]);
+const ALLOWED_STATUSES = new Set(['', 'unlisted', 'no-voice', 'unrated', 'missing-metadata']);
 
 export function normalizeSavedFilters(input = {}) {
   const value = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
@@ -40,7 +52,9 @@ export function normalizeSavedView(view) {
 }
 
 export function createSearchPreset({ name, view, filters, cardMode }) {
-  const cleanName = String(name ?? '').trim().replace(/\s+/g, ' ');
+  const cleanName = String(name ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
   if (!cleanName || cleanName.length > 80) {
     throw new Error('検索条件の名前は1〜80文字で入力してください');
   }

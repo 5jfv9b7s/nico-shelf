@@ -31,13 +31,23 @@ function createFixture() {
     afterNavigation(state);
   };
   registerEventHandlers({
-    root, state, client: {}, nicoBridge: {}, render, rerenderContent: render,
-    showDialog() {}, closeDialog() {}, refreshMembership() {}, actions: {},
+    root,
+    state,
+    client: {},
+    nicoBridge: {},
+    render,
+    rerenderContent: render,
+    showDialog() {},
+    closeDialog() {},
+    refreshMembership() {},
+    actions: {},
   });
   render();
 
   return {
-    state, scrolls, render,
+    state,
+    scrolls,
+    render,
     html: () => html,
     dispatch(type, values) {
       const target = { id: '', dataset: {}, matches: () => false, ...values };
@@ -98,7 +108,7 @@ test('上へ戻るボタンは通常は滑らかに移動し、モーション�
   const previousMatch = Object.getOwnPropertyDescriptor(globalThis, 'matchMedia');
   const calls = [];
   try {
-    globalThis.scrollTo = options => calls.push(options);
+    globalThis.scrollTo = (options) => calls.push(options);
     globalThis.matchMedia = () => ({ matches: false });
     const ui = createFixture();
     ui.dispatch('click', { id: 'back-to-top' });
@@ -129,10 +139,15 @@ test('長いタイトルと大きな件数を表示し、動画・お気に入�
   const state = createInitialState();
   state.view = 'library';
   state.cardMode = 'grid';
-  state.library.videos = [{
-    id: 'sm123', title: '<img onerror="alert(1)">' + '長い曲名'.repeat(30),
-    views: 1234567890, likes: 123456789, tags: [],
-  }];
+  state.library.videos = [
+    {
+      id: 'sm123',
+      title: '<img onerror="alert(1)">' + '長い曲名'.repeat(30),
+      views: 1234567890,
+      likes: 123456789,
+      tags: [],
+    },
+  ];
   const html = createViewRenderer({ state, renderDialog: () => '' }).content();
   assert.match(html, /class="video-title-text"/);
   assert.match(html, /class="external-arrow" aria-hidden="true"/);

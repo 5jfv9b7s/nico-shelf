@@ -1,26 +1,27 @@
 {
   "name": "nico-shelf-web",
-  "version": "0.17.4",
+  "version": "0.17.5",
   "private": true,
   "type": "module",
   "description": "NICO SHELF — private, multi-user NicoNico playlist library",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "node scripts/build.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/*.test.mjs",
     "check:imports": "node scripts/check-imports.mjs",
     "gateway:start": "node gateway/server.mjs",
     "gateway:probe": "node scripts/probe-public-mylist.mjs",
-    "format": "prettier --write src bridge tests",
-    "format:check": "prettier --check src bridge tests"
+    "format": "prettier --write src bridge tests worker gateway scripts index.html package.json wrangler.jsonc .github/workflows/ci.yml",
+    "format:check": "prettier --check src bridge tests worker gateway scripts index.html package.json wrangler.jsonc .github/workflows/ci.yml"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.83.0"
+    "@supabase/supabase-js": "^2.83.0",
+    "jose": "^6.2.17"
   },
   "devDependencies": {
-    "vite": "^7.1.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "vite": "^7.1.0"
   },
   "engines": {
     "node": ">=22.13.0"

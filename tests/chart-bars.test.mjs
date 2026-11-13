@@ -22,7 +22,10 @@ test('ダッシュボードの歌唱者とマイリスト件数に対応した�
   const state = createInitialState();
   state.user = { email: 'example@example.com', user_metadata: {} };
   state.library = {
-    playlists: [{ id: '1', name: 'ぼかうた1' }, { id: '2', name: 'ぼかうた2' }],
+    playlists: [
+      { id: '1', name: 'ぼかうた1' },
+      { id: '2', name: 'ぼかうた2' },
+    ],
     videos: [
       { id: 'sm100', title: '1', voices: ['音街ウナ'] },
       { id: 'sm101', title: '2', voices: ['音街ウナ'] },
@@ -40,6 +43,6 @@ test('ダッシュボードの歌唱者とマイリスト件数に対応した�
   const html = view.content();
   assert.match(html, /歌唱者ランキング/);
   assert.match(html, /マイリスト別の登録件数/);
-  assert.match(html, /class="bar-fill" style="width:100%"/);
-  assert.match(html, /class="bar-fill" style="width:50%"/);
+  assert.match(html, /class="bar-fill" style="width:100%(?:;background:#[0-9a-fA-F]{6};)?"/);
+  assert.match(html, /class="bar-fill" style="width:50%(?:;background:#[0-9a-fA-F]{6};)?"/);
 });

@@ -18,9 +18,9 @@ function renderRecommendation({ video, reasons }) {
   const image = thumbnail
     ? `<img class="related-thumb" alt="" src="${esc(thumbnail)}" loading="lazy" referrerpolicy="no-referrer" />`
     : '<div class="related-thumb related-placeholder">♫</div>';
-  const badges = reasons.map((reason) =>
-    `<span class="related-reason">${esc(reason)}</span>`
-  ).join('');
+  const badges = reasons
+    .map((reason) => `<span class="related-reason">${esc(reason)}</span>`)
+    .join('');
 
   return `<article class="related-item">
     ${image}
@@ -58,9 +58,12 @@ export function renderRelatedDialog(library, sourceId, options = {}) {
   <div class="related-controls">
     <label class="field-label" for="related-mode">探し方
       <select id="related-mode">
-        ${Object.entries(RELATED_MODES).map(([value, label]) =>
-          `<option value="${value}" ${value === mode ? 'selected' : ''}>${esc(label)}</option>`
-        ).join('')}
+        ${Object.entries(RELATED_MODES)
+          .map(
+            ([value, label]) =>
+              `<option value="${value}" ${value === mode ? 'selected' : ''}>${esc(label)}</option>`,
+          )
+          .join('')}
       </select>
     </label>
     <label class="check-field related-unrated">

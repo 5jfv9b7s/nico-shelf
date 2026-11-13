@@ -8,6 +8,7 @@
  * does NOT establish that another hosting provider will work.
  */
 import { createServer } from 'node:http';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { parsePublicMylistPage, publicMylistUpstreamUrl } from '../worker/public-mylist.js';
 
@@ -47,19 +48,34 @@ async function readJsonLimited(response) {
 }
 
 export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
-  if (typeof token !== 'string' || token.length < 24) throw new Error('GATEWAY_TOKEN (24+ chars) is required');
+  if (typeof token !== 'string' || token.length < 24)
+    throw new Error('GATEWAY_TOKEN (24+ chars) is required');
   return async function handle(req, res) {
     if (req.method !== 'GET') return send(res, 405, { code: 'METHOD_NOT_ALLOWED' });
     const url = new URL(req.url, 'http://localhost');
-    if (url.pathname === '/health') return send(res, 200, { status: 'ready', upstreamVerified: false });
+    if (url.pathname === '/health')
+      return send(res, 200, { status: 'ready', upstreamVerified: false });
     // Reject unknown query keys, invalid page, arbitrary host and path inputs.
     const match = url.pathname.match(PATH);
     const page = Number(url.searchParams.get('page') || '1');
-    if (!match || [...url.searchParams.keys()].some(k => k !== 'page') || !Number.isInteger(page) || page < 1 || page > 20) {
+    if (
+      !match ||
+      [...url.searchParams.keys()].some((k) => k !== 'page') ||
+      !Number.isInteger(page) ||
+      page < 1 ||
+      page > 20
+    ) {
       return send(res, 400, { code: 'INVALID_REQUEST' });
     }
     // Compare exact header only; never log the supplied secret.
-    if (req.headers['x-nico-shelf-gateway-key'] !== token) {
+    const suppliedToken = req.headers['x-nico-shelf-gateway-key'];
+    if (
+      typeof suppliedToken !== 'string' ||
+      !timingSafeEqual(
+        createHash('sha256').update(suppliedToken).digest(),
+        createHash('sha256').update(token).digest(),
+      )
+    ) {
       return send(res, 401, { code: 'UNAUTHORIZED' });
     }
 
@@ -81,7 +97,8 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
       }
       if (upstream.status === 404) return send(res, 404, { code: 'UPSTREAM_NOT_FOUND' });
       if (upstream.status === 429) return send(res, 503, { code: 'UPSTREAM_RATE_LIMITED' });
-      if (!upstream.ok) return send(res, 502, { code: 'UPSTREAM_HTTP_ERROR', upstreamStatus: upstream.status });
+      if (!upstream.ok)
+        return send(res, 502, { code: 'UPSTREAM_HTTP_ERROR', upstreamStatus: upstream.status });
       if (!/(?:application\/json|\+json)/i.test(upstream.headers.get('content-type') || '')) {
         return send(res, 502, { code: 'UPSTREAM_NOT_JSON' });
       }
@@ -89,8 +106,12 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
       const normalized = parsePublicMylistPage(payload, id, page);
       return send(res, 200, normalized);
     } catch (error) {
-      const code = error?.name === 'TimeoutError' || error?.name === 'AbortError' ? 'UPSTREAM_TIMEOUT'
-        : error?.message === 'TOO_LARGE' ? 'UPSTREAM_TOO_LARGE' : 'UPSTREAM_INVALID_RESPONSE';
+      const code =
+        error?.name === 'TimeoutError' || error?.name === 'AbortError'
+          ? 'UPSTREAM_TIMEOUT'
+          : error?.message === 'TOO_LARGE'
+            ? 'UPSTREAM_TOO_LARGE'
+            : 'UPSTREAM_INVALID_RESPONSE';
       console.warn('[gateway] fetch or parse failed', { id, page, code });
       return send(res, 502, { code });
     }
@@ -101,7 +122,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const token = process.env.GATEWAY_TOKEN;
   const port = Number(process.env.PORT || '8788');
   const handle = makeGatewayHandler({ token });
-  createServer((req, res) => { void handle(req, res); }).listen(port, '0.0.0.0', () => {
-    console.log(`[gateway] listening on port ${port}; /health checks server only, not NicoNico access`);
+  createServer((req, res) => {
+    void handle(req, res);
+  }).listen(port, '0.0.0.0', () => {
+    console.log(
+      `[gateway] listening on port ${port}; /health checks server only, not NicoNico access`,
+    );
   });
 }

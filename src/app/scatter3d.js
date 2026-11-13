@@ -9,7 +9,10 @@ import { createScatterData, metricValue, SCATTER_METRICS, transformMetric } from
 
 export const DEFAULT_3D_CAMERA = Object.freeze({ yaw: -0.62, pitch: 0.38, zoom: 1 });
 
-export function createScatter3DData(videos, { x = 'views', y = 'mylists', z = 'comments', voice = '' } = {}) {
+export function createScatter3DData(
+  videos,
+  { x = 'views', y = 'mylists', z = 'comments', voice = '' } = {},
+) {
   if (!SCATTER_METRICS[z]) throw new Error('Unknown Z-axis metric');
   const xy = createScatterData(videos, { x, y, voice });
   const points = [];
@@ -25,7 +28,11 @@ export function createScatter3DData(videos, { x = 'views', y = 'mylists', z = 'c
   }
 
   return {
-    x, y, z, voice, points,
+    x,
+    y,
+    z,
+    voice,
+    points,
     total: xy.total,
     eligible: xy.eligible,
     excluded: xy.excluded,
@@ -45,7 +52,7 @@ export function normalizedPoint(point, bounds) {
   return ['x', 'y', 'z'].map((axis) => {
     const [low, high] = bounds[axis];
     const value = point[`${axis}Plot`];
-    return 2 * (value - low) / (high - low) - 1;
+    return (2 * (value - low)) / (high - low) - 1;
   });
 }
 

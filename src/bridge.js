@@ -32,7 +32,11 @@ export class NicoTabBridge {
     // CustomEvent.detail is a JSON string so isolated-world boundaries do not
     // need to exchange realm-specific JS objects.
     let data;
-    try { data = JSON.parse(event.detail); } catch { return; }
+    try {
+      data = JSON.parse(event.detail);
+    } catch {
+      return;
+    }
     this.onPayload(data);
   }
 
@@ -59,7 +63,7 @@ export class NicoTabBridge {
   }
 
   sendToScript(message) {
-    document.dispatchEvent(new CustomEvent(APP_EVENT, {detail:JSON.stringify(message)}));
+    document.dispatchEvent(new CustomEvent(APP_EVENT, { detail: JSON.stringify(message) }));
     window.postMessage(message, location.origin);
   }
 
@@ -75,7 +79,9 @@ export class NicoTabBridge {
     // Makes missing/disabled site userscripts visible immediately instead of
     // showing a seemingly perpetual "unconnected" state.
     if (document.documentElement.getAttribute('data-nico-shelf-direct-bridge') !== '0.8.0') {
-      throw new Error('NICO SHELF側で連携スクリプトv0.8.0が検出できません。Tampermonkeyでこの公開サイトへのアクセスを許可し、アプリのタブを再読み込みしてください');
+      throw new Error(
+        'NICO SHELF側で連携スクリプトv0.8.0が検出できません。Tampermonkeyでこの公開サイトへのアクセスを許可し、アプリのタブを再読み込みしてください',
+      );
     }
 
     this.nonce = crypto.randomUUID();
@@ -93,7 +99,7 @@ export class NicoTabBridge {
     const nonce = this.nonce;
     const sendInit = () => {
       if (this.nonce === nonce && !this.connected) {
-        this.sendToScript({channel:'nico-shelf-page-v06', type:'init', nonce});
+        this.sendToScript({ channel: 'nico-shelf-page-v06', type: 'init', nonce });
       }
     };
     const promise = new Promise((resolve, reject) => {
@@ -105,7 +111,7 @@ export class NicoTabBridge {
           : 'アプリ側スクリプトから応答がありません。Tampermonkeyにv0.6.2を上書き保存し、NICO SHELFのタブを再読み込みしてください。';
         reject(new Error(detail));
       }, 30000);
-      this.handshake = {resolve, reject, timer};
+      this.handshake = { resolve, reject, timer };
     });
     // Repeating init heals missed postMessage events and races during script startup.
     sendInit();
@@ -118,16 +124,30 @@ export class NicoTabBridge {
       this.disconnect();
       throw new Error('ニコニコの接続用タブが閉じられました。再接続してください');
     }
-    if (!this.connected) throw new Error('ニコニコに未接続です。「ニコニコと接続」を押してください');
+    if (!this.connected)
+      throw new Error('ニコニコに未接続です。「ニコニコと接続」を押してください');
     const requestId = crypto.randomUUID();
     const promise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
-        reject(new Error(action==='snapshot-list'?'ニコニコのマイリスト一覧取得がタイムアウトしました。差分は反映していません。':'ニコニコからの応答がありません。登録結果をニコニコ側で確認してください。'));
+        reject(
+          new Error(
+            action === 'snapshot-list'
+              ? 'ニコニコのマイリスト一覧取得がタイムアウトしました。差分は反映していません。'
+              : 'ニコニコからの応答がありません。登録結果をニコニコ側で確認してください。',
+          ),
+        );
       }, timeout);
-      this.pending.set(requestId, {resolve, reject, timer});
+      this.pending.set(requestId, { resolve, reject, timer });
     });
-    this.sendToScript({channel:'nico-shelf-page-v06', type:'request', nonce:this.nonce, requestId, action, payload});
+    this.sendToScript({
+      channel: 'nico-shelf-page-v06',
+      type: 'request',
+      nonce: this.nonce,
+      requestId,
+      action,
+      payload,
+    });
     return promise;
   }
 

@@ -1,16 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  orderTrendPlaylists, createTrendGroups, calculateTrend,
-  compareTrendEndpoints, videosForTrendCell,
+  orderTrendPlaylists,
+  createTrendGroups,
+  calculateTrend,
+  compareTrendEndpoints,
+  videosForTrendCell,
 } from '../src/app/trends.js';
 import { renderTrends } from '../src/ui/trends.js';
 
 function video(id, overrides = {}) {
   return {
-    id, title: id, published_at: '2025-01-01T00:00:00',
-    voices: [], tags: [], producers: [], composers: [], uploader: '',
-    userMeta: null, memberships: [], ...overrides,
+    id,
+    title: id,
+    published_at: '2025-01-01T00:00:00',
+    voices: [],
+    tags: [],
+    producers: [],
+    composers: [],
+    uploader: '',
+    userMeta: null,
+    memberships: [],
+    ...overrides,
   };
 }
 
@@ -22,9 +33,24 @@ function fixture() {
     { id: 'two', name: 'ぼかうた2' },
   ];
   const rows = [
-    video('sm1', { voices: ['音街ウナ Spicy'], tags: ['ボカロック'], uploader: '作曲者A', published_at: '2023-02-10' }),
-    video('sm2', { voices: ['Synthesizer V AI 音街ウナ'], tags: ['ボカポップ'], uploader: '作曲者B', published_at: '2024-05-01' }),
-    video('sm3', { voices: ['初音ミク'], tags: ['ボカロック', 'ボカロック'], uploader: '作曲者C', published_at: '2024-07-01' }),
+    video('sm1', {
+      voices: ['音街ウナ Spicy'],
+      tags: ['ボカロック'],
+      uploader: '作曲者A',
+      published_at: '2023-02-10',
+    }),
+    video('sm2', {
+      voices: ['Synthesizer V AI 音街ウナ'],
+      tags: ['ボカポップ'],
+      uploader: '作曲者B',
+      published_at: '2024-05-01',
+    }),
+    video('sm3', {
+      voices: ['初音ミク'],
+      tags: ['ボカロック', 'ボカロック'],
+      uploader: '作曲者C',
+      published_at: '2024-07-01',
+    }),
     video('sm4', { voices: [], tags: [], published_at: '' }),
     video('sm5', { voices: ['重音テト'], tags: ['元気が出る'], published_at: '2025-01-01' }),
     video('sm6', { voices: ['音街ウナ-SV'], tags: ['エレクトロ'], published_at: '2026-01-01' }),
@@ -47,20 +73,35 @@ function fixture() {
 
 test('numbered playlists are ordered numerically; favorites are not a chronological stage', () => {
   const { library } = fixture();
-  assert.deepEqual(orderTrendPlaylists(library.playlists).map((p) => p.id), ['one', 'two', 'three']);
-  assert.deepEqual(orderTrendPlaylists(library.playlists, { includeOther: true }).map((p) => p.id), ['one', 'two', 'three', 'fav']);
+  assert.deepEqual(
+    orderTrendPlaylists(library.playlists).map((p) => p.id),
+    ['one', 'two', 'three'],
+  );
+  assert.deepEqual(
+    orderTrendPlaylists(library.playlists, { includeOther: true }).map((p) => p.id),
+    ['one', 'two', 'three', 'fav'],
+  );
 });
 
 test('fallback retains unnumbered playlists for other users', () => {
-  assert.deepEqual(orderTrendPlaylists([{ id: 'x', name: 'お気に入り' }]).map((p) => p.id), ['x']);
+  assert.deepEqual(
+    orderTrendPlaylists([{ id: 'x', name: 'お気に入り' }]).map((p) => p.id),
+    ['x'],
+  );
 });
 
 test('each group deduplicates entries and ignores removed registrations', () => {
   const { library, rows } = fixture();
   library.entries.push({ playlist_id: 'one', video_id: 'sm1', position: 5, present: true });
   const groups = createTrendGroups(library, rows, { axis: 'playlist' });
-  assert.deepEqual(groups.map((group) => group.total), [4, 2, 1]);
-  assert.deepEqual(groups.map((group) => group.label), ['ぼかうた1', 'ぼかうた2', 'ぼかうた3']);
+  assert.deepEqual(
+    groups.map((group) => group.total),
+    [4, 2, 1],
+  );
+  assert.deepEqual(
+    groups.map((group) => group.label),
+    ['ぼかうた1', 'ぼかうた2', 'ぼかうた3'],
+  );
 });
 
 test('same song can contribute to two playlists, but only once to each category', () => {
@@ -85,28 +126,52 @@ test('genre values are based on all songs and repeated identical tags count once
 test('position groups use saved ascending position, not publication year', () => {
   const { library, rows } = fixture();
   const groups = createTrendGroups(library, rows, { axis: 'position', playlistId: 'one' });
-  assert.deepEqual(groups.map((group) => group.label), ['1〜1番目', '2〜2番目', '3〜3番目', '4〜4番目']);
-  assert.deepEqual(groups.map((group) => group.videos[0].id), ['sm2', 'sm3', 'sm1', 'sm4']);
+  assert.deepEqual(
+    groups.map((group) => group.label),
+    ['1〜1番目', '2〜2番目', '3〜3番目', '4〜4番目'],
+  );
+  assert.deepEqual(
+    groups.map((group) => group.videos[0].id),
+    ['sm2', 'sm3', 'sm1', 'sm4'],
+  );
 });
 
 test('position groups are capped at the number of active songs', () => {
   const { library, rows } = fixture();
-  assert.equal(createTrendGroups(library, rows, { axis: 'position', playlistId: 'three' }).length, 1);
+  assert.equal(
+    createTrendGroups(library, rows, { axis: 'position', playlistId: 'three' }).length,
+    1,
+  );
 });
 
 test('publication year axis is not computed from playlist membership', () => {
   const { library, rows } = fixture();
   const groups = createTrendGroups(library, rows, { axis: 'published' });
-  assert.deepEqual(groups.map((group) => group.label), ['2023年', '2024年', '2025年', '2026年']);
-  assert.deepEqual(groups.map((group) => group.total), [1, 2, 1, 2]);
+  assert.deepEqual(
+    groups.map((group) => group.label),
+    ['2023年', '2024年', '2025年', '2026年'],
+  );
+  assert.deepEqual(
+    groups.map((group) => group.total),
+    [1, 2, 1, 2],
+  );
 });
 
 test('trend cell selection returns precisely the matching video ids', () => {
   const { library, rows } = fixture();
   const result = calculateTrend(library, rows, { facet: 'voice', axis: 'playlist' });
-  assert.deepEqual(videosForTrendCell(result, 'playlist:one', '音街ウナ').map((v) => v.id), ['sm1', 'sm2']);
-  assert.deepEqual(videosForTrendCell(result, 'playlist:three', '音街ウナ').map((v) => v.id), ['sm6']);
-  assert.deepEqual(videosForTrendCell(result, 'playlist:one', 'secret').map((v) => v.id), []);
+  assert.deepEqual(
+    videosForTrendCell(result, 'playlist:one', '音街ウナ').map((v) => v.id),
+    ['sm1', 'sm2'],
+  );
+  assert.deepEqual(
+    videosForTrendCell(result, 'playlist:three', '音街ウナ').map((v) => v.id),
+    ['sm6'],
+  );
+  assert.deepEqual(
+    videosForTrendCell(result, 'playlist:one', 'secret').map((v) => v.id),
+    [],
+  );
 });
 
 test('endpoint differences use percentage points, not counts', () => {
@@ -123,7 +188,13 @@ test('trends UI escapes untrusted artist labels and provides data selectors', ()
   rows[0].uploader = '<img src=x onerror=alert(1)>';
   const state = {
     library,
-    trends: { axis: 'playlist', facet: 'creator', playlistId: '', includeOther: false, selected: null },
+    trends: {
+      axis: 'playlist',
+      facet: 'creator',
+      playlistId: '',
+      includeOther: false,
+      selected: null,
+    },
   };
   const html = renderTrends({ state, rows, cards: () => '', hero: () => '<h1>変遷</h1>' });
   assert.match(html, /id="trend-axis"/);
@@ -134,11 +205,22 @@ test('trends UI escapes untrusted artist labels and provides data selectors', ()
 
 test('trends UI includes card results when a table cell is selected', () => {
   const { library, rows } = fixture();
-  const state = { library, trends: {
-    axis: 'playlist', facet: 'voice', playlistId: '', includeOther: false,
-    selected: { group: 'playlist:one', category: '音街ウナ' },
-  } };
-  const html = renderTrends({ state, rows, hero: () => '', cards: (selected) => `cards=${selected.map((x) => x.id).join(',')}` });
+  const state = {
+    library,
+    trends: {
+      axis: 'playlist',
+      facet: 'voice',
+      playlistId: '',
+      includeOther: false,
+      selected: { group: 'playlist:one', category: '音街ウナ' },
+    },
+  };
+  const html = renderTrends({
+    state,
+    rows,
+    hero: () => '',
+    cards: (selected) => `cards=${selected.map((x) => x.id).join(',')}`,
+  });
   assert.match(html, /cards=sm1,sm2/);
   assert.match(html, /判定情報がある動画/);
   assert.match(html, /実際に曲を聴いた日時/);

@@ -43,11 +43,16 @@ export function orderTrendPlaylists(playlists, { includeOther = false } = {}) {
 /** Every category is counted at most once per video, even if several tags match. */
 export function labelsForFacet(video, facet) {
   switch (facet) {
-    case 'voice': return canonicalVoices(video);
-    case 'genre': return genreLabels(video);
-    case 'mood': return moodLabels(video);
-    case 'creator': return composerNames(video);
-    default: return [];
+    case 'voice':
+      return canonicalVoices(video);
+    case 'genre':
+      return genreLabels(video);
+    case 'mood':
+      return moodLabels(video);
+    case 'creator':
+      return composerNames(video);
+    default:
+      return [];
   }
 }
 
@@ -61,7 +66,8 @@ function liveEntries(library) {
 
 function playlistVideos(rowsById, entries, playlistId) {
   const seen = new Set();
-  return entries.filter((entry) => entry.playlist_id === playlistId)
+  return entries
+    .filter((entry) => entry.playlist_id === playlistId)
     .map((entry) => entry.video_id)
     .filter((id) => !seen.has(id) && seen.add(id))
     .map((id) => rowsById.get(id))
@@ -69,25 +75,31 @@ function playlistVideos(rowsById, entries, playlistId) {
 }
 
 /** Build disjoint membership slices or overlapping named-playlist groups. */
-export function createTrendGroups(library, rows, {
-  axis = 'playlist', playlistId = '', includeOther = false,
-} = {}) {
+export function createTrendGroups(
+  library,
+  rows,
+  { axis = 'playlist', playlistId = '', includeOther = false } = {},
+) {
   const rowById = new Map(rows.map((video) => [video.id, video]));
   const entries = liveEntries(library);
   const playlists = orderTrendPlaylists(library.playlists, { includeOther });
 
   if (axis === 'playlist') {
-    return playlists.map((playlist) => makeGroup(
-      `playlist:${playlist.id}`, playlist.name,
-      playlistVideos(rowById, entries, playlist.id),
-    ));
+    return playlists.map((playlist) =>
+      makeGroup(
+        `playlist:${playlist.id}`,
+        playlist.name,
+        playlistVideos(rowById, entries, playlist.id),
+      ),
+    );
   }
 
   if (axis === 'position') {
     const selected = playlists.find((playlist) => playlist.id === playlistId) ?? playlists[0];
     if (!selected) return [];
     const seen = new Set();
-    const ordered = entries.filter((entry) => entry.playlist_id === selected.id)
+    const ordered = entries
+      .filter((entry) => entry.playlist_id === selected.id)
       .map((entry, originalIndex) => ({ entry, originalIndex }))
       .filter(({ entry }) => !seen.has(entry.video_id) && seen.add(entry.video_id))
       .sort((a, b) => {
@@ -103,11 +115,14 @@ export function createTrendGroups(library, rows, {
 
     const groupCount = Math.min(4, ordered.length);
     return Array.from({ length: groupCount }, (_, index) => {
-      const start = Math.floor(index * ordered.length / groupCount);
-      const end = Math.floor((index + 1) * ordered.length / groupCount);
+      const start = Math.floor((index * ordered.length) / groupCount);
+      const end = Math.floor(((index + 1) * ordered.length) / groupCount);
       const selectedEntries = ordered.slice(start, end);
-      return makeGroup(`quarter:${index}`, `${start + 1}〜${end}番目`,
-        selectedEntries.map(({ entry }) => rowById.get(entry.video_id)).filter(Boolean));
+      return makeGroup(
+        `quarter:${index}`,
+        `${start + 1}〜${end}番目`,
+        selectedEntries.map(({ entry }) => rowById.get(entry.video_id)).filter(Boolean),
+      );
     });
   }
 
@@ -122,7 +137,8 @@ export function createTrendGroups(library, rows, {
       if (!byYear.has(key)) byYear.set(key, []);
       byYear.get(key).push(video);
     }
-    return [...byYear].sort(([a], [b]) => Number(a) - Number(b))
+    return [...byYear]
+      .sort(([a], [b]) => Number(a) - Number(b))
       .map(([year, videos]) => makeGroup(`year:${year}`, `${year}年`, videos));
   }
 
@@ -150,17 +166,27 @@ export function calculateTrend(library, rows, options = {}) {
     }
     return { ...group, counts, classified };
   });
-  const limit = options.limit === 'all' ? Infinity
-    : Number.isInteger(Number(options.limit)) && Number(options.limit) > 0
-      ? Math.min(Number(options.limit), 100) : 10;
-  const categories = [...totals].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
-    .slice(0, limit).map(([name]) => name);
+  const limit =
+    options.limit === 'all'
+      ? Infinity
+      : Number.isInteger(Number(options.limit)) && Number(options.limit) > 0
+        ? Math.min(Number(options.limit), 100)
+        : 10;
+  const categories = [...totals]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
+    .slice(0, limit)
+    .map(([name]) => name);
   const cells = groupResults.map((group) => ({
-    key: group.key, label: group.label, total: group.total, classified: group.classified,
-    values: Object.fromEntries(categories.map((category) => {
-      const count = group.counts.get(category) ?? 0;
-      return [category, { count, percent: group.total ? 100 * count / group.total : 0 }];
-    })),
+    key: group.key,
+    label: group.label,
+    total: group.total,
+    classified: group.classified,
+    values: Object.fromEntries(
+      categories.map((category) => {
+        const count = group.counts.get(category) ?? 0;
+        return [category, { count, percent: group.total ? (100 * count) / group.total : 0 }];
+      }),
+    ),
   }));
   return { facet, categories, groups: groupResults, cells };
 }
@@ -176,10 +202,12 @@ export function compareTrendEndpoints(result) {
   if (result.cells.length < 2) return [];
   const first = result.cells[0];
   const last = result.cells.at(-1);
-  return result.categories.map((category) => ({
-    category,
-    first: first.values[category].percent,
-    last: last.values[category].percent,
-    delta: last.values[category].percent - first.values[category].percent,
-  })).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return result.categories
+    .map((category) => ({
+      category,
+      first: first.values[category].percent,
+      last: last.values[category].percent,
+      delta: last.values[category].percent - first.values[category].percent,
+    }))
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 }

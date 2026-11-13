@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 
 import { buildLibraryRows } from '../src/app/library.js';
 import {
-  SCATTER_METRICS, createScatterData, metricValue, readableMetric, scatterTicks,
+  SCATTER_METRICS,
+  createScatterData,
+  metricValue,
+  readableMetric,
+  scatterTicks,
 } from '../src/app/scatter.js';
 import { renderScatter } from '../src/ui/scatter.js';
 import { createInitialState } from '../src/app/state.js';
@@ -24,10 +28,42 @@ const library = {
     { video_id: 'sm2', rating: 0 },
   ],
   videos: [
-    { id: 'sm1', title: 'ニコニコの例', status: '取得成功', views: 10000, mylists: 200, comments: 80, likes: 100 },
-    { id: 'sm2', title: 'ゼロ再生', status: '取得成功', views: 0, mylists: 0, comments: 0, likes: 0 },
-    { id: 'sm3', title: '情報未取得', status: '取得成功', views: 300, mylists: null, comments: null, likes: null },
-    { id: 'sm4', title: '非公開動画', status: 'private', views: 50000, mylists: 5000, comments: 1000, likes: 1000 },
+    {
+      id: 'sm1',
+      title: 'ニコニコの例',
+      status: '取得成功',
+      views: 10000,
+      mylists: 200,
+      comments: 80,
+      likes: 100,
+    },
+    {
+      id: 'sm2',
+      title: 'ゼロ再生',
+      status: '取得成功',
+      views: 0,
+      mylists: 0,
+      comments: 0,
+      likes: 0,
+    },
+    {
+      id: 'sm3',
+      title: '情報未取得',
+      status: '取得成功',
+      views: 300,
+      mylists: null,
+      comments: null,
+      likes: null,
+    },
+    {
+      id: 'sm4',
+      title: '非公開動画',
+      status: 'private',
+      views: 50000,
+      mylists: 5000,
+      comments: 1000,
+      likes: 1000,
+    },
   ],
 };
 const rows = buildLibraryRows(library);
@@ -39,7 +75,10 @@ test('ニコニコ全体のマイリスト数を散布図の軸に選べる', ()
   assert.equal(metricValue(rows[1], 'mylists'), 0);
   assert.equal(metricValue(rows[2], 'mylists'), null);
   const result = createScatterData(rows, { x: 'views', y: 'mylists' });
-  assert.deepEqual(result.points.map((p) => p.id), ['sm1', 'sm2']);
+  assert.deepEqual(
+    result.points.map((p) => p.id),
+    ['sm1', 'sm2'],
+  );
   assert.equal(result.excluded.private, 1);
 });
 

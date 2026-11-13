@@ -4,7 +4,10 @@ export function captureSyncDialogUi(root) {
   if (!modal) return null;
   return {
     scrollTop: modal.scrollTop,
-    expanded: Array.from(modal.querySelectorAll('details.sync-fallback'), element => element.open),
+    expanded: Array.from(
+      modal.querySelectorAll('details.sync-fallback'),
+      (element) => element.open,
+    ),
   };
 }
 

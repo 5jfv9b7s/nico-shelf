@@ -50,10 +50,10 @@ test('ログインユーザーの登録情報と削除済みエントリを区�
   });
 
   const rows = buildLibraryRows(library);
-  assert.deepEqual(rows.find((video) => video.id === 'sm100').memberships.map((m) => m.name), [
-    'ぼかうた1',
-    'ぼかうた2',
-  ]);
+  assert.deepEqual(
+    rows.find((video) => video.id === 'sm100').memberships.map((m) => m.name),
+    ['ぼかうた1', 'ぼかうた2'],
+  );
   assert.equal(rows.find((video) => video.id === 'sm100').userMeta.memo, '大切な曲');
   assert.equal(rows.find((video) => video.id === 'sm300').memberships.length, 0);
 });

@@ -11,12 +11,12 @@
 ## フォーマット
 
 ```bash
-npm install
+npm ci
 npm run format        # Prettierで整形（初回は差分が大きくなる）
 npm run format:check  # 整形済みか確認
 ```
 
-`.editorconfig` と `.prettierrc.json` に基準を定義しています。今回の版では、古いHTMLテンプレートすべてを一括整形していません。**整形だけのコミットを機能変更と混在させない**ことを推奨します。
+`.editorconfig` と `.prettierrc.json` に基準を定義しています。v0.17.5でソースを一括整形し、CIにも整形チェックを追加しました。以降も整形だけの変更は機能変更と分けることを推奨します。
 
 ## テスト
 

@@ -16,8 +16,16 @@ export async function checkPublicSourceStatus(fetchStatus = fetch) {
     const body = await response.json();
     if (body?.available === true) return { status: 'configured', reason: null };
     if (body?.available === false) {
-      const permitted = new Set(['SOURCE_NOT_GATEWAY', 'GATEWAY_URL_INVALID', 'GATEWAY_TOKEN_INVALID']);
-      return { status: 'not-configured', reason: permitted.has(body.reason) ? body.reason : 'GATEWAY_NOT_CONFIGURED' };
+      const permitted = new Set([
+        'SOURCE_NOT_GATEWAY',
+        'GATEWAY_URL_INVALID',
+        'GATEWAY_TOKEN_INVALID',
+        'AUTH_NOT_CONFIGURED',
+      ]);
+      return {
+        status: 'not-configured',
+        reason: permitted.has(body.reason) ? body.reason : 'GATEWAY_NOT_CONFIGURED',
+      };
     }
     return { status: 'unverified', reason: 'STATUS_UNEXPECTED_DATA' };
   } catch {
