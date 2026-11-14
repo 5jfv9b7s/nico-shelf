@@ -1,6 +1,7 @@
 import { completeData, validateFeatures } from './data.js';
 import { principalComponents } from './pca.js';
 import { squaredDistance, randomGenerator } from './numeric.js';
+import { fixedHash, compareClusterCounts } from './cluster-validation.js';
 
 function nearest(row, centers) {
   let best = 0;
@@ -144,11 +145,6 @@ export function hierarchical(values, k) {
   return { labels, linkage, tree: compressedTree(nodes.length - 1) };
 }
 
-function hashId(id) {
-  let hash = 2166136261;
-  for (const c of String(id)) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619) >>> 0;
-  return hash;
-}
 export function clusterAnalysis(rows, options) {
   const keys = validateFeatures(options.features, 2);
   const k = Number(options.k);
@@ -161,7 +157,7 @@ export function clusterAnalysis(rows, options) {
       ? used
           .sort(
             (a, b) =>
-              hashId(a.video.id) - hashId(b.video.id) || a.video.id.localeCompare(b.video.id),
+              fixedHash(a.video.id) - fixedHash(b.video.id) || a.video.id.localeCompare(b.video.id),
           )
           .slice(0, 300)
           .map((v) => v.i)
@@ -170,6 +166,13 @@ export function clusterAnalysis(rows, options) {
     throw new Error('有効な曲数以上のグループには分けられません');
   const pca = principalComponents(indices.map((i) => data.values[i]));
   const result = method === 'hierarchical' ? hierarchical(pca.values, k) : kmeans(pca.values, k);
+  const validation = compareClusterCounts(
+    pca.values,
+    indices.map((i) => data.videos[i]),
+    k,
+    result,
+    method === 'hierarchical' ? hierarchical : kmeans,
+  );
   const groups = Array.from({ length: k }, (_, group) => {
     const members = result.labels
       .map((label, i) => (label === group ? i : -1))
@@ -194,6 +197,7 @@ export function clusterAnalysis(rows, options) {
     keys: pca.kept.map((j) => keys[j]),
     dropped: pca.dropped.map((j) => keys[j]),
     groups,
+    ...validation,
     explained: pca.explained,
     inertia: result.inertia,
     iterations: result.iterations,

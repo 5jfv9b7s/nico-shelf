@@ -129,6 +129,16 @@ function controls(state, rows) {
         ],
         a.confidence,
       );
+  if (a.method === 'rules')
+    fields += select(
+      'ruleSort',
+      'ルールの並べ順',
+      [
+        ['count', '共起曲数が多い順'],
+        ['lift', 'リフトが高い順'],
+      ],
+      a.ruleSort,
+    );
   const featureControls = ['correlation', 'multiple', 'pca', 'clusters'].includes(a.method)
     ? '<fieldset class="analysis-features"><legend>' +
       (a.method === 'multiple' ? '説明変数（目的変数は自動除外）' : '分析する数値項目') +
@@ -163,6 +173,9 @@ function controls(state, rows) {
       fields +
       '</div>' +
       featureControls +
+      (featureControls
+        ? '<p class="analysis-description">似た情報を持つ指標を重ねると、分析結果がその特徴に寄る場合があります。項目を変えて比較してください。</p>'
+        : '') +
       toggle +
       '<div class="analysis-actions"><button type="button" class="btn primary" id="analysis-run"' +
       (a.busy ? ' disabled' : '') +
@@ -224,11 +237,13 @@ function regressionResult(r) {
     '</b></span></div>' +
     '<p class="analysis-description">R²・RMSEは分析に使った曲への当てはまりです。未見の曲への予測精度ではありません。対数変換した場合は、係数・当てはめ値・残差も変換後の尺度です。</p>';
   const coefficients = table(
-    ['項目', '係数', '標準誤差', '標準化係数', 'VIF'],
+    ['項目', '係数', '標準誤差', '95%区間 下限', '95%区間 上限', '標準化係数', 'VIF'],
     r.coefficients.map((c, i) => [
       esc(i ? label(r.keys[i - 1]) : '切片'),
       number(c.value),
       number(c.se),
+      number(c.ciLow),
+      number(c.ciHigh),
       number(c.beta),
       number(c.vif),
     ]),
@@ -252,6 +267,15 @@ function regressionResult(r) {
           xLabel: multiple ? '当てはめ値（' + label(r.target) + '）' : label(r.keys[0]),
           yLabel: label(r.target),
           line: multiple ? [0, 1] : r.coefficients.map((c) => c.value),
+          summary:
+            r.n +
+            '曲への当てはめ。目的変数は' +
+            label(r.target) +
+            '。R²は' +
+            number(r.r2) +
+            '、RMSEは' +
+            number(r.rmse) +
+            '。未見の曲への予測精度ではありません。',
         }) +
         '<p class="analysis-description">' +
         (multiple ? '線は実測と当てはめ値が一致する位置です。' : '線は当てはめた回帰直線です。') +
@@ -260,7 +284,9 @@ function regressionResult(r) {
     panel(
       '係数の読み取り',
       coefficients +
-        '<p class="analysis-description">係数は他の説明変数を一定としたときの関連です。標準化係数は尺度をそろえた値で、因果的な重要度ではありません。標準誤差は通常の最小二乗法の仮定に基づく目安です。VIFが大きい項目は重複した情報を持つ可能性があります。</p>',
+        '<p class="analysis-description">係数は他の説明変数を一定としたときの関連です。標準化係数は尺度をそろえた値で、因果的な重要度ではありません。95%区間は係数±t臨界値×標準誤差（残差自由度' +
+        r.df +
+        '）で、通常のOLSの仮定に基づきます。個々の曲の予測区間ではありません。0を含むかだけで重要性を決めないでください。VIFが大きい項目は重複した情報を持つ可能性があります。</p>',
     ) +
     panel(
       '残差の確認',
@@ -301,6 +327,15 @@ function pcaResult(r) {
       pointChart(r.points, {
         xLabel: 'PC1（寄与率 ' + percent(r.explained[0]) + '）',
         yLabel: 'PC2（寄与率 ' + percent(r.explained[1]) + '）',
+        summary:
+          r.n +
+          '曲。第1主成分の寄与率は' +
+          percent(r.explained[0]) +
+          '、第2主成分は' +
+          percent(r.explained[1]) +
+          '、2軸の累積寄与率は' +
+          percent(r.explained[0] + r.explained[1]) +
+          '。音の類似度ではありません。',
       }) +
         '<p class="analysis-description">選択した項目のうち最初の2軸だけを表示しています。音の類似度ではありません。点を選ぶと曲の詳細を開きます。</p>',
     ) +
@@ -328,7 +363,7 @@ function rulesResult(r) {
       ' → ' +
       esc(rule.to) +
       '</button>',
-    String(rule.count),
+    '<strong class="analysis-rule-count">' + rule.count + '曲</strong>',
     percent(rule.support),
     percent(rule.confidence),
     number(rule.lift),
@@ -342,7 +377,9 @@ function rulesResult(r) {
       '曲。' +
       '共起が最低' +
       r.minCount +
-      '曲あり、リフトが1より大きい1項目→1項目のルールを、リフト順に上位50件表示します。該当' +
+      '曲あり、リフトが1より大きい1項目→1項目のルールを、' +
+      (r.sort === 'lift' ? 'リフトが高い順' : '共起曲数が多い順') +
+      'に上位50件表示します。該当' +
       r.totalRules +
       '件。</p>' +
       (r.omittedItems
@@ -358,6 +395,43 @@ function rulesResult(r) {
           )
         : '<p class="empty-sm">条件を満たすルールがありません。対象範囲や最低支持度・確信度を変更してください。</p>') +
       '<details class="analysis-help"><summary>支持度・確信度・リフトの読み方</summary><p>支持度はAとBを両方持つ曲の割合。確信度はAを持つ曲でBも持つ割合。リフトは確信度をB全体の割合で割った値です。1より大きいほど、Bの多さだけでは説明しにくい共起です。分類不明の曲も全曲の分母に含めます。</p><p>対象はこのライブラリ内です。因果関係やニコニコ全体の傾向ではありません。同じ分類根拠に由来するタグは強いルールになる場合があります。</p></details>',
+  );
+}
+function clusterComparison(r) {
+  return panel(
+    'グループ数kの比較',
+    '<p class="analysis-description">各kで同じ' +
+      r.n +
+      '曲と同じ項目を使用しています。群内平方和は群内のばらつきです。シルエット係数は−1〜1で、大きいほど分離が明確な目安です。</p>' +
+      '<p class="analysis-description">' +
+      (r.silhouetteN < r.n
+        ? 'シルエット係数は、動画IDから固定抽出した同じ' +
+          r.silhouetteN +
+          '曲を評価した標本上の目安です。距離の相手は対象全' +
+          r.n +
+          '曲です。'
+        : 'シルエット係数は対象全' + r.n + '曲で評価しています。') +
+      '</p>' +
+      table(
+        ['グループ数', '群内平方和', 'シルエット係数', '最小群', '最大群', '状態'],
+        r.comparison.map((row) => [
+          '<button class="btn subtle" data-analysis-k="' +
+            row.k +
+            '"' +
+            (row.k === Number(r.options.k) ? ' disabled' : '') +
+            '>k=' +
+            row.k +
+            (row.k === Number(r.options.k) ? '（表示中）' : 'で分析') +
+            '</button>',
+          number(row.inertia),
+          number(row.silhouette),
+          row.minSize + '曲',
+          row.maxSize + '曲',
+          row.converged === false ? '反復上限' : row.converged === true ? '収束' : '計算済み',
+        ]),
+        '同じ対象・項目でのk比較',
+      ) +
+      '<details class="analysis-help"><summary>kの選び方</summary><p>kを増やすと群内平方和は小さくなる傾向があります。改善が緩やかになる位置や、シルエット係数、極端に小さい群がないかを合わせて見てください。指標だけで最適なkを断定せず、曲一覧と群の特徴も確認します。係数は1曲だけの群では0、全曲が別々の群など定義できない場合は「—」です。</p></details>',
   );
 }
 function clusterResult(r, selection) {
@@ -386,6 +460,7 @@ function clusterResult(r, selection) {
     })
     .join('');
   return (
+    clusterComparison(r) +
     panel(
       '数値の特徴によるグループ',
       '<div class="analysis-group-grid">' +
@@ -406,6 +481,17 @@ function clusterResult(r, selection) {
           xLabel: '表示用PC1（' + percent(r.explained[0]) + '）',
           yLabel: '表示用PC2（' + percent(r.explained[1]) + '）',
           selectedGroup: selection?.type === 'group' ? selection.index : null,
+          summary:
+            r.n +
+            '曲を' +
+            r.groups.length +
+            '群に分類。' +
+            r.groups.map((g) => '群' + (g.group + 1) + 'は' + g.count + '曲').join('、') +
+            '。表示用の第1主成分の寄与率は' +
+            percent(r.explained[0]) +
+            '、第2主成分は' +
+            percent(r.explained[1]) +
+            '。',
         }) +
         '<p class="analysis-description">計算には選択した全項目を使用。地図だけを2主成分へ圧縮しています。重なった点も異なるグループに属する場合があります。</p>',
     ) +

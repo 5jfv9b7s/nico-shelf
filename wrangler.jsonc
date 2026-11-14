@@ -12,6 +12,14 @@
       "name": "PUBLIC_MYLIST_RATE_LIMIT",
       "namespace_id": "1601621",
       "simple": {
+        "limit": 600,
+        "period": 60
+      }
+    },
+    {
+      "name": "PUBLIC_MYLIST_USER_RATE_LIMIT",
+      "namespace_id": "1601812",
+      "simple": {
         "limit": 120,
         "period": 60
       }

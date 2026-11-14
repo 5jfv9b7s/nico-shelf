@@ -3,14 +3,14 @@ import { scatterExclusionReason } from '../scatter-availability.js';
 import { canonicalVoices } from '../../discovery.js';
 
 export const ANALYSIS_METHODS = {
-  correlation: '1. 相関分析',
-  regression: '2. 回帰分析',
-  multiple: '3. 重回帰分析',
-  pca: '5. 主成分分析',
-  rules: '9. 相関ルール',
-  clusters: '10. クラスタリング',
+  correlation: '相関分析',
+  regression: '回帰分析',
+  multiple: '重回帰分析',
+  pca: '主成分分析',
+  rules: '相関ルール',
+  clusters: 'クラスタリング',
 };
-export const DEFAULT_FEATURES = ['views', 'comments', 'mylists', 'likes', 'duration', 'published'];
+export const DEFAULT_FEATURES = ['views', 'duration', 'published'];
 export const COUNT_METRICS = new Set(['views', 'comments', 'mylists', 'likes']);
 export { SCATTER_METRICS as METRICS };
 
@@ -29,6 +29,7 @@ export function analysisDefaults() {
     support: 0.02,
     confidence: 0.5,
     ruleExtras: false,
+    ruleSort: 'count',
     busy: false,
     result: null,
     error: '',

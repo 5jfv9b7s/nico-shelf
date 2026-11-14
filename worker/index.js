@@ -64,6 +64,41 @@ async function checkRateLimit(request, env) {
   return null;
 }
 
+/** Account quota uses only the verified JWT subject, never a request-supplied ID. */
+async function checkAccountRateLimit(subject, env) {
+  const limiter = env?.PUBLIC_MYLIST_USER_RATE_LIMIT;
+  if (!limiter || typeof limiter.limit !== 'function')
+    return failure(
+      'ACCOUNT_RATE_LIMIT_UNCONFIGURED',
+      'rate_limit',
+      'アカウント単位の取得制限設定がありません。wrangler.jsoncを含めて再デプロイしてください',
+      503,
+    );
+  try {
+    const { success } = await limiter.limit({ key: 'nico-user:' + subject });
+    if (!success) {
+      const response = json(
+        {
+          error: 'このアカウントの取得が短時間に集中しました。1分ほど空けてから再試行してください',
+          code: 'ACCOUNT_RATE_LIMITED',
+          stage: 'rate_limit',
+        },
+        429,
+      );
+      response.headers.set('Retry-After', '60');
+      return response;
+    }
+  } catch {
+    return failure(
+      'ACCOUNT_RATE_LIMIT_FAILED',
+      'rate_limit',
+      'アカウント単位の取得制限を確認できません。時間を空けて再試行してください',
+      503,
+    );
+  }
+  return null;
+}
+
 function classifyFetchFailure(error) {
   const name = error instanceof Error ? error.name : 'UnknownError';
   if (name === 'TimeoutError' || name === 'AbortError') {
@@ -207,6 +242,7 @@ export async function handlePublicMylistRequest(request, env) {
       method: 'gateway',
       upstreamVerified: false,
       authentication: 'required',
+      rateLimitScopes: ['ip', 'account'],
       reason: result.reason || (sessionConfiguration(env) ? null : 'AUTH_NOT_CONFIGURED'),
     });
   }
@@ -221,6 +257,8 @@ export async function handlePublicMylistRequest(request, env) {
   const session = await verifyPublicSession(request, env);
   if (session.error)
     return json({ error: session.error, code: session.code, stage: session.stage }, session.status);
+  const accountLimited = await checkAccountRateLimit(session.subject, env);
+  if (accountLimited) return accountLimited;
 
   const listId = match[1];
   const page = Number(pageText);

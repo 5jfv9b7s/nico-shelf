@@ -3627,3 +3627,20 @@ button.scatter-legend-entry:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+.analysis-chart {
+  margin: 0;
+  min-width: 0;
+}
+.analysis-chart-summary {
+  color: #c2d7e8;
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 8px 0 14px;
+  overflow-wrap: anywhere;
+}
+.analysis-rule-count {
+  color: #b9efe5;
+  font-size: 17px;
+  white-space: nowrap;
+}

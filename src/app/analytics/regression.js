@@ -1,4 +1,5 @@
 import { Matrix, SingularValueDecomposition } from 'ml-matrix';
+import jStat from 'jstat';
 import { completeData, validateFeatures } from './data.js';
 import { mean, variance, standardize, dot } from './numeric.js';
 
@@ -36,16 +37,21 @@ export function fitOLS(values, target) {
     transform.set(j + 1, j + 1, 1 / scaled.scales[j]);
   }
   const covariance = transform.mmul(inverseGram).mmul(transform.transpose()).mul(mse);
+  const critical95 = jStat.studentt.inv(0.975, df);
+  if (!Number.isFinite(critical95)) throw new Error('信頼区間の計算に失敗しました');
   const coefficients = [intercept, ...slopes].map((value, i) => ({
     value,
     se: Math.sqrt(Math.max(0, covariance.get(i, i))),
     beta: i ? (slopes[i - 1] * scaled.scales[i - 1]) / Math.sqrt(variance(target)) : null,
     vif: i ? Math.max(1, inverseGram.get(i, i) * (n - 1)) : null,
+    ciLow: value - critical95 * Math.sqrt(Math.max(0, covariance.get(i, i))),
+    ciHigh: value + critical95 * Math.sqrt(Math.max(0, covariance.get(i, i))),
   }));
   return {
     n,
     p,
     df,
+    critical95,
     coefficients,
     fitted,
     residuals,

@@ -1,3 +1,45 @@
+# v0.18.1の二段階レート制限と診断
+
+公開マイリストの各ページ取得は、次の順で検証します。
+
+1. 認証前：CloudflareのCF-Connecting-IPによる粗い制限（600回/分）。認証処理・JWKS取得への過大な呼び出しを抑えます。
+2. JWT署名・発行元・対象・期限・ユーザー権限を検証。
+3. 認証後：検証済みsubによるアカウント制限（120回/分）。HTTPヘッダーや入力値のユーザーIDは使いません。制限キーはアカウントごとに固定し、IPを含めません（カウンターの拠点単位の制約は下記）。
+4. gatewayまたは診断用directで公開ページを取得。
+
+| wranglerのバインディング | 名前空間 | 制限 |
+| --- | --- | --- |
+| PUBLIC_MYLIST_RATE_LIMIT | 1601621 | IPごとに600回/60秒 |
+| PUBLIC_MYLIST_USER_RATE_LIMIT | 1601812 | 検証済みアカウントごとに120回/60秒 |
+
+更新用ZIPのwrangler.jsoncを含めてWorkerを再デプロイしてください。これらは通常の文字列環境変数ではなく、Workersのレート制限バインディングです。アカウント用バインディングの未設定・障害では、上流へ接続せず503で停止します。
+
+アカウントが使える通常枠を独立させるため、IP側は広い粗い枠にしています。共有IPでの巻き込みを減らす構成ですが、同じ接続元から600回/分を超えた場合は引き続きIP側で制限されます。Cloudflareのこの仕組みはデータセンター単位の概算制御で、厳密なグローバルカウンターではありません。[公式仕様](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+
+- RATE_LIMITED（429）：接続元IPの粗い枠を超過。
+- ACCOUNT_RATE_LIMITED（429）：そのアカウントの枠を超過。Retry-After: 60を返します。
+- ACCOUNT_RATE_LIMIT_UNCONFIGURED（503）：新しいバインディングが未設定。
+- ACCOUNT_RATE_LIMIT_FAILED（503）：アカウント制限処理の障害。
+
+これらのログや応答に、アクセストークン・ユーザーID・受信ヘッダーは含めません。バインディングの内部キーだけに検証済みsubを使います。
+
+## directモードは必要なときだけ診断に使う
+
+通常はPUBLIC_MYLIST_SOURCE=gatewayです。directはCloudflareからニコニコへ直接接続した場合のHTTP状態を比較するために残しています。実際には403を確認済みなので、通常運用の代替経路とは扱いません。
+
+1. 運営者が一時的にPUBLIC_MYLIST_SOURCE=directを設定してWorkerをデプロイします。
+2. NICO SHELFへGoogleログインし、公開リストを1つだけ指定して取得します。認証前IP制限・JWT検証・アカウント制限はdirectにも適用されます。
+3. ブラウザの開発者ツールのNetworkで、アプリ自身の /api/public-mylists/... の応答コード・stage・upstreamStatusだけを確認します。NICO_ACCESS_DENIED / http / 403ならCloudflare直結の拒否が再現しています。トークンやヘッダーをコピー・共有する必要はありません。
+4. PUBLIC_MYLIST_SOURCE=gatewayへ戻して再デプロイします。
+
+/statusは通常のgateway構成の準備状態を返す参考情報です。directではSOURCE_NOT_GATEWAYになります。v0.17.2以降はこの事前確認の結果だけでURL入力や試行を禁止しません。どちらの経路も、ブラウザのCookieやSupabaseトークンをニコニコへ送りません。
+
+## スタイルのCSP
+
+style-srcとstyle-src-elemは同一オリジンに限定しました。動的な棒の幅や色で使うstyle属性だけに、style-src-attr 'unsafe-inline'を残しています。インラインCSSの許可をすべて撤去したわけではありません。CSSカスタムプロパティをstyle属性で指定するだけでは、この例外の撤去にはなりません。将来はクラスやDOMのstyleプロパティへの設定など、実装と合わせて見直します。[CSPの属性指定](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src-attr)
+
+---
+
 # v0.17.5の認証設定
 
 公開マイリストの内容を返すAPIは、ログイン済みのSupabaseセッションを受け付けます。ブラウザは現在のセッションを同一オリジンの取得APIへ渡し、Workerが署名・発行元・対象・有効期限・ユーザー権限を検証します。設定状態だけを返す `/api/public-mylists/status` は公開しています。

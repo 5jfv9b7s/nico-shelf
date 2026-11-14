@@ -78,7 +78,15 @@ export function mineRules(rows, options) {
         });
     }
   }
-  rules.sort((a, b) => b.lift - a.lift || b.count - a.count || a.from.localeCompare(b.from, 'ja'));
+  const sort = options.ruleSort === 'lift' ? 'lift' : 'count';
+  rules.sort(
+    (a, b) =>
+      (sort === 'lift'
+        ? b.lift - a.lift || b.count - a.count
+        : b.count - a.count || b.lift - a.lift) ||
+      a.from.localeCompare(b.from, 'ja') ||
+      a.to.localeCompare(b.to, 'ja'),
+  );
   return {
     method: 'rules',
     n: rows.length,
@@ -87,6 +95,7 @@ export function mineRules(rows, options) {
     items: items.length,
     omittedItems: Math.max(0, frequent.length - 80),
     totalRules: rules.length,
+    sort,
     rules: rules.slice(0, 50),
   };
 }

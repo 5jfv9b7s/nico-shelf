@@ -104,6 +104,13 @@ export function createAnalysisController({
           : { type: 'rule', index: Number(button.dataset.analysisRule) };
       return render();
     }
+    if (button.dataset.analysisK) {
+      const k = Number(button.dataset.analysisK);
+      if (Number.isInteger(k) && k >= 2 && k <= 8) {
+        state.analysis.k = k;
+        return execute();
+      }
+    }
   });
   root.addEventListener('change', (event) => {
     const input = event.target;
@@ -121,6 +128,7 @@ export function createAnalysisController({
       'support',
       'confidence',
       'ruleExtras',
+      'ruleSort',
       'features',
     ];
     if (!allowed.includes(field)) return;

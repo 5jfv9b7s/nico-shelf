@@ -1,6 +1,6 @@
 {
   "name": "nico-shelf-web",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "private": true,
   "type": "module",
   "description": "NICO SHELF — private, multi-user NicoNico playlist library",
@@ -18,6 +18,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.83.0",
     "jose": "^6.2.17",
+    "jstat": "^1.9.6",
     "ml-matrix": "^6.15.1"
   },
   "devDependencies": {

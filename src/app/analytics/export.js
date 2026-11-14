@@ -28,10 +28,20 @@ export function analysisCsv(result) {
       ['R²（使用曲への当てはまり）', result.r2],
       ['調整済みR²', result.adjustedR2],
       ['RMSE（分析尺度）', result.rmse],
-      ['項目', '係数', '標準誤差', '標準化係数', 'VIF'],
+      ['残差自由度', result.df],
+      ['95%区間のt臨界値', result.critical95],
+      ['項目', '係数', '標準誤差', '95%区間 下限', '95%区間 上限', '標準化係数', 'VIF'],
     );
     result.coefficients.forEach((c, i) =>
-      lines.push([i ? label(result.keys[i - 1]) : '切片', c.value, c.se, c.beta, c.vif]),
+      lines.push([
+        i ? label(result.keys[i - 1]) : '切片',
+        c.value,
+        c.se,
+        c.ciLow,
+        c.ciHigh,
+        c.beta,
+        c.vif,
+      ]),
     );
     lines.push([], ['動画ID', 'タイトル', '実測（分析尺度）', '当てはめ値（分析尺度）', '残差']);
     result.points.forEach((p) => lines.push([p.id, p.title, p.y, p.fitted, p.residual]));
@@ -54,6 +64,7 @@ export function analysisCsv(result) {
       ['分類根拠のある曲数', result.classified],
       ['省略項目数', result.omittedItems],
       ['表示ルール数（上位50）', result.rules.length],
+      ['ルールの並べ順', result.sort === 'lift' ? 'リフトが高い順' : '共起曲数が多い順'],
       ['条件A', '条件B', '共起曲数', '支持度', '確信度', 'リフト'],
     );
     result.rules.forEach((r) =>
@@ -70,6 +81,22 @@ export function analysisCsv(result) {
     lines.push([], ['グループ', '曲数', '項目', '標準化平均']);
     result.groups.forEach((g) =>
       g.profile.forEach((p) => lines.push([g.group + 1, g.count, label(p.key), p.z])),
+    );
+    lines.push(
+      [],
+      ['k比較の対象曲数', result.n],
+      ['シルエットの評価曲数', result.silhouetteN],
+      ['k', '群内平方和', 'シルエット係数', '最小群', '最大群', '収束'],
+    );
+    result.comparison.forEach((row) =>
+      lines.push([
+        row.k,
+        row.inertia,
+        row.silhouette,
+        row.minSize,
+        row.maxSize,
+        row.converged === null ? '対象外' : row.converged ? 'はい' : 'いいえ',
+      ]),
     );
   }
   // Trusted numeric outputs stay numeric; untrusted text keeps formula protection.

@@ -36,7 +36,7 @@ export function niceAxis(values) {
   return { low, high, ticks, digits: Math.max(0, 1 - Math.floor(Math.log10(step))) };
 }
 
-export function pointChart(points, { xLabel, yLabel, line, selectedGroup = null } = {}) {
+export function pointChart(points, { xLabel, yLabel, line, selectedGroup = null, summary } = {}) {
   if (!points.length) return '<p class="empty-sm">表示できる曲がありません。</p>';
   const w = 720,
     h = 390,
@@ -46,6 +46,22 @@ export function pointChart(points, { xLabel, yLabel, line, selectedGroup = null 
     bottom = 325;
   const xb = niceAxis(points.map((p) => p.x)),
     yb = niceAxis(points.map((p) => p.y));
+  const chartSummary =
+    summary ||
+    points.length +
+      '曲。横軸は' +
+      xLabel +
+      '、値は' +
+      number(Math.min(...points.map((p) => p.x))) +
+      'から' +
+      number(Math.max(...points.map((p) => p.x))) +
+      '。縦軸は' +
+      yLabel +
+      '、値は' +
+      number(Math.min(...points.map((p) => p.y))) +
+      'から' +
+      number(Math.max(...points.map((p) => p.y))) +
+      '。';
   const sx = (x) => left + ((x - xb.low) / (xb.high - xb.low)) * (right - left);
   const sy = (y) => bottom - ((y - yb.low) / (yb.high - yb.low)) * (bottom - top);
   const ticks =
@@ -135,13 +151,16 @@ export function pointChart(points, { xLabel, yLabel, line, selectedGroup = null 
     })
     .join('');
   return (
-    '<div class="analysis-plot-scroll" tabindex="0" aria-label="グラフを横にスクロールできます"><svg class="analysis-plot" viewBox="0 0 ' +
+    '<figure class="analysis-chart"><div class="analysis-plot-scroll" tabindex="0" aria-label="グラフを横にスクロールできます"><svg class="analysis-plot" viewBox="0 0 ' +
     w +
     ' ' +
     h +
     '" role="group" aria-label="' +
-    esc(xLabel + 'と' + yLabel + 'の散布図') +
+    esc(xLabel + 'と' + yLabel + 'の散布図。' + chartSummary) +
     '">' +
+    '<desc>' +
+    esc('各点は1曲です。Tabで点を選び、EnterまたはSpaceで曲の詳細を開けます。' + chartSummary) +
+    '</desc>' +
     ticks +
     '<path d="M80 25V325H695" class="analysis-axis"/>' +
     path +
@@ -151,7 +170,9 @@ export function pointChart(points, { xLabel, yLabel, line, selectedGroup = null 
     '</text>' +
     '<text transform="translate(17,175) rotate(-90)" text-anchor="middle">' +
     esc(yLabel) +
-    '</text></svg></div>'
+    '</text></svg></div><figcaption class="analysis-chart-summary">' +
+    esc(chartSummary) +
+    '</figcaption></figure>'
   );
 }
 
@@ -166,6 +187,13 @@ export function dendrogram(tree) {
     }
   }
   collect(tree);
+  const treeSummary =
+    leaves.length +
+    '群を平均連結法で統合した樹形図。群内の枝は省略。' +
+    leaves.map((leaf) => '群' + (leaf.group + 1) + 'は' + leaf.size + '曲').join('、') +
+    '。最終統合距離は' +
+    number(tree.height) +
+    '。';
   const width = Math.max(640, leaves.length * 95),
     height = 280,
     base = 220;
@@ -222,7 +250,11 @@ export function dendrogram(tree) {
     width +
     ' ' +
     height +
-    '" role="img" aria-label="群内の枝を省略した平均連結法の樹形図">' +
+    '" role="img" aria-label="' +
+    esc(treeSummary) +
+    '"><desc>' +
+    esc(treeSummary) +
+    '</desc>' +
     parts.join('') +
     '</svg></div>'
   );
