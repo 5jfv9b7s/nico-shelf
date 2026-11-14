@@ -1,10 +1,13 @@
+import { analysisDefaults } from './analytics/data.js';
+
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.17.5';
+export const APP_VERSION = '0.18.0';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
   trends: '音楽の変遷',
   scatter: '散布図',
+  analysis: '統計分析',
   duplicates: '重複した動画',
   favorites: 'お気に入り',
   settings: 'データと設定',
@@ -25,6 +28,7 @@ export const NAV_ICONS = {
   library: '≡',
   trends: '▥',
   scatter: '⠿',
+  analysis: '∑',
   duplicates: '◈',
   favorites: '♡',
   settings: '⚙',
@@ -63,6 +67,7 @@ export function createInitialState() {
       visibleCount: 10,
     },
     scatter: { mode: '2d', x: 'views', y: 'comments', z: 'mylists', voice: '', legendLimit: 30 },
+    analysis: analysisDefaults(),
     voiceMode: 'canonical',
     voiceVisibleCount: 15,
     cardMode: 'list',

@@ -98,3 +98,7 @@ src/ui/views.js / dialogs.js
 - `docs/TRENDS.md`：集計上の注意点、時系列と登録日時の区別
 
 この機能はログイン済みユーザーのメモリ上のライブラリを参照するだけで、Supabaseに新規書き込みを行いません。
+
+## v0.18.0の統計分析
+
+`src/app/analytics/` がブラウザWorker内の計算を担当し、`src/app/analysis-controller.js` が実行・中止・ユーザーとデータの切り替えを制御します。表示は `src/ui/analysis.js` と `src/ui/analysis-charts.js`。分析結果はDBやlocalStorageに保存しません。詳細は `docs/STATISTICS.md` を参照してください。

@@ -34,6 +34,7 @@ import {
 import { checkPublicSourceStatus } from './app/public-source-status.js';
 import { createNavigationScrollHandler } from './app/scroll.js';
 import { createAuthenticatedPublicFetch } from './app/public-fetch.js';
+import { createAnalysisController } from './app/analysis-controller.js';
 
 /**
  * Controller: connects UI events to Supabase and NicoNico bridge operations.
@@ -41,6 +42,7 @@ import { createAuthenticatedPublicFetch } from './app/public-fetch.js';
  */
 const root = document.querySelector('#app');
 const state = createInitialState();
+const analysisController = createAnalysisController({ root, state, render: rerenderContent });
 const nicoBridge = new NicoTabBridge();
 const renderDialog = createDialogRenderer({ state, nicoBridge });
 const { shell, content, loginScreen, missingConfig } = createViewRenderer({ state, renderDialog });
@@ -74,6 +76,7 @@ function mountInteractiveScatter() {
   });
 }
 function render() {
+  analysisController.synchronize();
   const modalState = state.dialog?.kind === 'sync' ? captureSyncDialogUi(root) : null;
   root.innerHTML = !configured ? missingConfig() : !state.user ? loginScreen() : shell();
   if (state.dialog?.kind === 'sync') restoreSyncDialogUi(root, modalState);
@@ -87,6 +90,7 @@ function setSyncProgress(message) {
 }
 
 function rerenderContent() {
+  analysisController.synchronize();
   const el = document.querySelector('#main-content');
   if (el) el.innerHTML = content();
   mountInteractiveScatter();

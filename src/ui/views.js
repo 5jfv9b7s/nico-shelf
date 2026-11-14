@@ -16,6 +16,7 @@ import { selectLibraryResults } from '../app/search.js';
 import { renderTrends } from './trends.js';
 import { renderScatter } from './scatter.js';
 import { colorForCharacter } from '../app/character-colors.js';
+import { renderAnalysis } from './analysis.js';
 
 /**
  * Pure-ish HTML templates: read the injected UI state, but never write to the DB.
@@ -38,7 +39,7 @@ export function createViewRenderer({ state, renderDialog }) {
     <aside class="sidebar">
       <button class="brand" data-view="dashboard" aria-label="トップへ"><span class="brand-mark">♫</span><span><b>NICO SHELF</b><small>YOUR MUSIC ARCHIVE</small></span></button>
       <div class="menu-label">DISCOVER</div>
-      <nav>${['dashboard', 'library', 'trends', 'scatter', 'duplicates', 'favorites'].map((x) => navItem(x, VIEWS[x], NAV_ICONS[x], state.view === x)).join('')}</nav>
+      <nav>${['dashboard', 'library', 'trends', 'scatter', 'analysis', 'duplicates', 'favorites'].map((x) => navItem(x, VIEWS[x], NAV_ICONS[x], state.view === x)).join('')}</nav>
       <div class="menu-label playlist-head">MY LISTS <span>${p.length}</span></div>
       <nav class="playlist-menu">${p.map((x) => `<button class="nav-item ${state.view === `playlist:${x.id}` ? 'is-active' : ''}" data-view="playlist:${esc(x.id)}"><span class="playlist-dot"></span><span class="text-ellipsis">${esc(x.name)}</span><small>${all.filter((e) => e.playlist_id === x.id).length}</small></button>`).join('') || '<p class="nav-help">インポートすると表示されます</p>'}</nav>
       <div class="sidebar-foot"><button class="nav-item ${state.view === 'settings' ? 'is-active' : ''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v${APP_VERSION} β</b><br>クラウド管理・非公式アプリ</div></div>
@@ -53,8 +54,8 @@ export function createViewRenderer({ state, renderDialog }) {
       ${['dashboard', 'library', 'trends', 'scatter', 'favorites', 'settings']
         .map(
           (id) => `
-        <button type="button" class="mobile-tab ${state.view === id || (id === 'library' && (state.view.startsWith('playlist:') || state.view === 'duplicates')) ? 'is-active' : ''}"
-          data-view="${esc(id)}" aria-current="${state.view === id ? 'page' : 'false'}">
+        <button type="button" class="mobile-tab ${state.view === id || (id === 'scatter' && state.view === 'analysis') || (id === 'library' && (state.view.startsWith('playlist:') || state.view === 'duplicates')) ? 'is-active' : ''}"
+          data-view="${esc(id)}" aria-current="${state.view === id || (id === 'scatter' && state.view === 'analysis') ? 'page' : 'false'}">
           <span class="mobile-tab-icon" aria-hidden="true">${NAV_ICONS[id]}</span>
           <span>${esc(VIEWS[id] === 'データと設定' ? '設定' : VIEWS[id] === 'ダッシュボード' ? 'ホーム' : VIEWS[id] === '音楽の変遷' ? '変遷' : VIEWS[id] === 'お気に入り' ? 'お気に入り' : VIEWS[id])}</span>
         </button>`,
@@ -329,7 +330,12 @@ export function createViewRenderer({ state, renderDialog }) {
     const rows = makeRows();
     if (state.view === 'dashboard') return dashboard(rows);
     if (state.view === 'trends') return renderTrends({ state, rows, cards, hero });
-    if (state.view === 'scatter') return renderScatter({ state, rows, hero });
+    if (state.view === 'scatter')
+      return (
+        '<div class="analysis-switch"><span>散布図</span><button class="btn subtle" data-view="analysis">統計分析へ →</button></div>' +
+        renderScatter({ state, rows, hero })
+      );
+    if (state.view === 'analysis') return renderAnalysis({ state, rows, hero });
     if (state.view === 'settings') return settings();
     return listing(rows);
   }
