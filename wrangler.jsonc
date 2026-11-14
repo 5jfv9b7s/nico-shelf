@@ -16,6 +16,11 @@
         "period": 60
       }
     },
+"vars": {
+    "PUBLIC_MYLIST_GATEWAY_URL": "https://nico-shelf.onrender.com/",
+    "PUBLIC_MYLIST_SOURCE": "gateway",
+    "SUPABASE_URL": "https://xlgchlblzssypmeslmsk.supabase.co"
+  },
     {
       "name": "PUBLIC_MYLIST_USER_RATE_LIMIT",
       "namespace_id": "1601812",
