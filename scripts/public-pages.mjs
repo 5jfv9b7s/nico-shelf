@@ -1,3 +1,5 @@
+import { AUTHOR_HANDLE, AUTHOR_URL } from '../src/app/site-info.js';
+
 /** Public contact values are deliberately limited to HTTPS and a plain mailto. */
 export function escapeHtml(value) {
   return String(value).replace(
@@ -6,7 +8,7 @@ export function escapeHtml(value) {
   );
 }
 export function publicSettings(environment) {
-  const operator = String(environment.VITE_OPERATOR_NAME || '').trim();
+  const operator = String(environment.VITE_OPERATOR_NAME ?? AUTHOR_HANDLE).trim();
   const contact = String(
     environment.VITE_SUPPORT_URL ?? 'https://forms.gle/xPVJd5bzC8ujRYDF8',
   ).trim();
@@ -33,13 +35,15 @@ export function publicSettings(environment) {
   return { operator, contact, launch };
 }
 export function renderPublicPage(template, settings) {
+  const operatorName = settings.operator || 'NICO SHELF 運営者';
+  const operator =
+    operatorName === AUTHOR_HANDLE
+      ? `<a href="${AUTHOR_URL}" rel="noreferrer">${escapeHtml(operatorName)}（X / Twitter）</a>`
+      : escapeHtml(operatorName);
   const contact = settings.contact
     ? `<a href="${escapeHtml(settings.contact)}" rel="noreferrer">お問い合わせ・登録情報の削除依頼</a><p>パスワード、ログイン用コード、認証トークンは送らないでください。</p>`
     : '<p>現在は公開準備中です。問い合わせ窓口はまだ設定されていません。</p>';
   return template
-    .replaceAll(
-      '<!-- operator -->NICO SHELF 運営者',
-      escapeHtml(settings.operator || 'NICO SHELF 運営者'),
-    )
+    .replaceAll('<!-- operator -->NICO SHELF 運営者', operator)
     .replace(/<!-- contact:start -->[\s\S]*?<!-- contact:end -->/g, contact);
 }
