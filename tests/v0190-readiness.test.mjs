@@ -82,6 +82,14 @@ test('public information is available before login, usage and accurate deletion 
   assert.ok(html.includes('1.00 MiB'));
   assert.ok(html.includes('123 / 10,000'));
   assert.ok(html.includes('ログイン登録情報の削除'));
+  for (const destination of [
+    'https://forms.gle/xPVJd5bzC8ujRYDF8',
+    'https://x.com/5jfv9b7s_1155',
+    '/help.html',
+    '/privacy.html',
+    '/terms.html',
+  ])
+    assert.ok(html.includes(`href="${destination}"`), destination);
 });
 test('production verifier refuses to run without explicit dedicated test account configuration', async () => {
   await assert.rejects(verifyProduction({}), /dedicated empty test accounts/);

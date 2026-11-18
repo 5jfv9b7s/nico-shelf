@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { createInitialState } from '../src/app/state.js';
 import { createViewRenderer } from '../src/ui/views.js';
 import { registerEventHandlers } from '../src/app/events.js';
-import { createNavigationScrollHandler, scrollPageToTop } from '../src/app/scroll.js';
+import {
+  createNavigationScrollHandler,
+  scrollPageToTop,
+  createBackToTopController,
+} from '../src/app/scroll.js';
 
 function createFixture() {
   const state = createInitialState();
@@ -126,11 +130,11 @@ test('上へ戻るボタンは通常は滑らかに移動し、モーション�
   }
 });
 
-test('上へ戻る操作はログイン中の画面に表示し、ダイアログ表示中は隠す', () => {
+test('上へ戻る操作は初期状態で隠し、ダイアログ表示中は生成しない', () => {
   const state = createInitialState();
   state.user = { id: 'test-user', user_metadata: {} };
   const view = createViewRenderer({ state, renderDialog: () => '<div role="dialog"></div>' });
-  assert.match(view.shell(), /id="back-to-top" aria-label="ページ上部へ戻る"/);
+  assert.match(view.shell(), /id="back-to-top" aria-label="ページ上部へ戻る" hidden/);
   state.dialog = { kind: 'sync' };
   assert.doesNotMatch(view.shell(), /id="back-to-top"/);
 });
@@ -158,4 +162,117 @@ test('長いタイトルと大きな件数を表示し、動画・お気に入�
   }
   assert.doesNotMatch(html, /<img onerror=/);
   assert.match(html, /&lt;img onerror=&quot;alert\(1\)&quot;&gt;/);
+});
+
+function backToTopFixture() {
+  const properties = new Map();
+  const button = {
+    hidden: true,
+    style: { setProperty: (name, value) => properties.set(name, value) },
+  };
+  let currentButton = button;
+  const geometry = { footer: { top: 1000, height: 100 }, navigation: { top: 0, height: 0 } };
+  const listeners = new Map();
+  const frames = new Map();
+  let nextFrame = 0;
+  let resizeCallback;
+  const viewport = {
+    scrollY: 0,
+    innerHeight: 800,
+    addEventListener: (type, callback) => listeners.set(type, callback),
+    removeEventListener: (type) => listeners.delete(type),
+    requestAnimationFrame: (callback) => {
+      frames.set(++nextFrame, callback);
+      return nextFrame;
+    },
+    cancelAnimationFrame: (id) => frames.delete(id),
+    ResizeObserver: class {
+      constructor(callback) {
+        resizeCallback = callback;
+      }
+      observe() {}
+      disconnect() {}
+    },
+  };
+  const root = {
+    querySelector: (selector) =>
+      selector === '#back-to-top'
+        ? currentButton
+        : {
+            getBoundingClientRect: () => geometry[selector === '.footer' ? 'footer' : 'navigation'],
+          },
+  };
+  const controller = createBackToTopController({ root, viewport });
+  controller.refresh();
+  return {
+    button,
+    properties,
+    geometry,
+    viewport,
+    listeners,
+    frames,
+    controller,
+    flush() {
+      const pending = [...frames.values()];
+      frames.clear();
+      pending.forEach((fn) => fn());
+    },
+    resizeFooter: () => resizeCallback(),
+    replaceButton: (value) => {
+      currentButton = value;
+    },
+  };
+}
+
+test('上へボタンは上端・浅いスクロールでは隠し、移動・再描画・最上部への復帰で更新する', () => {
+  const ui = backToTopFixture();
+  assert.equal(ui.button.hidden, true);
+  ui.viewport.scrollY = 240;
+  ui.listeners.get('scroll')();
+  ui.flush();
+  assert.equal(ui.button.hidden, true);
+  ui.viewport.scrollY = 400;
+  ui.listeners.get('scroll')();
+  ui.listeners.get('scroll')();
+  assert.equal(ui.frames.size, 1);
+  ui.flush();
+  assert.equal(ui.button.hidden, false);
+  assert.equal(ui.properties.get('--back-to-top-offset'), '20px');
+  const replacement = { hidden: true, style: ui.button.style };
+  ui.replaceButton(replacement);
+  ui.controller.refresh();
+  assert.equal(replacement.hidden, false);
+  ui.viewport.scrollY = 0;
+  ui.controller.refresh();
+  assert.equal(replacement.hidden, true);
+  ui.replaceButton(null);
+  assert.doesNotThrow(() => ui.controller.refresh());
+  ui.controller.destroy();
+  assert.equal(ui.listeners.size, 0);
+});
+
+test('上へボタンはPCの折り返したフッターとスマホの下部ナビの上に収まる', () => {
+  const ui = backToTopFixture();
+  ui.viewport.scrollY = 1000;
+  ui.geometry.footer = { top: 710, height: 90 };
+  ui.controller.refresh();
+  assert.equal(ui.button.hidden, false);
+  assert.equal(ui.properties.get('--back-to-top-offset'), '102px');
+  // Button bottom is 12px above the footer, independent of its wrapped height.
+  assert.equal(ui.viewport.innerHeight - 102, ui.geometry.footer.top - 12);
+  ui.geometry.footer = { top: 1000, height: 180 };
+  ui.geometry.navigation = { top: 720, height: 80 };
+  ui.listeners.get('resize')();
+  ui.flush();
+  assert.equal(ui.properties.get('--back-to-top-offset'), '92px');
+  ui.geometry.footer = { top: 620, height: 180 };
+  ui.resizeFooter();
+  ui.flush();
+  assert.equal(ui.properties.get('--back-to-top-offset'), '192px');
+  assert.equal(ui.viewport.innerHeight - 192, ui.geometry.footer.top - 12);
+  ui.geometry.footer = { top: 40, height: 760 };
+  ui.resizeFooter();
+  ui.flush();
+  assert.equal(ui.button.hidden, true);
+  ui.controller.destroy();
 });

@@ -33,7 +33,7 @@ import {
   updateSyncStatus,
 } from './app/sync-dialog-ui.js';
 import { checkPublicSourceStatus } from './app/public-source-status.js';
-import { createNavigationScrollHandler } from './app/scroll.js';
+import { createNavigationScrollHandler, createBackToTopController } from './app/scroll.js';
 import { createAuthenticatedPublicFetch } from './app/public-fetch.js';
 import { createAnalysisController } from './app/analysis-controller.js';
 
@@ -48,6 +48,7 @@ const nicoBridge = new NicoTabBridge();
 const renderDialog = createDialogRenderer({ state, nicoBridge });
 const { shell, content, loginScreen, missingConfig } = createViewRenderer({ state, renderDialog });
 const scrollAfterNavigation = createNavigationScrollHandler();
+const backToTop = createBackToTopController({ root });
 const fetchAuthenticatedPublicPage = createAuthenticatedPublicFetch(client?.auth);
 
 function toast(message, isError = false) {
@@ -83,6 +84,7 @@ function render() {
   if (state.dialog?.kind === 'sync') restoreSyncDialogUi(root, modalState);
   mountInteractiveScatter();
   scrollAfterNavigation(state);
+  backToTop.refresh();
 }
 /** Keep the dialog and scroll position intact during long gateway requests. */
 function setSyncProgress(message) {
@@ -96,6 +98,7 @@ function rerenderContent() {
   if (el) el.innerHTML = content();
   mountInteractiveScatter();
   scrollAfterNavigation(state);
+  backToTop.refresh();
 }
 function rerenderSidebar() {
   render();

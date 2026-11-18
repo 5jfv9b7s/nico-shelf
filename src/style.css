@@ -3221,7 +3221,7 @@ button.scatter-legend-entry:focus-visible {
 .back-to-top {
   position: fixed;
   right: max(20px, env(safe-area-inset-right, 0px));
-  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  bottom: var(--back-to-top-offset, calc(20px + env(safe-area-inset-bottom, 0px)));
   z-index: 65;
   display: inline-flex;
   align-items: center;
@@ -3248,7 +3248,7 @@ button.scatter-legend-entry:focus-visible {
 @media (max-width: 600px) {
   .back-to-top {
     right: max(14px, env(safe-area-inset-right, 0px));
-    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--back-to-top-offset, calc(82px + env(safe-area-inset-bottom, 0px)));
   }
 }
 
@@ -3677,4 +3677,35 @@ button.scatter-legend-entry:focus-visible {
 }
 .usage-table th {
   font-weight: 500;
+}
+
+.back-to-top[hidden] {
+  display: none;
+}
+.support-panel {
+  padding: 24px;
+  margin-top: 24px;
+}
+.support-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 18px;
+}
+.support-panel .service-links {
+  justify-content: flex-start;
+}
+.support-actions .btn {
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .support-actions {
+    flex-direction: column;
+  }
+  .support-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
 }

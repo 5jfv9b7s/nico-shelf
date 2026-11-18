@@ -1,4 +1,4 @@
-import { AUTHOR_HANDLE, AUTHOR_URL } from '../app/site-info.js';
+import { AUTHOR_HANDLE, AUTHOR_URL, getSupportUrl } from '../app/site-info.js';
 import { esc, array, formatCount, formatDate, formatDuration, sortRows } from '../lib.js';
 import {
   canonicalVoices,
@@ -25,6 +25,7 @@ import { renderAnalysis } from './analysis.js';
  * Button IDs and data-* attributes remain compatible with the controller.
  */
 export function createViewRenderer({ state, renderDialog }) {
+  const supportUrl = getSupportUrl(import.meta.env?.VITE_SUPPORT_URL);
   function makeRows() {
     return buildLibraryRows(state.library);
   }
@@ -64,7 +65,7 @@ export function createViewRenderer({ state, renderDialog }) {
         )
         .join('')}
     </nav>
-    ${!state.dialog ? '<button type="button" class="back-to-top" id="back-to-top" aria-label="ページ上部へ戻る"><span aria-hidden="true">↑</span>上へ</button>' : ''}
+    ${!state.dialog ? '<button type="button" class="back-to-top" id="back-to-top" aria-label="ページ上部へ戻る" hidden><span aria-hidden="true">↑</span>上へ</button>' : ''}
     ${state.dialog ? renderDialog() : ''}
   </div>`;
   }
@@ -343,7 +344,7 @@ export function createViewRenderer({ state, renderDialog }) {
   <div class="panel setting-panel"><div class="setting-icon">≡</div><h2>マイリストを作成</h2><p>アプリ内の管理用リストを追加します。ニコニコ本体には作成されません。</p><button class="btn subtle" data-action="playlist">新しいリスト</button></div>
   <div class="panel setting-panel"><div class="setting-icon">↻</div><h2>ニコニコとの差分同期</h2><p>ログイン済みニコニコの一覧を取得して、登録漏れや削除済み動画を確認できます。差分を確認してからDBへ反映します。</p><button class="btn primary" data-action="sync">差分を確認する</button></div>
   <section class="panel setting-panel metadata-settings"><div class="setting-icon">✦</div><h2>動画メタデータを補完</h2><p>タイトル・サムネイル・タグなどの不足分をニコニコから取得します。既存の手動修正やVocaDB情報は保持します。</p><button class="btn primary" data-action="metadata">不足情報を確認</button></section>
-  </section><div class="danger-zone"><div><h2>ライブラリを削除</h2><p>このアカウントのライブラリと保存検索を削除します。当サービスのログイン登録情報の削除は、<a href="/help.html">ヘルプの窓口</a>へご依頼ください。</p></div><button class="btn danger" id="erase">全データを削除</button></div>`;
+  </section><section class="panel support-panel"><h2>ヘルプ・お問い合わせ</h2><p>使い方の確認、不具合報告、ご要望、登録情報の削除依頼はこちらから。</p><div class="support-actions">${supportUrl ? `<a class="btn primary" href="${esc(supportUrl)}" target="_blank" rel="noopener noreferrer">お問い合わせフォーム ↗</a>` : ''}<a class="btn subtle" href="/help.html">使い方・ヘルプ</a><a class="btn subtle" href="${AUTHOR_URL}" target="_blank" rel="noopener noreferrer">作った人：${esc(AUTHOR_HANDLE)}（X） ↗</a></div><nav class="service-links" aria-label="利用条件とプライバシー"><a href="/privacy.html">プライバシーポリシー</a><a href="/terms.html">利用条件</a></nav></section><div class="danger-zone"><div><h2>ライブラリを削除</h2><p>このアカウントのライブラリと保存検索を削除します。当サービスのログイン登録情報の削除は、<a href="/help.html">ヘルプの窓口</a>へご依頼ください。</p></div><button class="btn danger" id="erase">全データを削除</button></div>`;
   }
   function content() {
     const rows = makeRows();

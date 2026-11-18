@@ -1,4 +1,4 @@
-import { AUTHOR_HANDLE, AUTHOR_URL } from '../src/app/site-info.js';
+import { AUTHOR_HANDLE, AUTHOR_URL, DEFAULT_SUPPORT_URL } from '../src/app/site-info.js';
 
 /** Public contact values are deliberately limited to HTTPS and a plain mailto. */
 export function escapeHtml(value) {
@@ -9,9 +9,7 @@ export function escapeHtml(value) {
 }
 export function publicSettings(environment) {
   const operator = String(environment.VITE_OPERATOR_NAME ?? AUTHOR_HANDLE).trim();
-  const contact = String(
-    environment.VITE_SUPPORT_URL ?? 'https://forms.gle/xPVJd5bzC8ujRYDF8',
-  ).trim();
+  const contact = String(environment.VITE_SUPPORT_URL ?? DEFAULT_SUPPORT_URL).trim();
   if (operator.length > 120) throw new Error('VITE_OPERATOR_NAME must be 120 characters or fewer');
   if (contact) {
     const url = new URL(contact);
