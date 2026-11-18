@@ -7,7 +7,9 @@ export function escapeHtml(value) {
 }
 export function publicSettings(environment) {
   const operator = String(environment.VITE_OPERATOR_NAME || '').trim();
-  const contact = String(environment.VITE_SUPPORT_URL || '').trim();
+  const contact = String(
+    environment.VITE_SUPPORT_URL ?? 'https://forms.gle/xPVJd5bzC8ujRYDF8',
+  ).trim();
   if (operator.length > 120) throw new Error('VITE_OPERATOR_NAME must be 120 characters or fewer');
   if (contact) {
     const url = new URL(contact);
