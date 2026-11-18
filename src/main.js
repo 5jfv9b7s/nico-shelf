@@ -1,4 +1,5 @@
 import './style.css';
+import { checkImportFile, checkImportCounts, storageErrorMessage } from './app/storage-limits.js';
 import { client, configured, loadLibrary, importRows } from './supabase.js';
 import { esc, videoId, normalizeImport, csvToImport } from './lib.js';
 import {
@@ -148,31 +149,49 @@ function refreshMembership() {
 }
 /** Load presets separately: a missing v0.9 SQL migration must not hide the library. */
 async function reloadSavedSearches() {
+  const owner = state.user?.id;
   const { data, error } = await client
     .from('saved_searches')
     .select('id,name,view,filters,card_mode,created_at')
-    .eq('owner_id', state.user.id)
+    .eq('owner_id', owner)
     .order('created_at', { ascending: false })
     .limit(MAX_SAVED_SEARCHES + 1);
 
+  if (state.user?.id !== owner) return;
   if (error) throw error;
   state.savedSearches = data || [];
   state.savedSearchesError = '';
   state.savedSearchesLoaded = true;
 }
 
+async function reloadStorageUsage() {
+  const owner = state.user?.id;
+  if (!owner) return;
+  const { data, error } = await client.rpc('read_my_library_usage');
+  if (state.user?.id !== owner) return;
+  state.storageUsage = error ? null : data;
+  state.storageUsageError = error
+    ? '保存データの使用量を取得できません。再試行しても続く場合は、ヘルプの窓口へお問い合わせください。'
+    : '';
+}
 async function refresh() {
-  state.library = await loadLibrary(state.user.id);
+  const owner = state.user?.id;
+  if (!owner) return;
+  const library = await loadLibrary(owner);
+  if (state.user?.id !== owner) return;
+  state.library = library;
   if (!state.savedSearchesLoaded) {
     try {
       await reloadSavedSearches();
     } catch (error) {
+      if (state.user?.id !== owner) return;
       console.warn('検索条件の読み込みに失敗:', error);
       state.savedSearchesError = '検索条件の保存にはv0.9のSQL適用が必要です';
       state.savedSearchesLoaded = true;
     }
   }
-  render();
+  await reloadStorageUsage();
+  if (state.user?.id === owner) render();
 }
 
 /** Save the current listing as one authenticated user's reusable search. */
@@ -595,6 +614,7 @@ function exportJson() {
 }
 async function handleFile(file) {
   if (!file) return;
+  checkImportFile(file);
   const t = await file.text();
   state.preview = file.name.toLowerCase().endsWith('.csv')
     ? csvToImport(t)
@@ -606,6 +626,7 @@ async function handleFile(file) {
 async function runImport() {
   if (!state.preview || state.busy) return;
   const rows = state.preview;
+  checkImportCounts(state.library, state.savedSearches, rows, state.storageUsage);
   const yes = confirm(
     `${rows.videos.length}動画・${rows.entries.length}件${rows.savedSearches?.length ? `・検索条件${rows.savedSearches.length}件` : ''}をSupabaseに保存します。\n同じ動画・リストは上書き更新されます。よろしいですか？`,
   );
@@ -632,6 +653,16 @@ async function runImport() {
     toast(
       presetError || `${rows.videos.length}動画のインポートが完了しました`,
       Boolean(presetError),
+    );
+  } catch (error) {
+    // Chunked file import can leave successful earlier chunks in the library.
+    try {
+      await refresh();
+    } catch {
+      /* Keep the original write failure. */
+    }
+    throw new Error(
+      `${storageErrorMessage(error)} 一部が保存済みの場合があります。ライブラリを確認してから再試行してください。`,
     );
   } finally {
     state.busy = false;
@@ -905,7 +936,7 @@ async function guard(fn) {
     await fn();
   } catch (e) {
     console.error(e);
-    toast(e.message || '処理に失敗しました', true);
+    toast(storageErrorMessage(e), true);
   }
 }
 registerEventHandlers({
@@ -948,6 +979,10 @@ registerEventHandlers({
     useSearchPreset,
     exportFilteredCsv,
     surpriseMe,
+    refreshStorageUsage: async () => {
+      await reloadStorageUsage();
+      render();
+    },
   },
 });
 
@@ -968,6 +1003,8 @@ async function start() {
       state.user = session?.user || null;
       if (before !== state.user?.id) {
         state.library = { playlists: [], videos: [], entries: [], meta: [] };
+        state.storageUsage = null;
+        state.storageUsageError = '';
         state.savedSearches = [];
         state.savedSearchesLoaded = false;
         state.savedSearchesError = '';

@@ -50,6 +50,7 @@ export function registerEventHandlers({
     useSearchPreset,
     exportFilteredCsv,
     surpriseMe,
+    refreshStorageUsage,
   } = actions;
 
   // Image errors do not bubble, so the persistent root listens during capture.
@@ -73,6 +74,7 @@ export function registerEventHandlers({
         if (error) throw error;
       });
     if (!state.user) return;
+    if (target.id === 'refresh-storage') return guard(refreshStorageUsage);
     if (target.id === 'back-to-top') return scrollPageToTop(true);
     if (target.dataset.close) {
       if (e.target.closest('.modal') && !target.classList.contains('close-btn')) return;

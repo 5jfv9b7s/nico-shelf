@@ -1,7 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { build, loadEnv } from 'vite';
+import { publicSettings, renderPublicPage } from './public-pages.mjs';
 
 const environment = loadEnv('production', process.cwd(), 'VITE_');
+const settings = publicSettings({ ...loadEnv('production', process.cwd(), ''), ...process.env });
 const configuredUrl = process.env.VITE_SUPABASE_URL || environment.VITE_SUPABASE_URL;
 await build();
 
@@ -22,4 +24,9 @@ if (configuredUrl) {
       `${url.origin} ${websocket.origin}`,
     ),
   );
+}
+
+for (const page of ['privacy', 'terms', 'help']) {
+  const path = new URL(`../dist/${page}.html`, import.meta.url);
+  await writeFile(path, renderPublicPage(await readFile(path, 'utf8'), settings));
 }

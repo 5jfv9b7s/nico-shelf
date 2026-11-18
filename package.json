@@ -1,6 +1,6 @@
 {
   "name": "nico-shelf-web",
-  "version": "0.18.1",
+  "version": "0.19.0",
   "private": true,
   "type": "module",
   "description": "NICO SHELF — private, multi-user NicoNico playlist library",
@@ -12,8 +12,11 @@
     "check:imports": "node scripts/check-imports.mjs",
     "gateway:start": "node gateway/server.mjs",
     "gateway:probe": "node scripts/probe-public-mylist.mjs",
-    "format": "prettier --write src bridge tests worker gateway scripts index.html package.json wrangler.jsonc .github/workflows/ci.yml",
-    "format:check": "prettier --check src bridge tests worker gateway scripts index.html package.json wrangler.jsonc .github/workflows/ci.yml"
+    "format": "prettier --write src bridge tests worker gateway scripts public/*.html public/*.css index.html package.json wrangler.jsonc .github/workflows/ci.yml",
+    "format:check": "prettier --check src bridge tests worker gateway scripts public/*.html public/*.css index.html package.json wrangler.jsonc .github/workflows/ci.yml",
+    "verify:production": "node scripts/verify-production.mjs",
+    "verify:production:cleanup": "node scripts/verify-production.mjs --cleanup",
+    "check:release": "node scripts/check-release.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.83.0",
@@ -22,6 +25,7 @@
     "ml-matrix": "^6.15.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.16",
     "prettier": "^3.6.2",
     "vite": "^7.1.0"
   },

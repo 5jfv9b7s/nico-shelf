@@ -3644,3 +3644,37 @@ button.scatter-legend-entry:focus-visible {
   font-size: 17px;
   white-space: nowrap;
 }
+
+.service-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+}
+.service-links a,
+.danger-zone a {
+  color: var(--teal, #7ce0d0);
+  text-underline-offset: 3px;
+}
+.login-card .service-links {
+  margin-top: 22px;
+  font-size: 13px;
+}
+.storage-panel {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-block: 16px;
+}
+.usage-table th,
+.usage-table td {
+  padding: 10px;
+  border-bottom: 1px solid #2c4056;
+  text-align: left;
+}
+.usage-table th {
+  font-weight: 500;
+}
