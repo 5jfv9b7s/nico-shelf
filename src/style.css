@@ -3709,3 +3709,49 @@ button.scatter-legend-entry:focus-visible {
     text-align: center;
   }
 }
+
+/* The adopted shelf mark is shared across the app, login and loading screens. */
+.app-logo {
+  display: block;
+  object-fit: contain;
+  flex: none;
+}
+.brand-mark,
+.login-mark {
+  background: none;
+  overflow: hidden;
+  flex: none;
+}
+.brand-mark .app-logo,
+.login-mark .app-logo {
+  width: 100%;
+  height: 100%;
+}
+.login-art {
+  width: 112px;
+  margin: 10px auto 16px;
+  background: none;
+  background-clip: initial;
+  line-height: 0;
+}
+.login-art .app-logo {
+  border-radius: 22px;
+}
+.splash-icon,
+.big-note {
+  background: none;
+  overflow: hidden;
+}
+.splash-icon img,
+.big-note img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.mobile-logo .app-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 5px;
+  border-radius: 7px;
+}

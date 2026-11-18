@@ -53,3 +53,13 @@ footer {
   border-top: 1px solid #34465a;
   padding-top: 20px;
 }
+
+.legal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.legal-brand img {
+  display: block;
+  border-radius: 8px;
+}

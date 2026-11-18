@@ -26,6 +26,8 @@ import { renderAnalysis } from './analysis.js';
  */
 export function createViewRenderer({ state, renderDialog }) {
   const supportUrl = getSupportUrl(import.meta.env?.VITE_SUPPORT_URL);
+  const logo = (size) =>
+    `<img class="app-logo" src="/icons/nico-shelf-${size > 96 ? 512 : 192}.png" width="${size}" height="${size}" alt="" decoding="async" />`;
   function makeRows() {
     return buildLibraryRows(state.library);
   }
@@ -40,7 +42,7 @@ export function createViewRenderer({ state, renderDialog }) {
       all = state.library.entries.filter((e) => e.present !== false);
     return `<div class="shell">
     <aside class="sidebar">
-      <button class="brand" data-view="dashboard" aria-label="トップへ"><span class="brand-mark">♫</span><span><b>NICO SHELF</b><small>YOUR MUSIC ARCHIVE</small></span></button>
+      <button class="brand" data-view="dashboard" aria-label="トップへ"><span class="brand-mark">${logo(36)}</span><span><b>NICO SHELF</b><small>YOUR MUSIC ARCHIVE</small></span></button>
       <div class="menu-label">DISCOVER</div>
       <nav>${['dashboard', 'library', 'trends', 'scatter', 'analysis', 'duplicates', 'favorites'].map((x) => navItem(x, VIEWS[x], NAV_ICONS[x], state.view === x)).join('')}</nav>
       <div class="menu-label playlist-head">MY LISTS <span>${p.length}</span></div>
@@ -48,7 +50,7 @@ export function createViewRenderer({ state, renderDialog }) {
       <div class="sidebar-foot"><button class="nav-item ${state.view === 'settings' ? 'is-active' : ''}" data-view="settings"><span class="nav-icon">⚙</span>データと設定</button><div class="small-note">NICO SHELF <b>v${APP_VERSION} β</b><br>クラウド管理・非公式アプリ</div></div>
     </aside>
     <div class="workspace">
-      <header class="topbar"><div class="mobile-logo">♫ <b>NICO SHELF</b></div><div class="top-center"><span class="online-indicator"></span>プライベートライブラリ</div>
+      <header class="topbar"><div class="mobile-logo">${logo(28)} <b>NICO SHELF</b></div><div class="top-center"><span class="online-indicator"></span>プライベートライブラリ</div>
         <div class="top-actions"><span class="account-avatar">${esc((state.user.user_metadata?.name || state.user.email || 'U').charAt(0).toUpperCase())}</span><span class="account-name">${esc(state.user.user_metadata?.name || state.user.email || 'ユーザー')}</span><button class="btn-ghost small" id="logout">ログアウト</button></div></header>
       <main id="main-content" class="main-content">${content()}</main>
       <footer class="footer"><span>NICO SHELF · MY MUSIC ARCHIVE</span><nav class="service-links" aria-label="サービス情報"><a href="/help.html">ヘルプ</a><a href="/privacy.html">プライバシー</a><a href="/terms.html">利用条件</a><a href="${AUTHOR_URL}" target="_blank" rel="noopener noreferrer">作った人：${esc(AUTHOR_HANDLE)}（X）</a></nav></footer>
@@ -360,10 +362,10 @@ export function createViewRenderer({ state, renderDialog }) {
     return listing(rows);
   }
   function loginScreen() {
-    return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">♫</span><span>NICO SHELF</span><span class="version">BETA / ${APP_VERSION}</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">♫</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small><nav class="service-links" aria-label="サービス情報"><a href="/help.html">ヘルプ・問い合わせ</a><a href="/privacy.html">プライバシー</a><a href="/terms.html">利用条件</a><a href="${AUTHOR_URL}" target="_blank" rel="noopener noreferrer">作った人：${esc(AUTHOR_HANDLE)}（X）</a></nav></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;
+    return `<div class="login-bg"><div class="login-orbit orbit-one"></div><div class="login-orbit orbit-two"></div><header class="login-top"><span class="login-mark">${logo(35)}</span><span>NICO SHELF</span><span class="version">BETA / ${APP_VERSION}</span></header><div class="login-card"><div class="eyebrow">PERSONAL MUSIC ARCHIVE</div><div class="login-art">${logo(112)}</div><h1>好きな音楽を、<br><em>自分だけの棚に。</em></h1><p>ニコニコのマイリストを検索・整理・分析。<br>タグも、歌唱者も、あなたの思い出も。</p><button id="login" class="google-btn"><span class="google-g">G</span> Googleアカウントで続ける <span>↗</span></button><small>ライブラリはアカウントごとに非公開で管理されます。<br>ニコニコ公式のサービスではありません。</small><nav class="service-links" aria-label="サービス情報"><a href="/help.html">ヘルプ・問い合わせ</a><a href="/privacy.html">プライバシー</a><a href="/terms.html">利用条件</a><a href="${AUTHOR_URL}" target="_blank" rel="noopener noreferrer">作った人：${esc(AUTHOR_HANDLE)}（X）</a></nav></div><footer class="login-footer">NICO SHELF <span>YOUR MUSIC ARCHIVE</span></footer></div>`;
   }
   function missingConfig() {
-    return `<div class="setup-state"><span class="big-note">♫</span><h1>NICO SHELF v${APP_VERSION}</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;
+    return `<div class="setup-state"><span class="big-note">${logo(70)}</span><h1>NICO SHELF v${APP_VERSION}</h1><p>Supabaseの接続先が設定されていません。</p><div class="code-hint">.env.local に VITE_SUPABASE_URL と<br>VITE_SUPABASE_PUBLISHABLE_KEY を設定</div><p class="muted">設定後に npm run dev を再起動してください。<br>詳しくは README.md を参照してください。</p></div>`;
   }
 
   return { shell, content, loginScreen, missingConfig };
