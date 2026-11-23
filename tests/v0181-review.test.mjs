@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { analysisDefaults, ANALYSIS_METHODS, COUNT_METRICS } from '../src/app/analytics/data.js';
+import { analysisDefaults, ANALYSIS_METHODS } from '../src/app/analytics/data.js';
 import { fitOLS } from '../src/app/analytics/regression.js';
 import { principalComponents } from '../src/app/analytics/pca.js';
 import { silhouetteScore } from '../src/app/analytics/cluster-validation.js';
@@ -28,10 +28,9 @@ function rows(count = 30) {
     published_at: 2007 + (i % 19) + '-01-01T00:00:00Z',
   }));
 }
-test('初期選択は件数を1項目に抑え、表示メニューに飛び番号を出さない', () => {
+test('初期選択は再生・コメント・マイリストで、表示メニューに飛び番号を出さない', () => {
   const defaults = analysisDefaults();
-  assert.equal(defaults.features.filter((key) => COUNT_METRICS.has(key)).length, 1);
-  assert.ok(defaults.features.includes('duration') && defaults.features.includes('published'));
+  assert.deepEqual(defaults.features, ['views', 'comments', 'mylists']);
   assert.ok(Object.values(ANALYSIS_METHODS).every((label) => !/^\d/.test(label)));
   assert.equal(defaults.ruleSort, 'count');
 });

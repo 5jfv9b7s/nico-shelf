@@ -10,7 +10,7 @@ export const ANALYSIS_METHODS = {
   rules: '相関ルール',
   clusters: 'クラスタリング',
 };
-export const DEFAULT_FEATURES = ['views', 'duration', 'published'];
+export const DEFAULT_FEATURES = ['views', 'comments', 'mylists'];
 export const COUNT_METRICS = new Set(['views', 'comments', 'mylists', 'likes']);
 export { SCATTER_METRICS as METRICS };
 
