@@ -1,4 +1,5 @@
-import { createMetadataFetch } from './app/metadata-fetch.js';
+import { createMetadataController } from './app/metadata-controller.js';
+import { createMetadataEnricher } from './app/metadata-enrichment.js';
 import './style.css';
 import { checkImportFile, checkImportCounts, storageErrorMessage } from './app/storage-limits.js';
 import { client, configured, loadLibrary, importRows } from './supabase.js';
@@ -18,7 +19,7 @@ import {
   findExistingPublicPlaylist,
 } from './public-sync.js';
 import { registrationLists, registrationDecision } from './registration.js';
-import { needsMetadata, mergeMetadata, inferredVoicesFromTags } from './discovery.js';
+import { needsMetadata } from './discovery.js';
 import { createInitialState } from './app/state.js';
 import { createSearchPreset, applySearchPreset, MAX_SAVED_SEARCHES } from './app/saved-searches.js';
 import { selectLibraryResults, chooseRandomVideo } from './app/search.js';
@@ -129,7 +130,7 @@ function showDialog(kind, extra = {}) {
       .filter((p) => /^[1-9]\d{0,15}$/.test(String(p.id)))
       .map((p) => String(p.id));
   }
-  if (kind === 'metadata') state.metadataProgress = '';
+  if (kind === 'metadata' && !state.metadataJob) state.metadataProgress = '';
   state.dialog = { kind, ...extra };
   render();
   if (kind === 'sync') void loadPublicSourceStatus();
@@ -285,26 +286,7 @@ function surpriseMe() {
   showDialog('detail', { id: video.id });
 }
 
-async function enrichOne(id, { refresh = false } = {}) {
-  const owner = state.user?.id;
-  const library = state.library;
-  if (!owner) throw new Error('ログインしてください');
-  const local = state.library.videos.find((x) => x.id === id);
-  if (!local) throw new Error(`${id} はDBにありません。先に同期または登録してください。`);
-  const remote =
-    state.metadataSource === 'bridge'
-      ? await nicoBridge.request('metadata', { videoId: id }, 35000)
-      : await createMetadataFetch(client.auth)(id);
-  if (state.user?.id !== owner || state.library !== library)
-    throw new Error('ライブラリが変更されたため補完を中止しました');
-  if (!remote || remote.id !== id) throw new Error('取得動画IDが一致しません');
-  const inferred = inferredVoicesFromTags(remote.tags);
-  const patch = mergeMetadata(local, { ...remote, voices: inferred }, { refresh });
-  const { error } = await client.from('videos').update(patch).eq('owner_id', owner).eq('id', id);
-  if (error) throw new Error(`${id}：保存失敗 ${error.message}`);
-  if (state.user?.id === owner && state.library === library) Object.assign(local, patch);
-  return patch;
-}
+const enrichOne = createMetadataEnricher({ state, client, nicoBridge });
 async function enrichBatch(ids, { limit = 15 } = {}) {
   const owner = state.user?.id;
   const library = state.library;
@@ -328,32 +310,18 @@ async function enrichBatch(ids, { limit = 15 } = {}) {
   }
   return { ok, failures, remaining: ids.length - unique.length };
 }
-async function enrichMissing() {
-  if (state.busy) return;
-  if (state.metadataSource === 'bridge' && !nicoBridge.connected) return connectNico();
-  const ids = state.library.videos.filter((v) => needsMetadata(v)).map((v) => v.id);
-  if (!ids.length) {
-    toast('補完待ちの動画はありません');
-    return;
-  }
-  state.busy = true;
-  render();
-  try {
-    const result = await enrichBatch(ids, { limit: 15 });
-    await refresh();
-    state.metadataProgress = `補完成功 ${result.ok}件・取得失敗 ${result.failures.length}件。${result.remaining ? `ほか${result.remaining}件は次回取得できます。` : ''}`;
-    if (result.failures.length) state.metadataProgress += ` 失敗例：${result.failures[0]}`;
-    toast(
-      result.ok
-        ? `${result.ok}件のメタデータを補完しました`
-        : '補完できませんでした。取得元の状態を確認してください',
-      !result.ok,
-    );
-  } finally {
-    state.busy = false;
-    render();
-  }
-}
+const metadataController = createMetadataController({
+  state,
+  root,
+  enrich: enrichOne,
+  nicoBridge,
+  connectNico,
+  render,
+  refresh,
+  toast,
+});
+const enrichMissing = () => metadataController.start();
+const cancelMetadata = () => metadataController.cancel();
 async function enrichSingle() {
   const id = state.dialog?.id;
   if (!id || state.busy) return;
@@ -971,6 +939,7 @@ registerEventHandlers({
     login,
     toggleFavorite,
     enrichMissing,
+    cancelMetadata,
     enrichSingle,
     saveMeta,
     savePlaylist,
@@ -1019,6 +988,7 @@ async function start() {
       const before = state.user?.id || null;
       state.user = session?.user || null;
       if (before !== state.user?.id) {
+        metadataController.reset();
         state.library = { playlists: [], videos: [], entries: [], meta: [] };
         state.storageUsage = null;
         state.storageUsageError = '';

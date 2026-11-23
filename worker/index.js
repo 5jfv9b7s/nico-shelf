@@ -423,16 +423,22 @@ export async function handleVideoMetadataRequest(request, env) {
         'UPSTREAM_METADATA_UNAVAILABLE',
       ];
       const code = allowed.includes(body?.code) ? body.code : 'GATEWAY_ERROR';
-      return json(
-        {
-          code,
-          error:
-            code === 'GATEWAY_ERROR'
-              ? '動画情報取得サービスを利用できません。Renderも最新版へ更新してください。'
-              : 'ニコニコから動画情報を取得できませんでした。公開状態・アクセス制限を確認し、時間を空けて再試行してください。',
-        },
-        502,
-      );
+      const limited = code === 'UPSTREAM_RATE_LIMITED';
+      const responseBody = {
+        code,
+        ...(Number.isInteger(body.upstreamStatus) &&
+        body.upstreamStatus >= 100 &&
+        body.upstreamStatus <= 599
+          ? { upstreamStatus: body.upstreamStatus }
+          : {}),
+        error:
+          code === 'GATEWAY_ERROR'
+            ? '動画情報取得サービスを利用できません。Renderも最新版へ更新してください。'
+            : 'ニコニコから動画情報を取得できませんでした。公開状態・アクセス制限を確認し、時間を空けて再試行してください。',
+      };
+      const result = json(responseBody, limited ? 429 : 502);
+      if (limited) result.headers.set('Retry-After', '60');
+      return result;
     }
     return json(validateVideoMetadata(body, id));
   } catch (error) {

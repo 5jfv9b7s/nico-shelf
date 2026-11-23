@@ -88,12 +88,16 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
       const upstream = await fetchUpstream(
         metadata ? videoMetadataUpstreamUrl(id) : publicMylistUpstreamUrl(id, page),
         {
-          headers: {
-            'X-Frontend-Id': '6',
-            'X-Frontend-Version': '0',
-            'X-Niconico-Language': 'ja-jp',
-            Accept: metadata ? '*/*' : 'application/json',
-          },
+          // thumbinfo is a separate legacy endpoint. Keep its request minimal;
+          // the XML-only Accept sent by v0.20.0 reproduced HTTP 406.
+          headers: metadata
+            ? { Accept: '*/*' }
+            : {
+                'X-Frontend-Id': '6',
+                'X-Frontend-Version': '0',
+                'X-Niconico-Language': 'ja-jp',
+                Accept: 'application/json',
+              },
           redirect: 'manual',
           signal: AbortSignal.timeout(12000),
         },

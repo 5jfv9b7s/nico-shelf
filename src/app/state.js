@@ -1,7 +1,7 @@
 import { analysisDefaults } from './analytics/data.js';
 
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.20.0';
+export const APP_VERSION = '0.20.1';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
@@ -85,6 +85,8 @@ export function createInitialState() {
     publicImportInput: '',
     pendingPublicImport: null,
     metadataSource: 'server',
+    metadataJob: null,
+    metadataProgress: '',
     busy: false,
     error: '',
     toastTimer: null,

@@ -1,3 +1,4 @@
+import { renderMetadataProgress } from './metadata-progress.js';
 import { esc, videoId, array, formatCount, formatDate } from '../lib.js';
 import { snapshotUrl } from '../sync.js';
 import { registrationLists, registrationDecision } from '../registration.js';
@@ -157,10 +158,12 @@ export function createDialogRenderer({ state, nicoBridge }) {
     } else if (d.kind === 'metadata') {
       const pending = lib.videos.filter((v) => needsMetadata(v));
       contents = `<div class="modal-head"><div class="eyebrow">ENRICH / VIDEO METADATA</div><h2>ニコニコから情報を補完</h2><p>欠損した動画データだけを取得します。全件を毎回再取得しません。</p></div>
-      <div class="preview-data"><b>補完候補：${formatCount(pending.length)}動画</b><span>今回の実行では最大15件まで。公開動画は拡張機能なしで補完できます。</span><small>タイトル・サムネイル・投稿日・タグ・カウンターなどを補完。取得できない動画はスキップします。</small></div>
+      <div class="preview-data"><b>補完候補：${formatCount(pending.length)}動画</b><span>不足分を順次取得し、15件ごとに自動で休憩します。公開動画は拡張機能なしで補完できます。</span><small>タイトル・サムネイル・投稿日・タグ・カウンターなどを補完。取得できない動画はスキップします。</small></div>
       <label class="field-label">取得方法<select id="metadata-source" ${state.busy ? 'disabled' : ''}><option value="server" ${state.metadataSource !== 'bridge' ? 'selected' : ''}>公開情報から取得（拡張機能不要）</option><option value="bridge" ${state.metadataSource === 'bridge' ? 'selected' : ''}>従来のTampermonkey連携</option></select></label>
-      ${state.metadataProgress ? `<p class="sync-progress" role="status">${esc(state.metadataProgress)}</p>` : ''}
-      <button class="btn primary full" id="enrich-batch" ${state.busy || !pending.length ? 'disabled' : ''}>${state.busy ? '取得中…' : state.metadataSource === 'bridge' && !nicoBridge.connected ? 'ニコニコに接続して補完' : '不足情報を15件まで取得'}</button>
+      ${renderMetadataProgress(state.metadataJob)}
+      ${!state.metadataJob && state.metadataProgress ? `<p class="sync-progress" role="status">${esc(state.metadataProgress)}</p>` : ''}
+      <button class="btn primary full" id="enrich-batch" ${state.busy || !pending.length ? 'disabled' : ''}>${state.busy ? '取得中…' : state.metadataSource === 'bridge' && !nicoBridge.connected ? 'ニコニコに接続して補完' : '不足情報をまとめて補完'}</button>
+      <p class="modal-note">このダイアログを閉じても、このタブ内で処理は続きます。タブを閉じると停止します。途中で中止でき、保存済みの分は残ります。アクセス制限時は待機し、取得・保存エラーが続いた場合は停止します。</p>
       <p class="modal-note">非公開・削除済み動画やアクセス制限で取得できない場合はデータを変更しません。必要に応じて従来連携を選べます。公開情報にない「いいね数」は補完しません。作者・雰囲気の推定はタグに依存します。</p>`;
     } else if (d.kind === 'save-search') {
       contents = `<div class="modal-head"><div class="eyebrow">SAVE SEARCH / PRESET</div><h2>現在の検索条件を保存</h2><p>検索キーワード、絞り込み、並び替え、表示モードを自分のGoogleアカウントに保存します。PC・スマホで共有できます。</p></div>

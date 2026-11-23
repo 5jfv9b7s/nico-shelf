@@ -25,6 +25,7 @@ export function registerEventHandlers({
     login,
     toggleFavorite,
     enrichMissing,
+    cancelMetadata,
     enrichSingle,
     saveMeta,
     savePlaylist,
@@ -226,6 +227,7 @@ export function registerEventHandlers({
     if (target.id === 'delete-search') return guard(deleteSearchPreset);
     if (target.id === 'export-filtered') return guard(exportFilteredCsv);
     if (target.id === 'surprise-me') return surpriseMe();
+    if (target.dataset.metadataCancel !== undefined) return cancelMetadata?.();
     if (target.id === 'enrich-batch') return guard(enrichMissing);
     if (target.id === 'enrich-single') return guard(enrichSingle);
     if (target.id === 'save-meta') return guard(saveMeta);
@@ -251,6 +253,7 @@ export function registerEventHandlers({
     if (event.target.id === 'metadata-source' && !state.busy) {
       state.metadataSource = event.target.value === 'bridge' ? 'bridge' : 'server';
       state.metadataProgress = '';
+      state.metadataJob = null;
       return render();
     }
     if (event.target.matches('[data-public-sync-list]')) {

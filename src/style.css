@@ -3796,3 +3796,20 @@ button.scatter-legend-entry:focus-visible {
     margin-top: 12px;
   }
 }
+
+.metadata-job-progress {
+  margin: 16px 0;
+  min-width: 0;
+}
+.metadata-job-progress progress {
+  display: block;
+  width: 100%;
+  height: 12px;
+  accent-color: #71ded0;
+}
+.metadata-job-progress .sync-progress {
+  overflow-wrap: anywhere;
+}
+.metadata-job-progress .modal-note:empty {
+  display: none;
+}
