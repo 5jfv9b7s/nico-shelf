@@ -3813,3 +3813,12 @@ button.scatter-legend-entry:focus-visible {
 .metadata-job-progress .modal-note:empty {
   display: none;
 }
+
+.metadata-job-time {
+  margin: 12px 0 4px;
+  color: #cdeae7;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

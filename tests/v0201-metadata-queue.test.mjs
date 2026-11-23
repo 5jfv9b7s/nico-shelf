@@ -273,7 +273,7 @@ test('進捗は既存ノードを更新してフォーカスを保ち、エラ�
         '[data-metadata-progress]': [progress],
         '[data-metadata-failure]': [failure],
         '[data-metadata-cancel]': [cancel],
-      })[selector],
+      })[selector] || [],
   };
   updateMetadataProgress(root, job);
   assert.equal(progress.value, 3);

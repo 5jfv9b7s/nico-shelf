@@ -1,3 +1,4 @@
+import { estimateMetadataTiming } from './metadata-estimate.js';
 /** Sequential, cancellable metadata work; retry the same ID when rate-limited. */
 export function abortError() {
   return new DOMException('処理を中止しました', 'AbortError');
@@ -55,6 +56,8 @@ export function metadataJobInitial(total) {
     failures: [],
     running: true,
     cancelRequested: false,
+    elapsedMs: 0,
+    etaMs: null,
   };
 }
 export async function runMetadataQueue(
@@ -65,7 +68,7 @@ export async function runMetadataQueue(
     onProgress = () => {},
     isCurrent = () => true,
     sleep = metadataSleep,
-    now = Date.now,
+    now = () => performance.now(),
     intervalMs = 400,
     batchSize = 15,
     batchPauseMs = 5000,
@@ -75,7 +78,37 @@ export async function runMetadataQueue(
   const pending = [...new Set(ids)];
   const job = metadataJobInitial(pending.length);
   let consecutiveErrors = 0;
-  const emit = () => onProgress({ ...job, failures: [...job.failures] });
+  const startedAt = now(),
+    samples = [];
+  let requestStartedAt = null,
+    waitUntil = null,
+    gapPending = true;
+  const recordAttempt = () => {
+    samples.push(Math.max(0, now() - requestStartedAt));
+    if (samples.length > 12) samples.shift();
+    requestStartedAt = null;
+    gapPending = true;
+  };
+  const emit = () => {
+    Object.assign(
+      job,
+      estimateMetadataTiming({
+        total: job.total,
+        processed: job.processed,
+        running: job.running,
+        samples,
+        startedAt,
+        now: now(),
+        requestStartedAt,
+        waitUntil,
+        gapPending,
+        intervalMs,
+        batchSize,
+        batchPauseMs,
+      }),
+    );
+    onProgress({ ...job, failures: [...job.failures] });
+  };
   const valid = () => {
     if (signal?.aborted) throw abortError();
     if (!isCurrent())
@@ -85,6 +118,9 @@ export async function runMetadataQueue(
   };
   async function wait(ms, phase) {
     const until = now() + ms;
+    requestStartedAt = null;
+    gapPending = false;
+    waitUntil = until;
     job.phase = phase;
     while (now() < until) {
       valid();
@@ -93,9 +129,13 @@ export async function runMetadataQueue(
       await sleep(Math.min(1000, until - now()), signal);
     }
     job.waitSeconds = 0;
+    waitUntil = null;
     valid();
   }
   emit();
+  const ticker = setInterval(() => {
+    if (job.phase === 'running' && !signal?.aborted && isCurrent()) emit();
+  }, 1000);
   try {
     for (let i = 0; i < pending.length; i++) {
       valid();
@@ -110,11 +150,14 @@ export async function runMetadataQueue(
       for (;;) {
         valid();
         job.phase = 'running';
+        requestStartedAt = now();
+        gapPending = false;
         job.message = '';
         emit();
         try {
           await enrich(pending[i], { signal });
           // A DB save already sent when cancel was requested may finish safely.
+          recordAttempt();
           job.ok++;
           job.processed++;
           job.remaining--;
@@ -137,6 +180,7 @@ export async function runMetadataQueue(
             await wait(retryMs, 'rate-wait');
             continue;
           }
+          recordAttempt();
           job.failed++;
           job.processed++;
           job.remaining--;
@@ -157,6 +201,7 @@ export async function runMetadataQueue(
     job.phase = signal?.aborted || error?.name === 'AbortError' ? 'cancelled' : 'stopped';
     job.message = job.phase === 'cancelled' ? '' : String(error?.message || '処理を停止しました');
   }
+  clearInterval(ticker);
   job.running = false;
   job.waitSeconds = 0;
   job.currentId = '';
