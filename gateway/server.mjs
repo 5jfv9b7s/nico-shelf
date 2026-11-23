@@ -104,8 +104,15 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
       }
       if (upstream.status === 404) return send(res, 404, { code: 'UPSTREAM_NOT_FOUND' });
       if (upstream.status === 429) return send(res, 503, { code: 'UPSTREAM_RATE_LIMITED' });
-      if (!upstream.ok)
+      if (!upstream.ok) {
+        console.warn('[gateway] upstream HTTP error', {
+          id,
+          page,
+          kind: metadata ? 'metadata' : 'mylist',
+          status: upstream.status,
+        });
         return send(res, 502, { code: 'UPSTREAM_HTTP_ERROR', upstreamStatus: upstream.status });
+      }
       if (metadata) {
         if (!/(?:application|text)\/xml(?:;|$)/i.test(upstream.headers.get('content-type') || ''))
           return send(res, 502, { code: 'UPSTREAM_INVALID_RESPONSE' });
