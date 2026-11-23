@@ -35,7 +35,7 @@ export function createDialogRenderer({ state, nicoBridge }) {
       const age = diff
         ? Math.round((Date.now() - Date.parse(diff.snapshot.captured_at)) / 60000)
         : 0;
-      const changes = diff ? diff.added + diff.removed + diff.reordered : 0;
+      const changes = diff ? diff.added + diff.removed + diff.reordered + (diff.renamed || 0) : 0;
       const liveConnected = nicoBridge.connected;
       const syncing = state.busy && state.dialog?.kind === 'sync';
       contents = `<div class="modal-head"><div class="eyebrow">SYNC / REVIEW FIRST</div><h2>マイリストを取り込む・更新する</h2><p>ニコニコの公開マイリストはURLから取り込めます。データは確認してから保存します。</p></div>
@@ -98,12 +98,13 @@ export function createDialogRenderer({ state, nicoBridge }) {
       ${
         diff
           ? `<div class="sync-summary"><b>取得日時：${esc(new Date(diff.snapshot.captured_at).toLocaleString('ja-JP'))}</b>${age > 60 ? '<p class="sync-warning">取得から1時間以上経過しています。最新の一覧を再取得することを推奨します。</p>' : ''}
-        <div class="sync-totals"><span>追加候補 <b>${diff.added}</b></span><span>削除候補 <b>${diff.removed}</b></span><span>順番変更 <b>${diff.reordered}</b></span></div>
+        <div class="sync-totals"><span>追加候補 <b>${diff.added}</b></span><span>削除候補 <b>${diff.removed}</b></span><span>順番変更 <b>${diff.reordered}</b></span><span>名前の更新 <b>${diff.renamed || 0}</b></span></div>
         ${diff.rows
           .map(
             (
               row,
             ) => `<div class="sync-list"><h3>${esc(row.name)} <small>ニコニコ ${row.remoteCount} / DB ${row.localCount}</small></h3>
+          ${row.renamed ? `<p class="sync-name-change">リスト名を「${esc(row.name)}」から「${esc(row.remoteName)}」へ更新します。</p>` : ''}
           ${row.allowRemovals === false ? `<p class="sync-warning" role="status">${row.reportedTotal !== null ? `公称${formatCount(row.reportedTotal)}件・取得${formatCount(row.remoteCount)}件。` : ''}件数差があるため削除判定を保留し、確認できた動画の追加・復元を反映します。既存の所属と順番を保持します。</p>` : ''}
           ${
             row.retained?.length
@@ -148,7 +149,7 @@ export function createDialogRenderer({ state, nicoBridge }) {
         </div>`,
           )
           .join('')}
-        <p class="modal-note">反映は選択したリストの所属と表示順のみ更新。個人的な評価・メモ・お気に入り、他の未選択リストは変更しません。</p>
+        <p class="modal-note">反映は選択したリストの名前・所属・表示順を更新。個人的な評価・メモ・お気に入り、他の未選択リストは変更しません。</p>
         <div class="inline-actions"><button class="btn subtle" id="export">事前にバックアップ</button><button class="btn primary" id="apply-sync" ${state.busy ? 'disabled' : ''}>${state.busy ? '反映中…' : changes ? '確認して差分を反映' : '同期日時・登録順を更新'}</button></div>
        </div>`
           : ''
@@ -156,10 +157,11 @@ export function createDialogRenderer({ state, nicoBridge }) {
     } else if (d.kind === 'metadata') {
       const pending = lib.videos.filter((v) => needsMetadata(v));
       contents = `<div class="modal-head"><div class="eyebrow">ENRICH / VIDEO METADATA</div><h2>ニコニコから情報を補完</h2><p>欠損した動画データだけを取得します。全件を毎回再取得しません。</p></div>
-      <div class="preview-data"><b>補完候補：${formatCount(pending.length)}動画</b><span>今回の実行では最大15件まで。連携は${nicoBridge.connected ? '接続中' : '未接続'}です。</span><small>タイトル・サムネイル・投稿日・タグ・カウンターなどを補完。取得できない動画はスキップします。</small></div>
+      <div class="preview-data"><b>補完候補：${formatCount(pending.length)}動画</b><span>今回の実行では最大15件まで。公開動画は拡張機能なしで補完できます。</span><small>タイトル・サムネイル・投稿日・タグ・カウンターなどを補完。取得できない動画はスキップします。</small></div>
+      <label class="field-label">取得方法<select id="metadata-source" ${state.busy ? 'disabled' : ''}><option value="server" ${state.metadataSource !== 'bridge' ? 'selected' : ''}>公開情報から取得（拡張機能不要）</option><option value="bridge" ${state.metadataSource === 'bridge' ? 'selected' : ''}>従来のTampermonkey連携</option></select></label>
       ${state.metadataProgress ? `<p class="sync-progress" role="status">${esc(state.metadataProgress)}</p>` : ''}
-      <button class="btn primary full" id="enrich-batch" ${state.busy || !pending.length ? 'disabled' : ''}>${state.busy ? '取得中…' : nicoBridge.connected ? '不足情報を15件まで取得' : 'ニコニコに接続して補完'}</button>
-      <p class="modal-note">非公開・削除済み動画やAPI制限により取得できない場合があります。作者・雰囲気の推定はタグに依存します。</p>`;
+      <button class="btn primary full" id="enrich-batch" ${state.busy || !pending.length ? 'disabled' : ''}>${state.busy ? '取得中…' : state.metadataSource === 'bridge' && !nicoBridge.connected ? 'ニコニコに接続して補完' : '不足情報を15件まで取得'}</button>
+      <p class="modal-note">非公開・削除済み動画やアクセス制限で取得できない場合はデータを変更しません。必要に応じて従来連携を選べます。公開情報にない「いいね数」は補完しません。作者・雰囲気の推定はタグに依存します。</p>`;
     } else if (d.kind === 'save-search') {
       contents = `<div class="modal-head"><div class="eyebrow">SAVE SEARCH / PRESET</div><h2>現在の検索条件を保存</h2><p>検索キーワード、絞り込み、並び替え、表示モードを自分のGoogleアカウントに保存します。PC・スマホで共有できます。</p></div>
       <label class="field-label">保存する名前
@@ -226,6 +228,7 @@ export function createDialogRenderer({ state, nicoBridge }) {
           )
           .join('');
       contents = `<div class="modal-head"><div class="eyebrow">VIDEO NOTES / ${esc(v.id)}</div><h2>${esc(v.title || v.id)}</h2><p>${esc(v.uploader || '')} · ${formatDate(v.published_at)}</p></div>
+    <div class="detail-layout"><div class="detail-information">
     ${safeThumb(v.thumb) ? `<a class="detail-hero-thumb" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer"><img src="${esc(safeThumb(v.thumb))}" alt="${esc(v.title)}のサムネイル" loading="lazy" /></a>` : ''}
     <a class="link-text" href="https://www.nicovideo.jp/watch/${encodeURIComponent(v.id)}" target="_blank" rel="noopener noreferrer">ニコニコで動画を見る ↗</a>
     <p class="modal-note">歌唱キャラ：${esc(canonicalVoices({ ...v, userMeta: m }).join(' / ') || '未判定')} ／ 元の表記：${esc(array(v.voices).join(' / ') || 'なし')}<br>タグ：${esc(array(v.tags).slice(0, 20).join(' / ') || 'なし')}</p>
@@ -247,16 +250,17 @@ export function createDialogRenderer({ state, nicoBridge }) {
       )}</p>
     </div>
     <button class="btn subtle full" id="find-related">≋ この曲に近い曲を探す</button>
-    <div class="inline-actions"><button class="btn subtle" id="enrich-single" ${!nicoBridge.connected || state.busy ? 'disabled' : ''}>↻ ニコニコから詳細情報を補完</button>${!nicoBridge.connected ? '<small class="muted">補完するには先に「データと設定」からニコニコへ接続してください。</small>' : ''}</div>
+    <div class="inline-actions"><button class="btn subtle" id="enrich-single" ${state.busy ? 'disabled' : ''}>↻ 詳細情報を補完</button><small class="muted">取得方法は「データと設定」のメタデータ補完で選べます。</small></div>
+    </div><div class="detail-notes">
     <label class="field-label">お気に入り<select id="meta-fav"><option value="0" ${!m?.favorite ? 'selected' : ''}>通常</option><option value="1" ${m?.favorite ? 'selected' : ''}>♥ お気に入り</option></select></label>
     <label class="field-label">評価<select id="meta-rating">${[0, 1, 2, 3, 4, 5].map((x) => `<option value="${x}" ${Number(m?.rating || 0) === x ? 'selected' : ''}>${x === 0 ? '未評価' : `★ ${x} / 5`}</option>`).join('')}</select></label>
     <label class="field-label">歌唱者を自分で修正（空欄なら元データを使用）<input id="meta-voice" value="${esc(m?.verified_voice || '')}" placeholder="例：音街ウナ、足立レイ" maxlength="500" /></label>
     <label class="field-label">作者を自分で修正（空欄なら元データを使用）<input id="meta-composer" value="${esc(m?.verified_composer || '')}" placeholder="" maxlength="500" /></label>
     <label class="field-label">自分用タグ<input id="meta-tags" value="${esc(m?.personal_tags || '')}" placeholder="例：お気に入り、夜、発掘" maxlength="500" /></label>
     <label class="field-label">メモ<textarea id="meta-memo" rows="5" placeholder="この曲の好きなところなど">${esc(m?.memo || '')}</textarea></label>
-    <button class="btn primary full" id="save-meta">保存する</button>`;
+    <button class="btn primary full" id="save-meta">保存する</button></div></div>`;
     }
-    return `<div class="modal-backdrop" data-close="1"><section class="modal" role="dialog" aria-modal="true" aria-label="NICO SHELFの操作"><button class="close-btn" data-close="1" aria-label="閉じる">×</button>${contents}</section></div>`;
+    return `<div class="modal-backdrop" data-close="1"><section class="modal${d.kind === 'detail' ? ' modal-detail' : ''}" role="dialog" aria-modal="true" aria-label="NICO SHELFの操作"><button class="close-btn" data-close="1" aria-label="閉じる">×</button>${contents}</section></div>`;
   }
 
   return modal;

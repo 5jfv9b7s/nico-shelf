@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NICO SHELF Snapshot Export (v0.5)
 // @namespace    nico-shelf.example
-// @version      0.5.0
+// @version      0.20.0
 // @description  ログイン中のニコニコから、指定マイリストの一覧だけをJSONに保存（書き込みなし・外部送信なし）
 // @match        https://www.nicovideo.jp/*
 // @grant        none
@@ -55,6 +55,7 @@
   const start = button('一覧を取得する', downloadSnapshot, true);
 
   async function getList(id) {
+    let name;
     const out = [];
     const seen = new Set();
     for (let page = 1; page <= 25; page++) {
@@ -74,6 +75,7 @@
         );
       const json = await res.json();
       const ml = json?.data?.mylist;
+      if (page === 1 && typeof ml?.name === 'string' && ml.name.trim()) name = ml.name;
       if (!ml || !Array.isArray(ml.items))
         throw new Error(`${id}: 応答形式を認識できません（取得結果は破棄しました）`);
       const pageItems = ml.items;
@@ -92,8 +94,10 @@
         out.push({ video_id, title });
       }
       info.textContent = `取得中… ${id}: ${out.length}件（${page}ページ）`;
-      if (ml.hasNext === false || (ml.hasNext == null && pageItems.length < 100)) return out;
-      if (ml.hasNext !== true && pageItems.length === 0) return out;
+      if (ml.hasNext === false || (ml.hasNext == null && pageItems.length < 100))
+        return { items: out, ...(name ? { name } : {}) };
+      if (ml.hasNext !== true && pageItems.length === 0)
+        return { items: out, ...(name ? { name } : {}) };
       if (ml.hasNext === true && pageItems.length === 0)
         throw new Error(`${id}: ページング情報が矛盾しています`);
       await sleep(240);
@@ -108,8 +112,8 @@
     try {
       for (let i = 0; i < ids.length; i++) {
         info.textContent = `マイリストを取得中… ${i + 1}/${ids.length}\n${names[i] || ids[i]}`;
-        const items = await getList(ids[i]);
-        lists.push({ id: ids[i], name: (names[i] || ids[i]).slice(0, 100), complete: true, items });
+        const remote = await getList(ids[i]);
+        lists.push({ id: ids[i], ...remote, complete: true });
         await sleep(240);
       }
       const result = {

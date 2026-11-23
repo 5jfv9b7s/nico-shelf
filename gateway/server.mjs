@@ -1,5 +1,5 @@
 /**
- * NICO SHELF optional public-mylist gateway (Node.js 22+, zero dependencies).
+ * NICO SHELF optional public-mylist gateway (Node.js 22+).
  *
  * This service reads only public metadata from a fixed NicoNico endpoint. It
  * never uses user cookies, handles logins, accepts arbitrary URLs or writes DB.
@@ -11,6 +11,9 @@ import { createServer } from 'node:http';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { parsePublicMylistPage, publicMylistUpstreamUrl } from '../worker/public-mylist.js';
+
+import { parseVideoMetadataXml, videoMetadataUpstreamUrl } from './video-metadata.js';
+import { readTextLimited } from '../shared/video-metadata.js';
 
 const PATH = /^\/v1\/public-mylists\/([1-9]\d{0,15})$/;
 const LIMIT_BYTES = 1024 * 1024;
@@ -56,11 +59,12 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
     if (url.pathname === '/health')
       return send(res, 200, { status: 'ready', upstreamVerified: false });
     // Reject unknown query keys, invalid page, arbitrary host and path inputs.
-    const match = url.pathname.match(PATH);
+    const metadata = url.pathname.match(/^\/v1\/video-metadata\/((?:sm|nm|so)[0-9]{1,12})$/);
+    const match = metadata || url.pathname.match(PATH);
     const page = Number(url.searchParams.get('page') || '1');
     if (
       !match ||
-      [...url.searchParams.keys()].some((k) => k !== 'page') ||
+      [...url.searchParams.keys()].some((k) => metadata || k !== 'page') ||
       !Number.isInteger(page) ||
       page < 1 ||
       page > 20
@@ -81,16 +85,19 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
 
     const id = match[1];
     try {
-      const upstream = await fetchUpstream(publicMylistUpstreamUrl(id, page), {
-        headers: {
-          'X-Frontend-Id': '6',
-          'X-Frontend-Version': '0',
-          'X-Niconico-Language': 'ja-jp',
-          Accept: 'application/json',
+      const upstream = await fetchUpstream(
+        metadata ? videoMetadataUpstreamUrl(id) : publicMylistUpstreamUrl(id, page),
+        {
+          headers: {
+            'X-Frontend-Id': '6',
+            'X-Frontend-Version': '0',
+            'X-Niconico-Language': 'ja-jp',
+            Accept: metadata ? 'application/xml,text/xml' : 'application/json',
+          },
+          redirect: 'manual',
+          signal: AbortSignal.timeout(12000),
         },
-        redirect: 'manual',
-        signal: AbortSignal.timeout(12000),
-      });
+      );
       if (upstream.status === 403 || upstream.status === 401) {
         console.warn('[gateway] upstream access denied', { id, page, status: upstream.status });
         return send(res, 502, { code: 'UPSTREAM_ACCESS_DENIED', upstreamStatus: upstream.status });
@@ -99,6 +106,12 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
       if (upstream.status === 429) return send(res, 503, { code: 'UPSTREAM_RATE_LIMITED' });
       if (!upstream.ok)
         return send(res, 502, { code: 'UPSTREAM_HTTP_ERROR', upstreamStatus: upstream.status });
+      if (metadata) {
+        if (!/(?:application|text)\/xml(?:;|$)/i.test(upstream.headers.get('content-type') || ''))
+          return send(res, 502, { code: 'UPSTREAM_INVALID_RESPONSE' });
+        const body = await readTextLimited(upstream);
+        return send(res, 200, parseVideoMetadataXml(body, id));
+      }
       if (!/(?:application\/json|\+json)/i.test(upstream.headers.get('content-type') || '')) {
         return send(res, 502, { code: 'UPSTREAM_NOT_JSON' });
       }
@@ -109,9 +122,11 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
       const code =
         error?.name === 'TimeoutError' || error?.name === 'AbortError'
           ? 'UPSTREAM_TIMEOUT'
-          : error?.message === 'TOO_LARGE'
-            ? 'UPSTREAM_TOO_LARGE'
-            : 'UPSTREAM_INVALID_RESPONSE';
+          : error?.message === 'METADATA_UNAVAILABLE'
+            ? 'UPSTREAM_METADATA_UNAVAILABLE'
+            : error?.message === 'TOO_LARGE'
+              ? 'UPSTREAM_TOO_LARGE'
+              : 'UPSTREAM_INVALID_RESPONSE';
       console.warn('[gateway] fetch or parse failed', { id, page, code });
       return send(res, 502, { code });
     }

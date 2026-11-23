@@ -118,6 +118,7 @@ export function createAnalysisController({
     const field = input.dataset.analysisField;
     const allowed = [
       'playlist',
+      'playlists',
       'voice',
       'x',
       'y',
@@ -133,7 +134,14 @@ export function createAnalysisController({
     ];
     if (!allowed.includes(field)) return;
     clear();
-    if (field === 'features') {
+    if (field === 'playlists') {
+      const chosen = new Set(state.analysis.playlists);
+      const valid = state.library.playlists.some((p) => String(p.id) === input.value);
+      if (!input.value) chosen.clear();
+      else if (valid) input.checked ? chosen.add(input.value) : chosen.delete(input.value);
+      state.analysis.playlists = [...chosen];
+      state.analysis.playlist = '';
+    } else if (field === 'features') {
       const chosen = new Set(state.analysis.features);
       if (METRICS[input.value])
         input.checked ? chosen.add(input.value) : chosen.delete(input.value);

@@ -1,3 +1,4 @@
+import { sourcePlaylistName } from '../shared/playlist-name.js';
 /**
  * One-way NicoNico snapshot comparison. No secrets, cookies or tokens in snapshots.
  * The snapshot is downloaded from the user's logged-in nicovideo tab.
@@ -64,7 +65,7 @@ export function normalizeSnapshot(payload) {
     }
     return {
       id,
-      name: String(list.name || id).slice(0, 100),
+      ...sourcePlaylistName(list.name),
       complete: true,
       items,
       ...(reportedTotal !== undefined ? { reported_total: reportedTotal } : {}),
@@ -123,7 +124,8 @@ export function diffSnapshot(snapshot, library) {
     rows.push({
       id: remote.id,
       name: localList.name,
-      remoteName: remote.name,
+      remoteName: remote.name ?? localList.name,
+      renamed: remote.name !== undefined && remote.name !== localList.name,
       localCount: current.length,
       remoteCount: remote.items.length,
       added,
@@ -140,14 +142,16 @@ export function diffSnapshot(snapshot, library) {
     added: rows.reduce((n, r) => n + r.added.length, 0),
     removed: rows.reduce((n, r) => n + r.removed.length, 0),
     reordered: rows.reduce((n, r) => n + r.reordered.length, 0),
+    renamed: rows.filter((r) => r.renamed).length,
   };
 }
 
 export function toRpcPayload(snapshot) {
   const value = normalizeSnapshot(snapshot);
   return {
-    lists: value.lists.map(({ id, items, allow_removals }) => ({
+    lists: value.lists.map(({ id, name, items, allow_removals }) => ({
       id,
+      ...(name !== undefined ? { name } : {}),
       ...(allow_removals === false ? { allow_removals: false } : {}),
       items: items.map(({ video_id, position, title }) => ({ video_id, position, title })),
     })),
@@ -200,7 +204,7 @@ export function snapshotFromBridgeParts(
     expected.add(id);
     lists.push({
       id,
-      name: String(requestedLists[i].name || id).slice(0, 100),
+      ...(item.name !== undefined ? { name: item.name } : {}),
       complete: true,
       items: item.items,
       ...(item.reported_total !== undefined ? { reported_total: item.reported_total } : {}),
@@ -221,6 +225,8 @@ export function diffSignature(diff) {
   return JSON.stringify(
     diff.rows.map((row) => ({
       id: row.id,
+      name: row.name,
+      remoteName: row.remoteName,
       added: row.added.map((item) => `${item.video_id}:${item.position}`).sort(),
       removed: row.removed.map((item) => item.video_id).sort(),
       reordered: row.reordered.map((item) => `${item.video_id}:${item.position}`).sort(),

@@ -17,7 +17,8 @@ export { SCATTER_METRICS as METRICS };
 export function analysisDefaults() {
   return {
     method: 'correlation',
-    playlist: '',
+    playlist: '', // Legacy analysis callers. UI uses playlists.
+    playlists: [],
     voice: '',
     features: [...DEFAULT_FEATURES],
     x: 'views',
@@ -39,6 +40,10 @@ export function analysisDefaults() {
 
 /** Unique videos, never playlist occurrences; missing availability is not deletion. */
 export function eligibleRows(rows, options = {}) {
+  const selectedIds =
+    Array.isArray(options.playlists) && options.playlists.length
+      ? new Set(options.playlists.map(String))
+      : new Set(options.playlist ? [String(options.playlist)] : []);
   const seen = new Set();
   const selected = [];
   const excluded = { duplicate: 0, scope: 0, deleted: 0, private: 0, unconfirmed: 0 };
@@ -49,7 +54,7 @@ export function eligibleRows(rows, options = {}) {
     }
     seen.add(video.id);
     if (
-      (options.playlist && !video.memberships?.some((p) => String(p.id) === options.playlist)) ||
+      (selectedIds.size && !video.memberships?.some((p) => selectedIds.has(String(p.id)))) ||
       (options.voice && !canonicalVoices(video).includes(options.voice))
     ) {
       excluded.scope++;

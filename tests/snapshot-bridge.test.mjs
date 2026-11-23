@@ -165,7 +165,12 @@ async function createSession() {
         ok: true,
         json: async () => ({
           data: {
-            mylist: { items, hasNext: page * 100 < source.length, totalItemCount: source.length },
+            mylist: {
+              name: '取得元の名称' + id,
+              items,
+              hasNext: page * 100 < source.length,
+              totalItemCount: source.length,
+            },
           },
         }),
       };
@@ -199,6 +204,8 @@ test('500件＋125件を既存の登録用タブから取得、全件差分プ�
     const result = [];
     for (const x of requested) result.push(await session.bridge.request('snapshot-list', x, 15000));
     const snapshot = snapshotFromBridgeParts(requested, result);
+    assert.equal(snapshot.lists[0].name, '取得元の名称100');
+    assert.equal(snapshot.lists[1].name, '取得元の名称200');
     assert.equal(snapshot.lists[0].items.length, 500);
     assert.equal(snapshot.lists[1].items.length, 125);
     assert.equal(snapshot.lists[0].items[0].video_id, 'sm1000');

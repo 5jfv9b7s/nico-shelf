@@ -248,6 +248,11 @@ export function registerEventHandlers({
   // List selection is explicit: excluding a private list must never be mistaken
   // for the list becoming empty, which would mark all its entries as removed.
   root.addEventListener('change', (event) => {
+    if (event.target.id === 'metadata-source' && !state.busy) {
+      state.metadataSource = event.target.value === 'bridge' ? 'bridge' : 'server';
+      state.metadataProgress = '';
+      return render();
+    }
     if (event.target.matches('[data-public-sync-list]')) {
       const selected = new Set(state.publicSyncSelected || []);
       if (event.target.checked) selected.add(event.target.value);

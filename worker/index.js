@@ -1,3 +1,4 @@
+import { validateVideoMetadata, readTextLimited } from '../shared/video-metadata.js';
 import {
   publicMylistUpstreamUrl,
   parsePublicMylistPage,
@@ -366,9 +367,87 @@ export async function handlePublicMylistRequest(request, env) {
   }
 }
 
+/** Authenticated public video metadata. Same IP/account budgets as list reads. */
+export async function handleVideoMetadataRequest(request, env) {
+  if (request.method !== 'GET') return json({ error: 'GETのみ対応しています' }, 405);
+  const url = new URL(request.url);
+  const match = url.pathname.match(/^\/api\/video-metadata\/((?:sm|nm|so)[0-9]{1,12})$/);
+  if (!match || url.search) return json({ error: '動画IDまたは取得先が不正です' }, 400);
+  const limited = await checkRateLimit(request, env);
+  if (limited) return limited;
+  const session = await verifyPublicSession(request, env);
+  if (session.error)
+    return json({ error: session.error, code: session.code, stage: session.stage }, session.status);
+  const accountLimited = await checkAccountRateLimit(session.subject, env);
+  if (accountLimited) return accountLimited;
+  const config = gatewayConfig(env);
+  if (!config)
+    return json(
+      {
+        code: 'METADATA_NOT_CONFIGURED',
+        error:
+          '動画情報取得サービスが未設定です。運営者はRenderとCloudflareの接続設定を確認してください。',
+      },
+      503,
+    );
+  const id = match[1];
+  try {
+    const response = await fetch(new URL('/v1/video-metadata/' + id, config.base).href, {
+      headers: { 'X-Nico-Shelf-Gateway-Key': config.token, Accept: 'application/json' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(28000),
+    });
+    if (response.status >= 300 && response.status < 400)
+      return json({ code: 'GATEWAY_REDIRECT', error: '取得サービスの応答が不正です。' }, 502);
+    let body;
+    try {
+      body = JSON.parse(await readTextLimited(response));
+    } catch {
+      return json(
+        {
+          code: 'GATEWAY_INVALID_DATA',
+          error: '動画情報の応答を確認できませんでした。保存は行っていません。',
+        },
+        502,
+      );
+    }
+    if (!response.ok) {
+      const allowed = [
+        'UPSTREAM_ACCESS_DENIED',
+        'UPSTREAM_NOT_FOUND',
+        'UPSTREAM_RATE_LIMITED',
+        'UPSTREAM_HTTP_ERROR',
+        'UPSTREAM_TIMEOUT',
+        'UPSTREAM_TOO_LARGE',
+        'UPSTREAM_INVALID_RESPONSE',
+        'UPSTREAM_METADATA_UNAVAILABLE',
+      ];
+      const code = allowed.includes(body?.code) ? body.code : 'GATEWAY_ERROR';
+      return json(
+        {
+          code,
+          error:
+            code === 'GATEWAY_ERROR'
+              ? '動画情報取得サービスを利用できません。Renderも最新版へ更新してください。'
+              : 'ニコニコから動画情報を取得できませんでした。公開状態・アクセス制限を確認し、時間を空けて再試行してください。',
+        },
+        502,
+      );
+    }
+    return json(validateVideoMetadata(body, id));
+  } catch (error) {
+    const code = error?.message === 'INVALID_METADATA' ? 'GATEWAY_INVALID_DATA' : 'GATEWAY_NETWORK';
+    return json(
+      { code, error: '動画情報を取得できませんでした。時間を空けて再試行してください。' },
+      502,
+    );
+  }
+}
+
 export default {
   fetch(request, env) {
     const pathname = new URL(request.url).pathname;
+    if (pathname.startsWith('/api/video-metadata')) return handleVideoMetadataRequest(request, env);
     if (pathname.startsWith('/api/')) return handlePublicMylistRequest(request, env);
     return env.ASSETS.fetch(request);
   },

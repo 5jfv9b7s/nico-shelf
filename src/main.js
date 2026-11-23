@@ -1,3 +1,4 @@
+import { createMetadataFetch } from './app/metadata-fetch.js';
 import './style.css';
 import { checkImportFile, checkImportCounts, storageErrorMessage } from './app/storage-limits.js';
 import { client, configured, loadLibrary, importRows } from './supabase.js';
@@ -285,27 +286,37 @@ function surpriseMe() {
 }
 
 async function enrichOne(id, { refresh = false } = {}) {
-  if (!nicoBridge.connected) throw new Error('ニコニコのタブへ接続してください');
+  const owner = state.user?.id;
+  const library = state.library;
+  if (!owner) throw new Error('ログインしてください');
   const local = state.library.videos.find((x) => x.id === id);
   if (!local) throw new Error(`${id} はDBにありません。先に同期または登録してください。`);
-  const remote = await nicoBridge.request('metadata', { videoId: id }, 35000);
+  const remote =
+    state.metadataSource === 'bridge'
+      ? await nicoBridge.request('metadata', { videoId: id }, 35000)
+      : await createMetadataFetch(client.auth)(id);
+  if (state.user?.id !== owner || state.library !== library)
+    throw new Error('ライブラリが変更されたため補完を中止しました');
   if (!remote || remote.id !== id) throw new Error('取得動画IDが一致しません');
   const inferred = inferredVoicesFromTags(remote.tags);
   const patch = mergeMetadata(local, { ...remote, voices: inferred }, { refresh });
-  const { error } = await client
-    .from('videos')
-    .update(patch)
-    .eq('owner_id', state.user.id)
-    .eq('id', id);
+  const { error } = await client.from('videos').update(patch).eq('owner_id', owner).eq('id', id);
   if (error) throw new Error(`${id}：保存失敗 ${error.message}`);
-  Object.assign(local, patch);
+  if (state.user?.id === owner && state.library === library) Object.assign(local, patch);
   return patch;
 }
 async function enrichBatch(ids, { limit = 15 } = {}) {
+  const owner = state.user?.id;
+  const library = state.library;
   const unique = [...new Set(ids)].slice(0, limit);
   const failures = [];
   let ok = 0;
   for (const [i, id] of unique.entries()) {
+    if (state.user?.id !== owner || state.library !== library)
+      throw new Error('ライブラリが変更されたため補完を中止しました');
+    if (i) await new Promise((resolve) => setTimeout(resolve, 400));
+    if (state.user?.id !== owner || state.library !== library)
+      throw new Error('ライブラリが変更されたため補完を中止しました');
     state.metadataProgress = `${i + 1}/${unique.length}：${id} の動画情報を取得しています…`;
     if (state.dialog?.kind === 'metadata') render();
     try {
@@ -319,7 +330,7 @@ async function enrichBatch(ids, { limit = 15 } = {}) {
 }
 async function enrichMissing() {
   if (state.busy) return;
-  if (!nicoBridge.connected) return connectNico();
+  if (state.metadataSource === 'bridge' && !nicoBridge.connected) return connectNico();
   const ids = state.library.videos.filter((v) => needsMetadata(v)).map((v) => v.id);
   if (!ids.length) {
     toast('補完待ちの動画はありません');
@@ -442,7 +453,10 @@ async function connectNico() {
     render();
   }
   if (fromSync && state.dialog?.kind === 'sync') await syncFromNico();
-  if (fromMetadata && state.dialog?.kind === 'metadata') await enrichMissing();
+  if (fromMetadata && state.dialog?.kind === 'metadata') {
+    state.metadataSource = 'bridge';
+    await enrichMissing();
+  }
 }
 async function probeNico() {
   if (state.busy) return;
@@ -734,7 +748,7 @@ async function importPublicPlaylist() {
       fetchPage: fetchAuthenticatedPublicPage,
       onProgress: setSyncProgress,
     });
-    state.pendingPublicImport = remote;
+    state.pendingPublicImport = { ...remote, name: remote.name || remote.id };
     state.publicImportInput = '';
     state.syncProgress = `取得成功。${remote.items.length}件を確認して、追加を確定してください。`;
   } catch (error) {
@@ -877,7 +891,7 @@ async function applySync() {
   }
   if (
     !confirm(
-      `選択した${latest.rows.length}リストを同期します。\n追加${latest.added}件・削除扱い${latest.removed}件・並び順変更${latest.reordered}件\n\n削除扱いの動画・メモはDBから物理削除しません。続けますか？`,
+      `選択した${latest.rows.length}リストを同期します。\n追加${latest.added}件・削除扱い${latest.removed}件・並び順変更${latest.reordered}件・名前の更新${latest.renamed || 0}件\n\n削除扱いの動画・メモはDBから物理削除しません。続けますか？`,
     )
   )
     return;
@@ -900,7 +914,7 @@ async function applySync() {
     await refresh();
     // Fill details for a small number of *new* videos only, never the entire archive.
     let note = '';
-    if (nicoBridge.connected && newIds.length) {
+    if (newIds.length && (state.metadataSource !== 'bridge' || nicoBridge.connected)) {
       const enriched = await enrichBatch(newIds, { limit: 5 });
       note = ` / 新規動画情報 ${enriched.ok}件補完`;
       if (enriched.failures.length) note += `（${enriched.failures.length}件取得不可）`;

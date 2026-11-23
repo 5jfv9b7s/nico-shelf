@@ -6,7 +6,12 @@ export function analysisCsv(result) {
   const lines = [
     ['分析', ANALYSIS_METHODS[result.method]],
     ['対象曲数', result.n],
-    ['マイリストID', result.options.playlist || 'すべて'],
+    [
+      'マイリストID',
+      result.options.playlists?.length
+        ? result.options.playlists.join(' / ')
+        : result.options.playlist || 'すべて',
+    ],
     ['歌唱者', result.options.voice || 'すべて'],
     ['欠損除外', result.missing ?? 'ペアごと'],
     ['件数の対数変換', result.options.logCounts ? 'ln(1+x)' : 'なし'],

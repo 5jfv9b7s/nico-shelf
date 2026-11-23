@@ -1,3 +1,4 @@
+import { sourcePlaylistName } from '../shared/playlist-name.js';
 /**
  * Read-only adapter for NicoNico's public mylist endpoint.
  * Never accepts an arbitrary upstream URL, cookie, or NicoNico credential.
@@ -42,7 +43,7 @@ export function parsePublicMylistPage(payload, listId, page) {
   const hasNext = typeof list.hasNext === 'boolean' ? list.hasNext : null;
   return {
     id: listId,
-    name: String(list.name || listId).slice(0, 100),
+    ...sourcePlaylistName(list.name),
     page,
     pageSize: PAGE_SIZE,
     totalCount,
@@ -108,7 +109,7 @@ export function validatePublicMylistPage(pageData, listId, page) {
     id: listId,
     page,
     pageSize: PAGE_SIZE,
-    name: String(pageData.name || listId).slice(0, 100),
+    ...sourcePlaylistName(pageData.name),
     totalCount: total ?? null,
     hasNext: pageData.hasNext ?? null,
     items,

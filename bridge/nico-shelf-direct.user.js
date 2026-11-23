@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         NICO SHELF Direct Bridge (v0.8.0)
+// @name         NICO SHELF Direct Bridge (v0.8.1)
 // @namespace    nico-shelf.direct
-// @version      0.8.0
+// @version      0.8.1
 // @description  ニコニコのログイン済みタブから登録・差分同期・動画情報取得します。Cookieを外部送信しません。
 // @match        https://www.nicovideo.jp/*
 // @match        https://nico-shelf.shiokara-lab.workers.dev/*
@@ -242,7 +242,7 @@
   // This uses the same authenticated NicoNico tab and the same list API as registration.
   async function snapshotList(data) {
     const id = String(data?.id || '');
-    const name = String(data?.name || id).slice(0, 100);
+    let name;
     if (!listRe.test(id)) throw new Error('同期対象のマイリストIDが不正です');
     const out = [];
     const seen = new Set();
@@ -260,6 +260,7 @@
         throw new Error(`「${name}」: HTTP ${res.status}（ログイン状態を確認してください）`);
       const json = await res.json();
       const ml = json?.data?.mylist;
+      if (page === 1 && typeof ml?.name === 'string' && ml.name.trim()) name = ml.name;
       if (!ml || !Array.isArray(ml.items))
         throw new Error(`「${name}」: ニコニコのAPI形式を認識できません`);
       for (const item of ml.items) {
@@ -285,7 +286,7 @@
           throw new Error(
             `「${name}」: 取得件数 ${out.length}/${total}。途中までの結果は破棄しました`,
           );
-        return { id, name, complete: true, items: out };
+        return { id, ...(name ? { name } : {}), complete: true, items: out };
       }
       if (ml.items.length === 0) throw new Error(`「${name}」: ページングが途中で終了しました`);
       await sleep(160);

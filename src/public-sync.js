@@ -1,3 +1,4 @@
+import { sourcePlaylistName } from '../shared/playlist-name.js';
 import { snapshotFromBridgeParts } from './sync.js';
 
 const ID_RE = /^[1-9]\d{0,15}$/;
@@ -74,6 +75,9 @@ export function assemblePublicMylistPages(pages, listId) {
     ) {
       throw new Error('取得ページに欠落・順番違いがあります。同期を中止しました');
     }
+    sourcePlaylistName(page.name);
+    if (page.name !== undefined && pages[0].name !== undefined && page.name !== pages[0].name)
+      throw new Error('取得途中でマイリスト名が変わりました。再取得してください');
     if (page.hasNext != null && typeof page.hasNext !== 'boolean') {
       throw new Error('公開マイリストの継続状態が不正です');
     }
@@ -123,7 +127,7 @@ export function assemblePublicMylistPages(pages, listId) {
   }
   return {
     id: listId,
-    name: String(pages[0].name || listId).slice(0, 100),
+    ...sourcePlaylistName(pages[0].name),
     complete: true,
     ...(total !== null ? { reported_total: total } : {}),
     ...(countMismatch ? { allow_removals: false } : {}),

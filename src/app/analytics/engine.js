@@ -15,6 +15,7 @@ export function runAnalysis(rows, options) {
   );
   if (!Object.hasOwn(ANALYSIS_METHODS, options.method))
     throw new Error('分析方法を選択してください');
+  options.playlists = [...new Set(options.playlists.map(String))];
   const source = eligibleRows(rows, options);
   const functions = {
     correlation: correlationMatrix,
@@ -28,6 +29,6 @@ export function runAnalysis(rows, options) {
   return {
     ...result,
     scope: { total: source.total, available: source.rows.length, excluded: source.excluded },
-    options: { ...options, features: [...options.features] },
+    options: { ...options, playlists: [...options.playlists], features: [...options.features] },
   };
 }

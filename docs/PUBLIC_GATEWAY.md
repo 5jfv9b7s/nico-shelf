@@ -1,3 +1,9 @@
+# v0.20.0 動画メタデータ取得の追加
+
+同じRenderに `GET /v1/video-metadata/{id}` を追加しました。共有鍵・Supabase認証・IP/アカウント枠は再利用します。Renderで `npm ci --omit=dev --no-audit --no-fund` を実行してからゲートウェイを再起動し、CloudflareのWorkerとアセットも更新してください。新しい変数はありません。詳細は [METADATA.md](METADATA.md) を参照してください。下記の既存の公開マイリスト取得も維持します。
+
+---
+
 # v0.18.1の二段階レート制限と診断
 
 公開マイリストの各ページ取得は、次の順で検証します。

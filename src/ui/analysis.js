@@ -65,13 +65,25 @@ function controls(state, rows) {
   const voices = [...new Set(rows.flatMap(canonicalVoices))].sort((x, y) =>
     x.localeCompare(y, 'ja'),
   );
+  const chosen = a.playlists || [];
   let fields =
-    select(
-      'playlist',
-      '対象マイリスト',
-      [['', 'ライブラリ全体'], ...state.library.playlists.map((p) => [String(p.id), p.name])],
-      a.playlist,
-    ) +
+    '<fieldset class="analysis-playlists"><legend>対象マイリスト（複数選択可）</legend>' +
+    '<label class="check-field"><input type="checkbox" data-analysis-field="playlists" value=""' +
+    (!chosen.length ? ' checked' : '') +
+    '> ライブラリ全体</label>' +
+    state.library.playlists
+      .map(
+        (p) =>
+          '<label class="check-field"><input type="checkbox" data-analysis-field="playlists" value="' +
+          esc(p.id) +
+          '"' +
+          (chosen.includes(String(p.id)) ? ' checked' : '') +
+          '> ' +
+          esc(p.name) +
+          '</label>',
+      )
+      .join('') +
+    '<small>選択したリストをまとめて分析します。重複する動画は1曲として集計。未選択ならライブラリ全体が対象です。</small></fieldset>' +
     select('voice', '歌唱キャラクター', [['', 'すべて'], ...voices.map((v) => [v, v])], a.voice);
   if (a.method === 'regression' || a.method === 'multiple') {
     fields += select('y', '目的変数（調べたい値）', metricChoices, a.y);

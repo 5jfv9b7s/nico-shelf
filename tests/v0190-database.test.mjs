@@ -370,3 +370,61 @@ test('real SQL: read-only production audit executes and detects no counter misma
   assert.ok(mismatch);
   assert.deepEqual(mismatch.rows, []);
 });
+
+test('v0.20: 名前と所属の同期は同一transaction、部分取得で名前のみ変わっても欠落曲を保持', async () => {
+  await db.query(
+    "insert into public.playlists(owner_id,id,name) values($1,'101','old'),($1,'102','second')",
+    [A],
+  );
+  await video('sm1');
+  await video('sm2');
+  await db.query(
+    "insert into public.entries(owner_id,playlist_id,video_id,position,present) values($1,'101','sm1',1,true),($1,'101','sm2',2,true)",
+    [A],
+  );
+  const apply = (lists) =>
+    db.query('select public.apply_mylist_snapshot_v2($1::jsonb)', [JSON.stringify({ lists })]);
+  await apply([
+    {
+      id: '101',
+      name: '取得元の名前',
+      allow_removals: false,
+      items: [{ video_id: 'sm1', position: 1 }],
+    },
+  ]);
+  assert.equal(
+    (await db.query("select name from public.playlists where id='101'")).rows[0].name,
+    '取得元の名前',
+  );
+  assert.equal(
+    (await db.query("select count(*) n from public.entries where playlist_id='101' and present"))
+      .rows[0].n,
+    2,
+  );
+  for (const name of ['', null, 55, {}, 'あ'.repeat(201)]) {
+    await assert.rejects(
+      apply([
+        { id: '101', name: 'must rollback', items: [] },
+        { id: '102', name, items: [] },
+      ]),
+    );
+    assert.equal(
+      (await db.query("select name from public.playlists where id='101'")).rows[0].name,
+      '取得元の名前',
+    );
+    assert.equal(await count('entries'), 2);
+  }
+  await apply([{ id: '101', allow_removals: false, items: [] }]);
+  assert.equal(
+    (await db.query("select name from public.playlists where id='101'")).rows[0].name,
+    '取得元の名前',
+  );
+  await as(B);
+  await assert.rejects(apply([{ id: '101', name: 'stolen', items: [] }]));
+  await as(A);
+  assert.equal(
+    (await db.query("select name from public.playlists where id='101'")).rows[0].name,
+    '取得元の名前',
+  );
+  await assertCounters();
+});

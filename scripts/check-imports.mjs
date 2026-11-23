@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const roots = ['src', 'tests', 'bridge', 'worker', 'gateway', 'scripts'];
+const roots = ['src', 'shared', 'tests', 'bridge', 'worker', 'gateway', 'scripts'];
 const errors = [];
 
 function checkDirectory(directory) {
