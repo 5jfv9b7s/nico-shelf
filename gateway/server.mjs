@@ -92,7 +92,7 @@ export function makeGatewayHandler({ token, fetchUpstream = fetch } = {}) {
             'X-Frontend-Id': '6',
             'X-Frontend-Version': '0',
             'X-Niconico-Language': 'ja-jp',
-            Accept: metadata ? 'application/xml,text/xml' : 'application/json',
+            Accept: metadata ? '*/*' : 'application/json',
           },
           redirect: 'manual',
           signal: AbortSignal.timeout(12000),
