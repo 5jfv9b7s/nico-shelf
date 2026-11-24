@@ -137,3 +137,7 @@ node --env-file=.env.verify.local scripts/verify-production.mjs --cleanup
 - [PostgreSQL Trigger Behavior](https://www.postgresql.org/docs/current/trigger-definition.html)：AFTERトリガー、ON CONFLICT、同一トランザクションでのロールバック。
 - [Supabase Database Backups](https://supabase.com/docs/guides/platform/backups)：プラン別のバックアップとCLIダンプ・復元の範囲。
 - [Google OAuth 2.0 Policies](https://developers.google.com/identity/protocols/oauth2/policies)：本番ホームページ、プライバシー説明、問い合わせ先、最小スコープ等。
+
+## 公開前に必ず埋める項目（v0.20.4）
+
+`public/privacy.html` の `【要入力：…】` は、運営者だけが確認できる事実です。SupabaseとRenderのダッシュボードで実際のリージョン（国名）を確認して置き換えてください。未入力のまま `npm run check:release` を実行すると失敗します。あわせて、各事業者の所在国と、運営者が実際に行っている安全管理措置が文面と合っているかを見直してください。これらは法的助言ではなく、必要に応じて専門家へ確認します。

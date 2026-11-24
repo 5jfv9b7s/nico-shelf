@@ -41,7 +41,10 @@ export function renderPublicPage(template, settings) {
   const contact = settings.contact
     ? `<a href="${escapeHtml(settings.contact)}" rel="noreferrer">お問い合わせ・登録情報の削除依頼</a><p>パスワード、ログイン用コード、認証トークンは送らないでください。</p>`
     : '<p>現在は公開準備中です。問い合わせ窓口はまだ設定されていません。</p>';
-  return template
-    .replaceAll('<!-- operator -->NICO SHELF 運営者', operator)
-    .replace(/<!-- contact:start -->[\s\S]*?<!-- contact:end -->/g, contact);
+  return (
+    template
+      // Function replacers keep "$&" or "$1" in configured values literal.
+      .replaceAll('<!-- operator -->NICO SHELF 運営者', () => operator)
+      .replace(/<!-- contact:start -->[\s\S]*?<!-- contact:end -->/g, () => contact)
+  );
 }

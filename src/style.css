@@ -1103,6 +1103,16 @@ small {
   margin-top: 17px;
   line-height: 1.8;
 }
+.login-card .login-consent {
+  margin: 14px 0 0;
+  color: #b5c9dc;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.login-card .login-consent a {
+  color: #7ce0d0;
+  text-underline-offset: 0.2em;
+}
 .login-footer {
   position: relative;
   color: #628197;
