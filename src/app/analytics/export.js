@@ -13,8 +13,20 @@ export function analysisCsv(result) {
         : result.options.playlist || 'すべて',
     ],
     ['歌唱者', result.options.voice || 'すべて'],
-    ['欠損除外', result.missing ?? 'ペアごと'],
-    ['件数の対数変換', result.options.logCounts ? 'ln(1+x)' : 'なし'],
+    [
+      '欠損除外',
+      result.method === 'rules'
+        ? '曲は残す・欠損属性には項目を作らない'
+        : (result.missing ?? 'ペアごと'),
+    ],
+    [
+      '件数の対数変換',
+      result.method === 'rules'
+        ? 'なし（元の数値を区間化）'
+        : result.options.logCounts
+          ? 'ln(1+x)'
+          : 'なし',
+    ],
   ];
   if (result.method === 'correlation') {
     lines.push(
@@ -66,14 +78,63 @@ export function analysisCsv(result) {
     result.points.forEach((p) => lines.push([p.id, p.title, p.x, p.y]));
   } else if (result.method === 'rules') {
     lines.push(
+      ['方式', result.mode === 'apriori' ? 'Apriori' : '簡易分析'],
       ['分類根拠のある曲数', result.classified],
       ['省略項目数', result.omittedItems],
-      ['表示ルール数（上位50）', result.rules.length],
-      ['ルールの並べ順', result.sort === 'lift' ? 'リフトが高い順' : '共起曲数が多い順'],
-      ['条件A', '条件B', '共起曲数', '支持度', '確信度', 'リフト'],
+      ['使用属性', result.dataset.fields.join(' / ')],
+      ['最大項目集合サイズ（左右の合計）', result.maximum],
+      ['探索完了サイズ', result.completeSize],
+      ['探索状態', result.partial ? '上限到達・部分結果' : '完了'],
+      ...result.warnings.map((w) => ['注意', w]),
+      ['最低共起曲数', result.minCount],
+      ['最低支持度', result.options.support],
+      ['最低確信度', result.options.confidence],
+      ['最低リフト', result.minLift],
+      ['リフトの比較', result.mode === 'apriori' ? '以上' : '超'],
+      ['結論部に含む属性', result.options.ruleConsequentField || '指定なし'],
+      ['結論部に含む項目キー', result.options.ruleConsequentItem || '指定なし'],
+      ['再生数の区切り', result.dataset.bins.views.join(',')],
+      ['投稿年の区切り', result.dataset.bins.published.join(',')],
+      ['動画時間の区切り（秒）', result.dataset.bins.duration.join(',')],
+      ['該当ルール数（生成済みの範囲）', result.totalRules],
+      ['表示上限', result.limit],
+      ['表示ルール数', result.rules.length],
+      [
+        'ルールの並べ順',
+        result.sort === 'lift'
+          ? 'リフトが高い順'
+          : result.sort === 'confidence'
+            ? '確信度が高い順'
+            : '共起曲数が多い順',
+      ],
+      [
+        '条件A',
+        '結論B',
+        '共起曲数',
+        '支持度',
+        '確信度',
+        'リフト',
+        '条件Aの曲数',
+        '結論Bの曲数',
+        '条件Aの項目（JSON）',
+        '結論Bの項目（JSON）',
+        '該当動画ID（JSON）',
+      ],
     );
     result.rules.forEach((r) =>
-      lines.push([r.from, r.to, r.count, r.support, r.confidence, r.lift]),
+      lines.push([
+        r.from,
+        r.to,
+        r.count,
+        r.support,
+        r.confidence,
+        r.lift,
+        r.fromCount,
+        r.toCount,
+        JSON.stringify(r.fromItems),
+        JSON.stringify(r.toItems),
+        JSON.stringify(r.ids),
+      ]),
     );
   } else {
     lines.push(
@@ -116,4 +177,81 @@ export function analysisCsv(result) {
       .join('\r\n') +
     '\r\n'
   );
+}
+
+function ruleDataset(result) {
+  if (result.method !== 'rules' || !result.dataset)
+    throw new Error('先に相関ルールを分析してください');
+  return result.dataset;
+}
+
+function sourceLabels(dataset) {
+  const labels = dataset.items.map((item) => item.label);
+  // ARFF requires distinct attribute names, even for adversarial playlist names.
+  return new Set(labels).size === labels.length
+    ? labels
+    : labels.map((label, i) => 'item' + (i + 1) + ' ' + label);
+}
+
+/** Observed presence only. A CSV 0 means no observed item, including missing metadata. */
+export function ruleSourceCsv(result) {
+  const dataset = ruleDataset(result);
+  const lines = [['動画ID', 'タイトル', ...sourceLabels(dataset)]];
+  for (const transaction of dataset.transactions) {
+    const present = new Set(transaction.items);
+    lines.push([
+      transaction.id,
+      transaction.title,
+      ...dataset.items.map((_, i) => (present.has(i) ? 1 : 0)),
+    ]);
+  }
+  return (
+    '\uFEFF' +
+    lines
+      .map((line) =>
+        line.map((value) => (typeof value === 'number' ? String(value) : csvCell(value))).join(','),
+      )
+      .join('\r\n') +
+    '\r\n'
+  );
+}
+
+const arffQuote = (value) =>
+  "'" +
+  String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t') +
+  "'";
+/** Single-valued nominal attributes prevent absent items from becoming Weka rules. */
+export function ruleSourceArff(result) {
+  const dataset = ruleDataset(result);
+  if (!dataset.items.length)
+    throw new Error('出力できる頻出項目がありません。最低支持度や共起曲数を下げてください');
+  const lines = [
+    '% NICO SHELF association source; UTF-8; one row per eligible unique video.',
+    '% present = observed presence; ? = absent OR metadata missing (never a negative item).',
+    '% Same top-80 frequent items and all transactions as the browser analysis.',
+    '% Weka Apriori: treatZeroAsMissing=false (present is nominal index 0).',
+    '% For comparison use positive items only, matching support/confidence/minCount and max size.',
+    '% n=' +
+      dataset.transactions.length +
+      '; minCount=' +
+      dataset.minCount +
+      '; omittedItems=' +
+      dataset.omittedItems,
+    '% bands=' + JSON.stringify(dataset.bins),
+    '@relation nico_shelf_rules',
+    '',
+    ...sourceLabels(dataset).map((label) => '@attribute ' + arffQuote(label) + ' {present}'),
+    '',
+    '@data',
+  ];
+  for (const transaction of dataset.transactions) {
+    const present = new Set(transaction.items);
+    lines.push(dataset.items.map((_, i) => (present.has(i) ? 'present' : '?')).join(','));
+  }
+  return lines.join('\n') + '\n';
 }

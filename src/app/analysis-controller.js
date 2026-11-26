@@ -1,13 +1,16 @@
 import { buildLibraryRows } from './library.js';
 import { analysisDefaults, ANALYSIS_METHODS, METRICS } from './analytics/data.js';
-import { analysisCsv } from './analytics/export.js';
+import { analysisCsv, ruleSourceCsv, ruleSourceArff } from './analytics/export.js';
+import { RULE_FIELDS } from './analytics/rule-data.js';
 
 export function createAnalysisController({
   root,
   state,
   render,
   createWorker = () =>
-    new Worker(new URL('./analytics/worker.js', import.meta.url), { type: 'module' }),
+    new Worker(new URL('./analytics/worker.js', import.meta.url), {
+      type: 'module',
+    }),
 }) {
   let worker = null,
     generation = 0,
@@ -62,7 +65,11 @@ export function createAnalysisController({
         state.analysis.error = '分析を開始できませんでした。再読み込みして試してください。';
         if (state.view === 'analysis') render();
       };
-      worker.postMessage({ id, rows: buildLibraryRows(state.library), options });
+      worker.postMessage({
+        id,
+        rows: buildLibraryRows(state.library),
+        options,
+      });
     } catch {
       cancel();
       state.analysis.error =
@@ -78,15 +85,33 @@ export function createAnalysisController({
       cancel();
       return render();
     }
-    if (button.id === 'analysis-export' && state.analysis.result) {
-      const url = URL.createObjectURL(
-        new Blob([analysisCsv(state.analysis.result)], { type: 'text/csv;charset=utf-8' }),
-      );
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'nico-shelf-' + state.analysis.method + '.csv';
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (['analysis-export', 'analysis-source-csv', 'analysis-source-arff'].includes(button.id)) {
+      synchronize();
+      const result = state.analysis.result;
+      if (!result) return render();
+      try {
+        const arff = button.id === 'analysis-source-arff';
+        const source = button.id !== 'analysis-export';
+        const content = arff
+          ? ruleSourceArff(result)
+          : source
+            ? ruleSourceCsv(result)
+            : analysisCsv(result);
+        const url = URL.createObjectURL(
+          new Blob([content], {
+            type: arff ? 'text/plain;charset=utf-8' : 'text/csv;charset=utf-8',
+          }),
+        );
+        const a = document.createElement('a');
+        a.href = url;
+        a.download =
+          'nico-shelf-' + result.method + (source ? '-source' : '') + (arff ? '.arff' : '.csv');
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (error) {
+        state.analysis.error = error.message || 'ファイルを出力できませんでした';
+        render();
+      }
       return;
     }
     if (
@@ -131,8 +156,20 @@ export function createAnalysisController({
       'ruleExtras',
       'ruleSort',
       'features',
+      'ruleMode',
+      'ruleFields',
+      'ruleMaxSize',
+      'ruleMinCount',
+      'ruleMinLift',
+      'ruleLimit',
+      'ruleConsequentField',
+      'ruleConsequentItem',
+      'ruleViewBins',
+      'ruleYearBins',
+      'ruleDurationBins',
     ];
     if (!allowed.includes(field)) return;
+    synchronize();
     clear();
     if (field === 'playlists') {
       const chosen = new Set(state.analysis.playlists);
@@ -141,18 +178,54 @@ export function createAnalysisController({
       else if (valid) input.checked ? chosen.add(input.value) : chosen.delete(input.value);
       state.analysis.playlists = [...chosen];
       state.analysis.playlist = '';
-    } else if (field === 'features') {
-      const chosen = new Set(state.analysis.features);
-      if (METRICS[input.value])
+    } else if (field === 'features' || field === 'ruleFields') {
+      const chosen = new Set(state.analysis[field]);
+      const catalog = field === 'features' ? METRICS : RULE_FIELDS;
+      if (Object.hasOwn(catalog, input.value))
         input.checked ? chosen.add(input.value) : chosen.delete(input.value);
-      state.analysis.features = [...chosen];
+      state.analysis[field] = [...chosen];
     } else
       state.analysis[field] =
         input.type === 'checkbox'
           ? input.checked
-          : ['k', 'support', 'confidence'].includes(field)
-            ? Number(input.value)
+          : [
+                'k',
+                'support',
+                'confidence',
+                'ruleMaxSize',
+                'ruleMinCount',
+                'ruleMinLift',
+                'ruleLimit',
+              ].includes(field)
+            ? input.value.trim() === ''
+              ? NaN
+              : Number(input.value) *
+                (['support', 'confidence'].includes(field) &&
+                input.dataset.analysisPercent === 'true'
+                  ? 0.01
+                  : 1)
             : input.value;
+    if (
+      field === 'ruleFields' &&
+      !state.analysis.ruleFields.includes(state.analysis.ruleConsequentField)
+    )
+      state.analysis.ruleConsequentField = '';
+    if (
+      [
+        'ruleFields',
+        'ruleMode',
+        'ruleConsequentField',
+        'ruleViewBins',
+        'ruleYearBins',
+        'ruleDurationBins',
+        'playlists',
+        'playlist',
+        'voice',
+        'support',
+        'ruleMinCount',
+      ].includes(field)
+    )
+      state.analysis.ruleConsequentItem = '';
     render();
   });
   return { synchronize, execute, cancel };

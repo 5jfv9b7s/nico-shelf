@@ -1,12 +1,10 @@
-NICO SHELF v0.14.2 — Cloudflare ビルドエラー修正
+NICO SHELF v0.21.0 — 相関ルール分析の拡張
 
-原因: src/ui/scatter.js が import する src/app/scatter.js が GitHub リポジトリにありません。
+v0.20.4からの更新です。
+1. 更新用ZIPを展開し、プロジェクト直下に同じパスで上書きします。
+2. npm ci と npm run build を実行します。
+3. GitHubへ反映し、CloudflareのWorkerと静的アセットを再デプロイします。
+4. ページを再読み込みし、統計分析 > 相関ルール > Apriori を選びます。
 
-方法:
-1. この ZIP を展開し、src/app/scatter.js を GitHub の同じパスにアップロードします。
-   GitHub ではリポジトリの直下に src/app/scatter.js があるか確認してください。
-2. main ブランチへ Commit します。
-3. Cloudflare の新しいビルドの実行結果を確認します。
-
-Supabase、Tampermonkey、環境変数の変更は不要です。
-既存のデータは変更しません。
+追加SQL・環境変数・Renderの変更は不要です。
+詳しくは UPDATE_v0.21.0.md と docs/STATISTICS.md を参照してください。

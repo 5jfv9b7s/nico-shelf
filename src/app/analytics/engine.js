@@ -28,7 +28,16 @@ export function runAnalysis(rows, options) {
   const result = functions[options.method](source.rows, options);
   return {
     ...result,
-    scope: { total: source.total, available: source.rows.length, excluded: source.excluded },
-    options: { ...options, playlists: [...options.playlists], features: [...options.features] },
+    scope: {
+      total: source.total,
+      available: source.rows.length,
+      excluded: source.excluded,
+    },
+    options: {
+      ...options,
+      playlists: [...options.playlists],
+      features: [...options.features],
+      ruleFields: Array.isArray(options.ruleFields) ? [...options.ruleFields] : [],
+    },
   };
 }

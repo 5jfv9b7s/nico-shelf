@@ -1,6 +1,7 @@
 import { SCATTER_METRICS, metricValue } from '../scatter.js';
 import { scatterExclusionReason } from '../scatter-availability.js';
 import { canonicalVoices } from '../../discovery.js';
+import { DEFAULT_RULE_FIELDS } from './rule-data.js';
 
 export const ANALYSIS_METHODS = {
   correlation: '相関分析',
@@ -31,6 +32,17 @@ export function analysisDefaults() {
     confidence: 0.5,
     ruleExtras: false,
     ruleSort: 'count',
+    ruleMode: 'simple',
+    ruleFields: [...DEFAULT_RULE_FIELDS],
+    ruleMaxSize: 3,
+    ruleMinCount: 3,
+    ruleMinLift: 1.01,
+    ruleLimit: 50,
+    ruleConsequentField: '',
+    ruleConsequentItem: '',
+    ruleViewBins: '10000,100000,1000000',
+    ruleYearBins: '2010,2020,2023,2027',
+    ruleDurationBins: '120,180,240,300',
     busy: false,
     result: null,
     error: '',
@@ -46,7 +58,13 @@ export function eligibleRows(rows, options = {}) {
       : new Set(options.playlist ? [String(options.playlist)] : []);
   const seen = new Set();
   const selected = [];
-  const excluded = { duplicate: 0, scope: 0, deleted: 0, private: 0, unconfirmed: 0 };
+  const excluded = {
+    duplicate: 0,
+    scope: 0,
+    deleted: 0,
+    private: 0,
+    unconfirmed: 0,
+  };
   for (const video of rows) {
     if (!video?.id || seen.has(video.id)) {
       excluded.duplicate++;
@@ -54,7 +72,8 @@ export function eligibleRows(rows, options = {}) {
     }
     seen.add(video.id);
     if (
-      (selectedIds.size && !video.memberships?.some((p) => selectedIds.has(String(p.id)))) ||
+      (selectedIds.size &&
+        !video.memberships?.some((p) => p.present !== false && selectedIds.has(String(p.id)))) ||
       (options.voice && !canonicalVoices(video).includes(options.voice))
     ) {
       excluded.scope++;
@@ -97,5 +116,11 @@ export function completeData(rows, keys, logCounts = true) {
       values.push(vector);
     }
   }
-  return { videos, values, n: values.length, missing: rows.length - values.length, keys };
+  return {
+    videos,
+    values,
+    n: values.length,
+    missing: rows.length - values.length,
+    keys,
+  };
 }

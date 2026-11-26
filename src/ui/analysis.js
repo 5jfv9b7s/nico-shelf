@@ -1,5 +1,6 @@
 import { esc } from '../lib.js';
 import { canonicalVoices } from '../discovery.js';
+import { ruleControls } from './analysis-rules.js';
 import { ANALYSIS_METHODS, METRICS, metricLabel } from '../app/analytics/data.js';
 import { number, percent, pointChart, dendrogram, GROUP_COLORS } from './analysis-charts.js';
 
@@ -116,41 +117,7 @@ function controls(state, rows) {
         Array.from({ length: 7 }, (_, i) => [i + 2, String(i + 2)]),
         a.k,
       );
-  if (a.method === 'rules')
-    fields +=
-      select(
-        'support',
-        '最低支持度（全対象曲に占める割合）',
-        [
-          [0.01, '1%'],
-          [0.02, '2%'],
-          [0.05, '5%'],
-          [0.1, '10%'],
-          [0.2, '20%'],
-        ],
-        a.support,
-      ) +
-      select(
-        'confidence',
-        '最低確信度（条件Aの曲でBも持つ割合）',
-        [
-          [0.3, '30%'],
-          [0.5, '50%'],
-          [0.7, '70%'],
-          [0.9, '90%'],
-        ],
-        a.confidence,
-      );
-  if (a.method === 'rules')
-    fields += select(
-      'ruleSort',
-      'ルールの並べ順',
-      [
-        ['count', '共起曲数が多い順'],
-        ['lift', 'リフトが高い順'],
-      ],
-      a.ruleSort,
-    );
+  if (a.method === 'rules') fields += ruleControls(state, rows, select);
   const featureControls = ['correlation', 'multiple', 'pca', 'clusters'].includes(a.method)
     ? '<fieldset class="analysis-features"><legend>' +
       (a.method === 'multiple' ? '説明変数（目的変数は自動除外）' : '分析する数値項目') +
@@ -171,9 +138,11 @@ function controls(state, rows) {
     : '';
   const toggle =
     a.method === 'rules'
-      ? '<label class="analysis-check"><input type="checkbox" data-analysis-field="ruleExtras"' +
-        (a.ruleExtras ? ' checked' : '') +
-        '/>作者・投稿者と保存済みタグも含める</label>'
+      ? a.ruleMode === 'apriori'
+        ? ''
+        : '<label class="analysis-check"><input type="checkbox" data-analysis-field="ruleExtras"' +
+          (a.ruleExtras ? ' checked' : '') +
+          '/>作者・投稿者と保存済みタグも含める</label>'
       : '<label class="analysis-check"><input type="checkbox" data-analysis-field="logCounts"' +
         (a.logCounts ? ' checked' : '') +
         '/>再生・コメント・マイリスト・いいね数を ln(1+件数) に変換する</label>';
@@ -304,7 +273,11 @@ function regressionResult(r) {
       '残差の確認',
       pointChart(
         r.points.map((p) => ({ ...p, x: p.fitted, y: p.residual })),
-        { xLabel: '当てはめ値（分析尺度）', yLabel: '残差（実測−当てはめ値）', line: [0, 0] },
+        {
+          xLabel: '当てはめ値（分析尺度）',
+          yLabel: '残差（実測−当てはめ値）',
+          line: [0, 0],
+        },
       ) +
         table(
           ['曲名（差が大きい上位20曲）', '実測', '当てはめ値', '残差'],
@@ -389,11 +362,29 @@ function rulesResult(r) {
       '曲。' +
       '共起が最低' +
       r.minCount +
-      '曲あり、リフトが1より大きい1項目→1項目のルールを、' +
-      (r.sort === 'lift' ? 'リフトが高い順' : '共起曲数が多い順') +
-      'に上位50件表示します。該当' +
+      '曲あるルールを、' +
+      (r.sort === 'lift'
+        ? 'リフトが高い順'
+        : r.sort === 'confidence'
+          ? '確信度が高い順'
+          : '共起曲数が多い順') +
+      'に上位' +
+      r.limit +
+      '件表示します。生成済み範囲での該当' +
       r.totalRules +
       '件。</p>' +
+      '<p class="analysis-description">' +
+      (r.mode === 'apriori'
+        ? 'Apriori：左右合計' + r.maximum + '項目まで。リフト ' + number(r.minLift) + '以上。'
+        : '簡易分析：1項目 → 1項目。リフトが1より大きいルール。') +
+      ' 対象項目 ' +
+      r.items +
+      '個。' +
+      r.itemsetsBySize.map((level) => level.size + '項目集合 ' + level.count + '件').join(' / ') +
+      '</p>' +
+      r.warnings
+        .map((warning) => '<p class="analysis-warning" role="status">' + esc(warning) + '</p>')
+        .join('') +
       (r.omittedItems
         ? '<p class="analysis-warning">計算対象は頻度上位80項目です。条件を満たした残り' +
           r.omittedItems +
@@ -405,8 +396,8 @@ function rulesResult(r) {
             lines,
             '相関ルール',
           )
-        : '<p class="empty-sm">条件を満たすルールがありません。対象範囲や最低支持度・確信度を変更してください。</p>') +
-      '<details class="analysis-help"><summary>支持度・確信度・リフトの読み方</summary><p>支持度はAとBを両方持つ曲の割合。確信度はAを持つ曲でBも持つ割合。リフトは確信度をB全体の割合で割った値です。1より大きいほど、Bの多さだけでは説明しにくい共起です。分類不明の曲も全曲の分母に含めます。</p><p>対象はこのライブラリ内です。因果関係やニコニコ全体の傾向ではありません。同じ分類根拠に由来するタグは強いルールになる場合があります。</p></details>',
+        : '<p class="empty-sm">条件を満たすルールがありません。対象範囲や最低支持度・確信度・共起曲数を変更してください。</p>') +
+      '<details class="analysis-help"><summary>支持度・確信度・リフトの読み方</summary><p>A・Bが複数項目なら、各側の全項目を満たす曲を数えます。支持度はAとBを両方持つ曲の割合。確信度はAを持つ曲でBも持つ割合。リフトは確信度をB全体の割合で割った値です。1より大きいほど、Bの多さだけでは説明しにくい共起です。分類不明の曲も全曲の分母に含めます。所属マイリストと他の分類は、選曲した人の傾向も反映します。</p><p>対象はこのライブラリ内です。因果関係やニコニコ全体の傾向ではありません。同じ分類根拠に由来するタグは強いルールになる場合があります。</p><p>分析元CSVは観測された項目を1、それ以外を0で保存します。Weka用ARFFは present と ? を使い、不在や欠損を規則の項目にしません。Wekaでは treatZeroAsMissing=false を使います。最低共起曲数や最大項目数などもそろえて比較してください。</p></details>',
   );
 }
 function clusterComparison(r) {
@@ -555,7 +546,7 @@ function selectedVideos(r, selection, rows) {
         .join('') +
       '</div>' +
       (matches.length > 100
-        ? '<p class="analysis-description">先頭100曲を表示しています。グループ全曲の所属はCSVで確認できます。</p>'
+        ? '<p class="analysis-description">先頭100曲を表示しています。全該当曲の動画IDは結果CSVで確認できます。</p>'
         : ''),
   );
 }
@@ -572,10 +563,16 @@ export function renderAnalysis({ state, rows, hero }) {
       '曲</strong><p>範囲内・公開状態に問題なし ' +
       r.scope.available +
       '曲 / 欠損除外 ' +
-      (r.missing ?? 'ペアごと') +
+      (r.method === 'rules' ? '曲は残し、欠損属性は使わない' : (r.missing ?? 'ペアごと')) +
       ' / 削除・非公開・取得失敗の除外 ' +
       (exclusions.deleted + exclusions.private + exclusions.unconfirmed) +
-      '曲 / 重複登録は1曲に集約</p></div><button class="btn subtle" id="analysis-export">結果をCSV保存</button></section>';
+      '曲 / 重複登録は1曲に集約</p></div><button class="btn subtle" id="analysis-export">結果をCSV保存</button>' +
+      (r.method === 'rules' && r.dataset
+        ? '<button class="btn subtle" id="analysis-source-csv">分析元CSV</button><button class="btn subtle" id="analysis-source-arff"' +
+          (!r.items ? ' disabled' : '') +
+          '>Weka用ARFF</button>'
+        : '') +
+      '</section>';
     if (r.sampled)
       result +=
         '<p class="analysis-warning">階層型の計算上限は300曲です。有効' +

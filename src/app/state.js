@@ -1,7 +1,7 @@
 import { analysisDefaults } from './analytics/data.js';
 
 /** Display labels and initial ephemeral UI state; never persisted to Supabase. */
-export const APP_VERSION = '0.20.4';
+export const APP_VERSION = '0.21.0';
 export const VIEWS = {
   dashboard: 'ダッシュボード',
   library: 'ライブラリ',
@@ -68,7 +68,14 @@ export function createInitialState() {
       focus: '',
       visibleCount: 10,
     },
-    scatter: { mode: '2d', x: 'views', y: 'comments', z: 'mylists', voice: '', legendLimit: 30 },
+    scatter: {
+      mode: '2d',
+      x: 'views',
+      y: 'comments',
+      z: 'mylists',
+      voice: '',
+      legendLimit: 30,
+    },
     analysis: analysisDefaults(),
     voiceMode: 'canonical',
     voiceVisibleCount: 15,

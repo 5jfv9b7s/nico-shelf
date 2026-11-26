@@ -3306,9 +3306,30 @@ button.scatter-legend-entry:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
 }
-.analysis-controls select {
+.analysis-controls select,
+.analysis-controls .control-label > input {
   width: 100%;
   min-height: 44px;
+  min-width: 0;
+}
+.analysis-controls > * {
+  min-width: 0;
+}
+.analysis-rule-wide,
+.analysis-rule-fields,
+.analysis-rule-fields .analysis-description {
+  grid-column: 1 / -1;
+}
+.analysis-rule-fields {
+  margin: 0;
+}
+.analysis-rule-fields label {
+  overflow-wrap: anywhere;
+}
+.analysis-link {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 .analysis-features {
   display: grid;
