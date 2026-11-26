@@ -43,6 +43,7 @@ export function analysisDefaults() {
     ruleViewBins: '10000,100000,1000000',
     ruleYearBins: '2010,2020,2023,2027',
     ruleDurationBins: '120,180,240,300',
+    ruleBinsOpen: false,
     busy: false,
     result: null,
     error: '',

@@ -46,7 +46,7 @@ export function createAnalysisController({
     state.analysis.busy = true;
     const id = generation,
       userId = state.user.id;
-    const { result, error, selection, busy, ...options } = state.analysis;
+    const { result, error, selection, busy, ruleBinsOpen, ...options } = state.analysis;
     try {
       worker = createWorker();
       worker.onmessage = ({ data }) => {
@@ -137,6 +137,15 @@ export function createAnalysisController({
       }
     }
   });
+  root.addEventListener(
+    'toggle',
+    (event) => {
+      if (state.user && event.target.id === 'analysis-rule-bins') {
+        state.analysis.ruleBinsOpen = event.target.open;
+      }
+    },
+    true,
+  );
   root.addEventListener('change', (event) => {
     const input = event.target;
     if (!input.dataset.analysisField || !state.user) return;

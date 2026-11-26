@@ -10,7 +10,7 @@ export function runAnalysis(rows, options) {
   const defaults = analysisDefaults();
   options = Object.fromEntries(
     Object.keys(defaults)
-      .filter((key) => !['result', 'busy', 'error', 'selection'].includes(key))
+      .filter((key) => !['result', 'busy', 'error', 'selection', 'ruleBinsOpen'].includes(key))
       .map((key) => [key, options[key] ?? defaults[key]]),
   );
   if (!Object.hasOwn(ANALYSIS_METHODS, options.method))
