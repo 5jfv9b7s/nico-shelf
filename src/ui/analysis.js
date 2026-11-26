@@ -46,8 +46,14 @@ function table(headers, rows, caption) {
     '</tbody></table></div>'
   );
 }
-const panel = (title, body) =>
-  '<section class="panel analysis-panel"><h2>' + esc(title) + '</h2>' + body + '</section>';
+const panel = (title, body, id = '') =>
+  '<section class="panel analysis-panel"' +
+  (id ? ' id="' + esc(id) + '"' : '') +
+  '><h2>' +
+  esc(title) +
+  '</h2>' +
+  body +
+  '</section>';
 const metricChoices = Object.entries(METRICS).map(([key, metric]) => [key, metric.label]);
 const INTRO = {
   correlation:
@@ -547,7 +553,10 @@ function selectedVideos(r, selection, rows) {
   const matches = rows.filter((row) => ids.has(row.id));
   return panel(
     '選択した項目の曲（' + matches.length + '曲）',
-    '<div class="analysis-selected-videos">' +
+    (r.method === 'tree'
+      ? '<p><button type="button" class="btn subtle" data-analysis-tree-back>分岐図に戻る ↑</button></p>'
+      : '') +
+      '<div class="analysis-selected-videos">' +
       matches
         .slice(0, 100)
         .map(
@@ -565,6 +574,7 @@ function selectedVideos(r, selection, rows) {
       (matches.length > 100
         ? '<p class="analysis-description">先頭100曲を表示しています。全該当曲の動画IDは結果CSVで確認できます。</p>'
         : ''),
+    'analysis-selection',
   );
 }
 
@@ -609,7 +619,8 @@ export function renderAnalysis({ state, rows, hero }) {
     if (r.method === 'pca') result += pcaResult(r);
     if (r.method === 'rules') result += rulesResult(r);
     if (r.method === 'clusters') result += clusterResult(r, a.selection);
-    if (r.method === 'tree') result += treeResult(r, { panel, table }, a.treeExpansion);
+    if (r.method === 'tree')
+      result += treeResult(r, { panel, table }, a.treeExpansion, a.selection);
     result += selectedVideos(r, a.selection, rows);
   }
   return (

@@ -5,7 +5,8 @@ import {
   blockedTreeFeatures,
   TREE_CATEGORIES,
 } from '../app/analytics/classification-data.js';
-import { number, percent } from './analysis-charts.js';
+import { percent } from './analysis-charts.js';
+import { decisionTreeDiagram } from './decision-tree-diagram.js';
 
 function input(field, label, value, attrs) {
   return (
@@ -128,7 +129,7 @@ export function treeFeatureBlocked(key, target) {
   return blockedTreeFeatures(target).includes(key);
 }
 
-export function treeResult(r, { panel, table }, expansion = {}) {
+export function treeResult(r, { panel, table }, expansion = {}, selection = null) {
   const metrics = r.metrics;
   const pct = (value) => (value === null ? '—' : percent(value));
   const metricCards = [
@@ -164,53 +165,6 @@ export function treeResult(r, { panel, table }, expansion = {}) {
       ) +
       '<details class="analysis-help"><summary>評価の読み方と注意点</summary><p>正解率は全体で正解した割合、適合率は対象と予測した曲のうち実際も対象だった割合、再現率は実際の対象を見つけた割合です。F1は適合率と再現率の調和平均、バランス正解率は対象・対象外それぞれの正解率の平均です。計算できない値は「—」です。</p><p>多数派の基準も各分割の学習用の曲から決めています。同じ作者・シリーズなどの関連曲が学習側と評価側に分かれる可能性があります。これは現在のライブラリ内での探索的な評価で、未知の曲への性能や「好きになる確率」ではありません。条件を繰り返し選び直して最も高い評価だけを採用すると、楽観的になり得ます。</p></details>',
   );
-  function nodeMarkup(node, edge = '') {
-    const stats = node.n + '曲 ／ 対象 ' + node.positive + '・対象外 ' + node.negative;
-    const view =
-      '<button type="button" class="btn subtle analysis-node-select" data-analysis-node="' +
-      node.id +
-      '">この' +
-      node.n +
-      '曲を見る</button>';
-    const edgeHtml = edge ? '<span class="analysis-tree-edge">' + esc(edge) + '</span>' : '';
-    if (!node.left)
-      return (
-        '<li>' +
-        edgeHtml +
-        '<article class="analysis-tree-leaf"><strong>予測：' +
-        (node.prediction ? '対象' : '対象外') +
-        '</strong><p>' +
-        stats +
-        ' ／ 葉内の対象割合 ' +
-        percent(node.score) +
-        '</p>' +
-        view +
-        '</article></li>'
-      );
-    const condition =
-      node.featureType === 'category'
-        ? node.label + ' を観測したか'
-        : node.label + ' ≤ ' + number(node.threshold, 6) + (node.unit ? ' ' + node.unit : '');
-    const open = Object.hasOwn(expansion, node.id) ? expansion[node.id] : node.depth < 2;
-    return (
-      '<li>' +
-      edgeHtml +
-      '<details class="analysis-tree-node" data-analysis-tree-branch="' +
-      node.id +
-      '"' +
-      (open ? ' open' : '') +
-      '><summary><strong>' +
-      esc(condition) +
-      '</strong><span>' +
-      stats +
-      '</span></summary><div class="analysis-tree-node-content">' +
-      view +
-      '<ol>' +
-      nodeMarkup(node.left, node.featureType === 'category' ? '未観測' : 'はい（≤）') +
-      nodeMarkup(node.right, node.featureType === 'category' ? '観測あり' : 'いいえ（>）') +
-      '</ol></div></details></li>'
-    );
-  }
   const diagram = panel(
     '分類の分岐図',
     '<p class="analysis-description">分類対象：' +
@@ -222,9 +176,9 @@ export function treeResult(r, { panel, table }, expansion = {}) {
       ' ／ 葉 ' +
       r.leaves +
       '個。分岐を開き、ボタンから該当曲を表示できます。</p>' +
-      '<ol class="analysis-decision-tree">' +
-      nodeMarkup(r.tree) +
-      '</ol><p class="analysis-description">葉内の割合は、その葉に入った学習曲での比率です。校正された確率や因果効果ではありません。境界の表示は丸めています。正確な値はCSVで確認できます。</p>',
+      decisionTreeDiagram(r, expansion, selection) +
+      '<p class="analysis-description">葉内の割合は、その葉に入った学習曲での比率です。校正された確率や因果効果ではありません。境界の表示は丸めています。正確な値はCSVで確認できます。</p>',
+    'analysis-tree-diagram',
   );
   const details = panel(
     '分割ごとの評価とデータ処理',

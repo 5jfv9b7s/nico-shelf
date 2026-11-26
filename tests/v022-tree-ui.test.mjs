@@ -118,11 +118,15 @@ test('node selection and native branch toggles preserve display state without re
   worker.onmessage({
     data: { id: worker.data.id, result: runAnalysis(worker.data.rows, worker.data.options) },
   });
-  h.toggle(0, false);
+  h.click({ analysisTreeToggle: '0' });
   h.click({ analysisNode: '0' });
   assert.equal(state.analysis.treeExpansion[0], false);
   assert.deepEqual(state.analysis.selection, { type: 'node', index: 0 });
   assert.equal(h.workers.length, 1);
+  h.click({ analysisTreeExpand: 'all' });
+  assert.equal(state.analysis.treeExpansion[0], true);
+  h.click({ analysisTreeExpand: 'reset' });
+  assert.deepEqual(state.analysis.treeExpansion, {});
   h.change('treeMinLeaf', '8', 'number');
   assert.equal(state.analysis.treeMinLeaf, 8);
   assert.equal(state.analysis.result, null);

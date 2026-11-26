@@ -3,6 +3,7 @@ import { analysisDefaults, ANALYSIS_METHODS, METRICS } from './analytics/data.js
 import { analysisCsv, ruleSourceCsv, ruleSourceArff } from './analytics/export.js';
 import { RULE_FIELDS } from './analytics/rule-data.js';
 import { TREE_CATEGORIES } from './analytics/classification-data.js';
+import { decisionNodeOpen } from '../ui/decision-tree-diagram.js';
 
 export function createAnalysisController({
   root,
@@ -41,6 +42,40 @@ export function createAnalysisController({
       library = state.library;
     }
   }
+  function centerTreeNode(id) {
+    const viewport = root.querySelector?.('.analysis-tree-scroll');
+    const card = root.querySelector?.('#decision-node-' + id);
+    if (!viewport || !card) return;
+    const cardBox = card.getBoundingClientRect(),
+      viewportBox = viewport.getBoundingClientRect();
+    viewport.scrollLeft +=
+      cardBox.left - viewportBox.left + cardBox.width / 2 - viewport.clientWidth / 2;
+  }
+  function revealTreePanel(id) {
+    const panel = root.querySelector?.('#' + id);
+    panel?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    const heading = panel?.querySelector('h2');
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+  }
+  function renderTree(focusNode = null, showSongs = false, focusSelector = '') {
+    const viewport = root.querySelector?.('.analysis-tree-scroll');
+    const saved = viewport ? { left: viewport.scrollLeft, top: viewport.scrollTop } : null;
+    render();
+    const updated = root.querySelector?.('.analysis-tree-scroll');
+    if (updated && saved) {
+      updated.scrollLeft = saved.left;
+      updated.scrollTop = saved.top;
+    }
+    if (focusNode !== null) {
+      centerTreeNode(focusNode);
+      if (updated && focusNode === state.analysis.result?.tree?.id) updated.scrollTop = 0;
+    }
+    if (focusSelector) root.querySelector?.(focusSelector)?.focus({ preventScroll: true });
+    if (showSongs) revealTreePanel('analysis-selection');
+  }
   function execute() {
     synchronize();
     if (!state.user) return;
@@ -60,7 +95,11 @@ export function createAnalysisController({
         state.analysis.error = data.error || '';
         worker?.terminate();
         worker = null;
-        if (state.view === 'analysis') render();
+        if (state.view === 'analysis') {
+          render();
+          if (state.analysis.result?.method === 'tree')
+            centerTreeNode(state.analysis.result.tree.id);
+        }
       };
       worker.onerror = () => {
         if (id !== generation || state.user?.id !== userId) return;
@@ -87,6 +126,34 @@ export function createAnalysisController({
     if (button.id === 'analysis-cancel') {
       cancel();
       return render();
+    }
+    if (button.dataset.analysisTreeBack !== undefined) {
+      revealTreePanel('analysis-tree-diagram');
+      return;
+    }
+    if (
+      button.dataset.analysisTreeToggle !== undefined ||
+      button.dataset.analysisTreeExpand !== undefined
+    ) {
+      synchronize();
+      const result = state.analysis.result;
+      if (result?.method !== 'tree') return render();
+      if (button.dataset.analysisTreeExpand === 'all') {
+        state.analysis.treeExpansion = Object.fromEntries(
+          result.nodes.filter((node) => node.left).map((node) => [node.id, true]),
+        );
+        return renderTree(result.tree.id, false, '[data-analysis-tree-expand="all"]');
+      }
+      if (button.dataset.analysisTreeExpand === 'reset') {
+        state.analysis.treeExpansion = {};
+        return renderTree(result.tree.id, false, '[data-analysis-tree-expand="reset"]');
+      }
+      const node = result.nodes.find(
+        (item) => item.id === Number(button.dataset.analysisTreeToggle),
+      );
+      if (!node?.left) return;
+      state.analysis.treeExpansion[node.id] = !decisionNodeOpen(node, state.analysis.treeExpansion);
+      return renderTree(node.id, false, '[data-analysis-tree-toggle="' + node.id + '"]');
     }
     if (['analysis-export', 'analysis-source-csv', 'analysis-source-arff'].includes(button.id)) {
       synchronize();
@@ -134,7 +201,7 @@ export function createAnalysisController({
       )
         return render();
       state.analysis.selection = { type: 'node', index: Number(button.dataset.analysisNode) };
-      return render();
+      return renderTree(null, true);
     }
     if (button.dataset.analysisGroup !== undefined || button.dataset.analysisRule !== undefined) {
       state.analysis.selection =
