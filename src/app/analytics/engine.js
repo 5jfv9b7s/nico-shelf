@@ -4,13 +4,17 @@ import { regressionAnalysis } from './regression.js';
 import { pcaAnalysis } from './pca.js';
 import { mineRules } from './rules.js';
 import { clusterAnalysis } from './clusters.js';
+import { decisionTreeAnalysis } from './decision-tree.js';
 
 /** Pure dispatcher, also used by reference-data tests; no network or DB access. */
 export function runAnalysis(rows, options) {
   const defaults = analysisDefaults();
   options = Object.fromEntries(
     Object.keys(defaults)
-      .filter((key) => !['result', 'busy', 'error', 'selection', 'ruleBinsOpen'].includes(key))
+      .filter(
+        (key) =>
+          !['result', 'busy', 'error', 'selection', 'ruleBinsOpen', 'treeExpansion'].includes(key),
+      )
       .map((key) => [key, options[key] ?? defaults[key]]),
   );
   if (!Object.hasOwn(ANALYSIS_METHODS, options.method))
@@ -24,6 +28,7 @@ export function runAnalysis(rows, options) {
     pca: pcaAnalysis,
     rules: mineRules,
     clusters: clusterAnalysis,
+    tree: decisionTreeAnalysis,
   };
   const result = functions[options.method](source.rows, options);
   return {
@@ -38,6 +43,7 @@ export function runAnalysis(rows, options) {
       playlists: [...options.playlists],
       features: [...options.features],
       ruleFields: Array.isArray(options.ruleFields) ? [...options.ruleFields] : [],
+      treeCategories: Array.isArray(options.treeCategories) ? [...options.treeCategories] : [],
     },
   };
 }

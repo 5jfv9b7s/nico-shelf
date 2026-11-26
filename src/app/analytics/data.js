@@ -10,6 +10,7 @@ export const ANALYSIS_METHODS = {
   pca: '主成分分析',
   rules: '相関ルール',
   clusters: 'クラスタリング',
+  tree: '決定木',
 };
 export const DEFAULT_FEATURES = ['views', 'comments', 'mylists'];
 export const COUNT_METRICS = new Set(['views', 'comments', 'mylists', 'likes']);
@@ -44,6 +45,16 @@ export function analysisDefaults() {
     ruleYearBins: '2010,2020,2023,2027',
     ruleDurationBins: '120,180,240,300',
     ruleBinsOpen: false,
+    treeTarget: 'playlist',
+    treePlaylist: '',
+    treeThreshold: 10000,
+    treeCategories: ['voice', 'genre', 'mood'],
+    treeDepth: 3,
+    treeMinLeaf: 5,
+    treeAlpha: 0.005,
+    treeCriterion: 'gini',
+    treeFolds: 5,
+    treeExpansion: {},
     busy: false,
     result: null,
     error: '',

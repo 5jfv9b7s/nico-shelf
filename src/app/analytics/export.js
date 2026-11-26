@@ -21,11 +21,13 @@ export function analysisCsv(result) {
     ],
     [
       '件数の対数変換',
-      result.method === 'rules'
-        ? 'なし（元の数値を区間化）'
-        : result.options.logCounts
-          ? 'ln(1+x)'
-          : 'なし',
+      result.method === 'tree'
+        ? 'なし（元の数値）'
+        : result.method === 'rules'
+          ? 'なし（元の数値を区間化）'
+          : result.options.logCounts
+            ? 'ln(1+x)'
+            : 'なし',
     ],
   ];
   if (result.method === 'correlation') {
@@ -76,6 +78,98 @@ export function analysisCsv(result) {
     );
     lines.push([], ['動画ID', 'タイトル', 'PC1得点', 'PC2得点']);
     result.points.forEach((p) => lines.push([p.id, p.title, p.x, p.y]));
+  } else if (result.method === 'tree') {
+    lines.push(
+      ['分類対象', result.target.label],
+      ['分類対象の種類', result.target.kind],
+      ['分類対象マイリストID', result.target.playlistId],
+      ['対象', result.positive],
+      ['対象外', result.negative],
+      ['分岐基準', result.options.treeCriterion],
+      ['最大深さ', result.options.treeDepth],
+      ['最小葉件数', result.options.treeMinLeaf],
+      ['枝刈りα', result.options.treeAlpha],
+      ['評価', '各曲を学習から外して1回ずつ予測する層化交差検証'],
+      ['分割数', result.folds],
+      ['補完と分類項目の選択', '各分割の学習用データだけで決定'],
+      ['数値の欠損', '学習用の中央値で補完'],
+      ['分類項目の上限', '学習用で3回以上観測した頻度上位40個'],
+      ['対象を直接定義するため除外した項目', result.blocked.join(' / ')],
+      ['全曲の木で欠損のみ・一定値のため除外した項目', result.dropped.join(' / ')],
+      ...result.warnings.map((w) => ['注意', w]),
+      ['指標', '交差検証', '学習用の多数派による基準'],
+      ...['accuracy', 'balancedAccuracy', 'precision', 'recall', 'specificity', 'f1'].map((key) => [
+        key,
+        result.metrics[key],
+        result.baseline[key],
+      ]),
+      [],
+      ['混同行列', '予測：対象', '予測：対象外'],
+      ['実際：対象', result.metrics.tp, result.metrics.fn],
+      ['実際：対象外', result.metrics.fp, result.metrics.tn],
+      [],
+      ['分割', '学習曲数', '評価曲数', '説明項目数', '正解率', '対象の再現率'],
+      ...result.foldResults.map((f) => [
+        f.fold,
+        f.trainN,
+        f.testN,
+        f.features,
+        f.metrics.accuracy,
+        f.metrics.recall,
+      ]),
+      [],
+      [
+        '動画ID',
+        'タイトル',
+        '実際の分類（1=対象）',
+        '交差検証の予測',
+        '評価用の分割',
+        '交差検証の葉内対象割合',
+        '多数派による予測',
+      ],
+      ...result.predictions.map((p) => [
+        p.id,
+        p.title,
+        p.actual,
+        p.predicted,
+        p.fold,
+        p.score,
+        p.baseline,
+      ]),
+      [],
+      ['全曲で作った説明用の木（上の評価とは別）'],
+      [
+        'ノードID',
+        '深さ',
+        '曲数',
+        '対象',
+        '対象外',
+        '予測',
+        '葉内対象割合',
+        '分岐項目',
+        '境界（以下が左）',
+        '左ノード',
+        '右ノード',
+        '動画ID（JSON）',
+      ],
+      ...result.nodes.map((node) => [
+        node.id,
+        node.depth,
+        node.n,
+        node.positive,
+        node.negative,
+        node.prediction,
+        node.score,
+        node.label || '葉',
+        node.threshold ?? '',
+        node.left?.id ?? '',
+        node.right?.id ?? '',
+        JSON.stringify(node.ids),
+      ]),
+      [],
+      ['全曲の木の説明項目', '種類', '単位', '補完の中央値'],
+      ...result.features.map((f) => [f.label, f.type, f.unit || '', f.median ?? '']),
+    );
   } else if (result.method === 'rules') {
     lines.push(
       ['方式', result.mode === 'apriori' ? 'Apriori' : '簡易分析'],

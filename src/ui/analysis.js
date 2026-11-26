@@ -1,6 +1,7 @@
 import { esc } from '../lib.js';
 import { canonicalVoices } from '../discovery.js';
 import { ruleControls } from './analysis-rules.js';
+import { treeControls, treeFeatureBlocked, treeResult } from './analysis-tree.js';
 import { ANALYSIS_METHODS, METRICS, metricLabel } from '../app/analytics/data.js';
 import { number, percent, pointChart, dendrogram, GROUP_COLORS } from './analysis-charts.js';
 
@@ -57,6 +58,7 @@ const INTRO = {
     '複数の説明変数を同時に使い、目的変数との関連を調べます。目的変数は説明変数から自動で除きます。',
   pca: '数値項目を標準化して少数の軸にまとめます。近い点は選択した数値上の特徴が近い曲です。',
   rules: '1曲を1つの組として、歌唱者・ジャンル・雰囲気などが一緒に現れるルールを探します。',
+  tree: '自分で選んだ分類対象を、どの特徴で分けられるか調べます。分岐図と、学習に使っていない曲での評価を表示します。',
   clusters:
     '選択した数値項目を標準化し、特徴の近い曲をグループ化します。グループ番号に優劣はありません。',
 };
@@ -118,9 +120,14 @@ function controls(state, rows) {
         a.k,
       );
   if (a.method === 'rules') fields += ruleControls(state, rows, select);
-  const featureControls = ['correlation', 'multiple', 'pca', 'clusters'].includes(a.method)
+  if (a.method === 'tree') fields += treeControls(state, rows, select);
+  const featureControls = ['correlation', 'multiple', 'pca', 'clusters', 'tree'].includes(a.method)
     ? '<fieldset class="analysis-features"><legend>' +
-      (a.method === 'multiple' ? '説明変数（目的変数は自動除外）' : '分析する数値項目') +
+      (a.method === 'multiple'
+        ? '説明変数（目的変数は自動除外）'
+        : a.method === 'tree'
+          ? '説明変数（数値・分類対象から直接分かる項目は除外）'
+          : '分析する数値項目') +
       '</legend>' +
       metricChoices
         .map(
@@ -128,7 +135,11 @@ function controls(state, rows) {
             '<label><input type="checkbox" data-analysis-field="features" value="' +
             key +
             '"' +
-            (a.features.includes(key) ? ' checked' : '') +
+            (a.features.includes(key) &&
+            !(a.method === 'tree' && treeFeatureBlocked(key, a.treeTarget))
+              ? ' checked'
+              : '') +
+            (a.method === 'tree' && treeFeatureBlocked(key, a.treeTarget) ? ' disabled' : '') +
             '/><span>' +
             esc(label) +
             '</span></label>',
@@ -137,15 +148,17 @@ function controls(state, rows) {
       '</fieldset>'
     : '';
   const toggle =
-    a.method === 'rules'
-      ? a.ruleMode === 'apriori'
-        ? ''
-        : '<label class="analysis-check"><input type="checkbox" data-analysis-field="ruleExtras"' +
-          (a.ruleExtras ? ' checked' : '') +
-          '/>作者・投稿者と保存済みタグも含める</label>'
-      : '<label class="analysis-check"><input type="checkbox" data-analysis-field="logCounts"' +
-        (a.logCounts ? ' checked' : '') +
-        '/>再生・コメント・マイリスト・いいね数を ln(1+件数) に変換する</label>';
+    a.method === 'tree'
+      ? ''
+      : a.method === 'rules'
+        ? a.ruleMode === 'apriori'
+          ? ''
+          : '<label class="analysis-check"><input type="checkbox" data-analysis-field="ruleExtras"' +
+            (a.ruleExtras ? ' checked' : '') +
+            '/>作者・投稿者と保存済みタグも含める</label>'
+        : '<label class="analysis-check"><input type="checkbox" data-analysis-field="logCounts"' +
+          (a.logCounts ? ' checked' : '') +
+          '/>再生・コメント・マイリスト・いいね数を ln(1+件数) に変換する</label>';
   return panel(
     '分析条件',
     '<p class="analysis-description">' +
@@ -524,7 +537,11 @@ function clusterResult(r, selection) {
 function selectedVideos(r, selection, rows) {
   if (!selection) return '';
   const selected =
-    selection.type === 'group' ? r.groups?.[selection.index] : r.rules?.[selection.index];
+    selection.type === 'group'
+      ? r.groups?.[selection.index]
+      : selection.type === 'node'
+        ? r.nodes?.find((node) => node.id === selection.index)
+        : r.rules?.[selection.index];
   if (!selected) return '';
   const ids = new Set(selected.ids);
   const matches = rows.filter((row) => ids.has(row.id));
@@ -582,7 +599,7 @@ export function renderAnalysis({ state, rows, hero }) {
         '曲を使用し、残り' +
         r.sampled +
         '曲は今回の分析に含めていません。全曲を使う場合はk-meansを選択してください。</p>';
-    if (r.dropped?.length)
+    if (r.method !== 'tree' && r.dropped?.length)
       result +=
         '<p class="analysis-warning">値が一定のため除外した項目：' +
         esc(r.dropped.map((key) => METRICS[key].label).join('・')) +
@@ -592,6 +609,7 @@ export function renderAnalysis({ state, rows, hero }) {
     if (r.method === 'pca') result += pcaResult(r);
     if (r.method === 'rules') result += rulesResult(r);
     if (r.method === 'clusters') result += clusterResult(r, a.selection);
+    if (r.method === 'tree') result += treeResult(r, { panel, table }, a.treeExpansion);
     result += selectedVideos(r, a.selection, rows);
   }
   return (

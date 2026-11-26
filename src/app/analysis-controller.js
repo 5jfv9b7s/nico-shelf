@@ -2,6 +2,7 @@ import { buildLibraryRows } from './library.js';
 import { analysisDefaults, ANALYSIS_METHODS, METRICS } from './analytics/data.js';
 import { analysisCsv, ruleSourceCsv, ruleSourceArff } from './analytics/export.js';
 import { RULE_FIELDS } from './analytics/rule-data.js';
+import { TREE_CATEGORIES } from './analytics/classification-data.js';
 
 export function createAnalysisController({
   root,
@@ -27,6 +28,7 @@ export function createAnalysisController({
     state.analysis.result = null;
     state.analysis.error = '';
     state.analysis.selection = null;
+    state.analysis.treeExpansion = {};
   }
   function synchronize() {
     if (owner !== state.user?.id) {
@@ -46,7 +48,8 @@ export function createAnalysisController({
     state.analysis.busy = true;
     const id = generation,
       userId = state.user.id;
-    const { result, error, selection, busy, ruleBinsOpen, ...options } = state.analysis;
+    const { result, error, selection, busy, ruleBinsOpen, treeExpansion, ...options } =
+      state.analysis;
     try {
       worker = createWorker();
       worker.onmessage = ({ data }) => {
@@ -122,6 +125,17 @@ export function createAnalysisController({
       state.analysis.method = button.dataset.analysisMethod;
       return render();
     }
+    if (button.dataset.analysisNode !== undefined) {
+      synchronize();
+      if (
+        !state.analysis.result?.nodes?.some(
+          (node) => node.id === Number(button.dataset.analysisNode),
+        )
+      )
+        return render();
+      state.analysis.selection = { type: 'node', index: Number(button.dataset.analysisNode) };
+      return render();
+    }
     if (button.dataset.analysisGroup !== undefined || button.dataset.analysisRule !== undefined) {
       state.analysis.selection =
         button.dataset.analysisGroup !== undefined
@@ -142,6 +156,9 @@ export function createAnalysisController({
     (event) => {
       if (state.user && event.target.id === 'analysis-rule-bins') {
         state.analysis.ruleBinsOpen = event.target.open;
+      }
+      if (state.user && event.target.dataset?.analysisTreeBranch !== undefined) {
+        state.analysis.treeExpansion[event.target.dataset.analysisTreeBranch] = event.target.open;
       }
     },
     true,
@@ -176,6 +193,15 @@ export function createAnalysisController({
       'ruleViewBins',
       'ruleYearBins',
       'ruleDurationBins',
+      'treeTarget',
+      'treePlaylist',
+      'treeThreshold',
+      'treeCategories',
+      'treeDepth',
+      'treeMinLeaf',
+      'treeAlpha',
+      'treeCriterion',
+      'treeFolds',
     ];
     if (!allowed.includes(field)) return;
     synchronize();
@@ -187,9 +213,10 @@ export function createAnalysisController({
       else if (valid) input.checked ? chosen.add(input.value) : chosen.delete(input.value);
       state.analysis.playlists = [...chosen];
       state.analysis.playlist = '';
-    } else if (field === 'features' || field === 'ruleFields') {
+    } else if (field === 'features' || field === 'ruleFields' || field === 'treeCategories') {
       const chosen = new Set(state.analysis[field]);
-      const catalog = field === 'features' ? METRICS : RULE_FIELDS;
+      const catalog =
+        field === 'features' ? METRICS : field === 'treeCategories' ? TREE_CATEGORIES : RULE_FIELDS;
       if (Object.hasOwn(catalog, input.value))
         input.checked ? chosen.add(input.value) : chosen.delete(input.value);
       state.analysis[field] = [...chosen];
@@ -205,6 +232,11 @@ export function createAnalysisController({
                 'ruleMinCount',
                 'ruleMinLift',
                 'ruleLimit',
+                'treeThreshold',
+                'treeDepth',
+                'treeMinLeaf',
+                'treeAlpha',
+                'treeFolds',
               ].includes(field)
             ? input.value.trim() === ''
               ? NaN

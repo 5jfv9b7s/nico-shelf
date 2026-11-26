@@ -3742,6 +3742,108 @@ button.scatter-legend-entry:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 10px;
 }
+.analysis-classification-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.analysis-classification-metrics > div {
+  background: #102536;
+  border: 1px solid #36546b;
+  border-radius: 10px;
+  padding: 13px;
+}
+.analysis-classification-metrics span {
+  display: block;
+  font-size: 12px;
+  color: #b6cbdb;
+}
+.analysis-classification-metrics strong {
+  display: block;
+  margin-top: 6px;
+  color: #acf1e2;
+  font-size: 23px;
+}
+.analysis-decision-tree,
+.analysis-decision-tree ol {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.analysis-decision-tree ol {
+  margin-left: 12px;
+  padding-left: 14px;
+  border-left: 2px solid #48738b;
+}
+.analysis-decision-tree li {
+  min-width: 0;
+  margin: 12px 0;
+}
+.analysis-tree-node,
+.analysis-tree-leaf {
+  background: #102237;
+  border: 1px solid #385b74;
+  border-radius: 11px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.analysis-tree-node > summary {
+  display: list-item;
+  cursor: pointer;
+  padding: 14px;
+  color: #c5f6ec;
+  min-height: 48px;
+}
+.analysis-tree-node > summary:hover {
+  background: #1a374b;
+  border-radius: 10px;
+}
+.analysis-tree-node > summary span {
+  display: block;
+  color: #bdd0e0;
+  font-size: 12px;
+  margin-top: 5px;
+}
+.analysis-tree-node-content,
+.analysis-tree-leaf {
+  padding: 10px 14px;
+}
+.analysis-tree-leaf {
+  border-color: #3d726c;
+  background: #132e36;
+}
+.analysis-tree-leaf p {
+  margin: 6px 0;
+  color: #c2d7e0;
+  font-size: 12px;
+}
+.analysis-tree-edge {
+  display: inline-block;
+  margin-bottom: 7px;
+  padding: 3px 9px;
+  background: #243d53;
+  color: #c6e2f1;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.analysis-node-select {
+  max-width: 100%;
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .analysis-decision-tree ol {
+    margin-left: 3px;
+    padding-left: 8px;
+  }
+  .analysis-tree-node-content,
+  .analysis-tree-leaf {
+    padding: 8px;
+  }
+  .analysis-classification-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .analysis-group {
   position: relative;
   text-align: left;
