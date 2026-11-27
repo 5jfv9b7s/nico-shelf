@@ -127,9 +127,9 @@ export function renderTrendChart(result, { style = 'line', focus = '' } = {}) {
   const sentence = (item, sign) =>
     item ? `${item.category} ${sign}${Math.abs(item.delta).toFixed(1)}pt` : '該当なし';
 
-  return `<section class="trend-visualization" aria-label="好みの変遷を視覚化">
+  return `<section class="trend-visualization" aria-label="グループ別の構成比を視覚化">
     <div class="trend-chart-heading"><div>
-      <h3>割合の推移を比較</h3>
+      <h3>グループごとの割合を比較</h3>
       <p>各グループの全動画に対する割合。<strong>${result.categories.length}項目</strong>を表示。凡例はスクロールできます。</p>
     </div><label class="control-label">強調する項目
       <select id="trend-focus-select"><option value="">全項目</option>${result.categories
@@ -154,9 +154,9 @@ export function renderTrendChart(result, { style = 'line', focus = '' } = {}) {
     ${buildCoverage(result)}
     ${
       result.cells.length >= 2
-        ? `<div class="trend-observation" aria-label="観察できる変化">
-      <span>上昇：<strong>${esc(sentence(biggestRise, '+'))}</strong></span>
-      <span>下降：<strong>${esc(sentence(biggestFall, '−'))}</strong></span>
+        ? `<div class="trend-observation" aria-label="表示順の先頭と末尾の差">
+      <span>先頭より高い：<strong>${esc(sentence(biggestRise, '+'))}</strong></span>
+      <span>先頭より低い：<strong>${esc(sentence(biggestFall, '−'))}</strong></span>
       <small>${esc(result.cells[0].label)} → ${esc(result.cells.at(-1).label)}。各グループの動画数や分類率が異なるため、傾向は参考値です。</small>
     </div>`
         : ''

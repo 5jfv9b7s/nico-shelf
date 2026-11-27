@@ -204,11 +204,15 @@ export function createAnalysisController({
       return renderTree(null, true);
     }
     if (button.dataset.analysisGroup !== undefined || button.dataset.analysisRule !== undefined) {
+      synchronize();
+      if (!state.analysis.result) return render();
       state.analysis.selection =
         button.dataset.analysisGroup !== undefined
           ? { type: 'group', index: Number(button.dataset.analysisGroup) }
           : { type: 'rule', index: Number(button.dataset.analysisRule) };
-      return render();
+      render();
+      if (state.analysis.result?.method === 'logistic') revealTreePanel('analysis-selection');
+      return;
     }
     if (button.dataset.analysisK) {
       const k = Number(button.dataset.analysisK);
@@ -269,6 +273,9 @@ export function createAnalysisController({
       'treeAlpha',
       'treeCriterion',
       'treeFolds',
+      'logisticLambda',
+      'logisticCutoff',
+      'logisticIterations',
     ];
     if (!allowed.includes(field)) return;
     synchronize();
@@ -304,6 +311,9 @@ export function createAnalysisController({
                 'treeMinLeaf',
                 'treeAlpha',
                 'treeFolds',
+                'logisticLambda',
+                'logisticCutoff',
+                'logisticIterations',
               ].includes(field)
             ? input.value.trim() === ''
               ? NaN

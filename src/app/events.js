@@ -1,6 +1,7 @@
 import { videoId } from '../lib.js';
 import { DEFAULT_3D_CAMERA } from './scatter3d.js';
 import { scrollPageToTop } from './scroll.js';
+import { moveTrendPlaylist, orderTrendPlaylists } from './trends.js';
 
 /**
  * DOM event delegation belongs here, away from the data-fetching controller.
@@ -53,6 +54,21 @@ export function registerEventHandlers({
     surpriseMe,
     refreshStorageUsage,
   } = actions;
+
+  function renderTrendSettings(target, selector, key) {
+    const list = root.querySelector?.('.trend-playlist-list');
+    const top = list?.scrollTop;
+    rerenderContent();
+    const updated = root.querySelector?.('.trend-playlist-list');
+    if (updated && top !== undefined) updated.scrollTop = top;
+    const controls = [...(root.querySelectorAll?.(selector) || [])].filter(
+      (item) => item.dataset[key] === target.dataset[key] && !item.disabled,
+    );
+    const control =
+      controls.find((item) => item.dataset.trendDirection === target.dataset.trendDirection) ||
+      controls[0];
+    control?.focus({ preventScroll: true });
+  }
 
   // Image errors do not bubble, so the persistent root listens during capture.
   root.addEventListener(
@@ -169,6 +185,22 @@ export function registerEventHandlers({
     }
     if (target.dataset.favorite) return guard(() => toggleFavorite(target.dataset.favorite));
     if (target.dataset.detail) return showDialog('detail', { id: target.dataset.detail });
+    if (target.id === 'trend-playlists-all' || target.id === 'trend-playlists-none') {
+      state.trends.playlistIds = target.id === 'trend-playlists-all' ? null : [];
+      state.trends.selected = null;
+      return rerenderContent();
+    }
+    if (target.dataset.trendMove) {
+      state.trends.playlistOrder = moveTrendPlaylist(
+        state.library.playlists,
+        state.trends.playlistOrder,
+        target.dataset.trendMove,
+        target.dataset.trendDirection,
+      );
+      state.trends.selected = null;
+      renderTrendSettings(target, '[data-trend-move]', 'trendMove');
+      return;
+    }
     if (target.dataset.trendGroup && target.dataset.trendCategory) {
       const next = { group: target.dataset.trendGroup, category: target.dataset.trendCategory };
       const current = state.trends.selected;
@@ -319,6 +351,19 @@ export function registerEventHandlers({
       render();
       return;
     }
+    if (e.target.dataset.trendPlaylist) {
+      const id = e.target.dataset.trendPlaylist;
+      const ids = orderTrendPlaylists(state.library.playlists, state.trends).map((p) => p.id);
+      const selected = new Set(ids);
+      if (e.target.checked) selected.add(id);
+      else selected.delete(id);
+      state.trends.playlistIds = orderTrendPlaylists(state.library.playlists, {
+        playlistIds: [...selected],
+      }).map((p) => p.id);
+      state.trends.selected = null;
+      renderTrendSettings(e.target, '[data-trend-playlist]', 'trendPlaylist');
+      return;
+    }
     if (e.target.id === 'file-import') return guard(() => handleFile(e.target.files[0]));
     if (e.target.id === 'file-sync') return guard(() => handleSyncFile(e.target.files[0]));
     if (
@@ -326,7 +371,6 @@ export function registerEventHandlers({
         'trend-axis',
         'trend-facet',
         'trend-playlist',
-        'trend-include-other',
         'trend-chart-style',
         'trend-visible-count',
         'trend-focus-select',
@@ -335,7 +379,6 @@ export function registerEventHandlers({
       if (e.target.id === 'trend-axis') state.trends.axis = e.target.value;
       if (e.target.id === 'trend-facet') state.trends.facet = e.target.value;
       if (e.target.id === 'trend-playlist') state.trends.playlistId = e.target.value;
-      if (e.target.id === 'trend-include-other') state.trends.includeOther = e.target.checked;
       if (e.target.id === 'trend-chart-style')
         state.trends.chartStyle = ['spotlight', 'line', 'matrix'].includes(e.target.value)
           ? e.target.value

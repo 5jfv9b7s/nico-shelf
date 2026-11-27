@@ -4333,3 +4333,140 @@ button.scatter-legend-entry:focus-visible {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+
+/* Explicit playlist comparison settings, independent of playlist names. */
+.trend-playlist-settings {
+  margin: 1rem 0 1.4rem;
+  border: 1px solid #344f64;
+  border-radius: 12px;
+  padding: 14px;
+  min-width: 0;
+}
+.trend-playlist-settings legend {
+  padding: 0 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.trend-playlist-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: start;
+}
+.trend-playlist-heading p {
+  flex: 1 1 250px;
+  margin-bottom: 8px;
+}
+.trend-playlist-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.trend-playlist-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #283d53;
+  padding: 8px 0;
+}
+.trend-playlist-list label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.trend-playlist-list label span {
+  overflow-wrap: anywhere;
+}
+.trend-playlist-list input {
+  accent-color: #76dcd0;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.trend-playlist-list small {
+  display: block;
+  color: #a6b8cf;
+  margin-top: 3px;
+}
+.trend-playlist-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.trend-playlist-actions .btn {
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 0.8rem;
+}
+.logistic-coefficients {
+  margin: 18px 0;
+}
+.logistic-coefficients figcaption {
+  font-size: 0.85rem;
+  color: #bac9df;
+  margin-bottom: 14px;
+}
+.logistic-coefficient-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) 2fr 70px;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 0.8rem;
+}
+.logistic-coefficient-row > span {
+  overflow-wrap: anywhere;
+}
+.logistic-coefficient-row > strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.logistic-coefficient-track {
+  position: relative;
+  height: 18px;
+  background: #0d192c;
+  border-radius: 4px;
+}
+.logistic-coefficient-track::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 50%;
+  width: 1px;
+  background: #8f9eb5;
+}
+.logistic-coefficient-track i {
+  position: absolute;
+  height: 100%;
+  border-radius: 3px;
+}
+.logistic-coefficient-track .positive {
+  left: 50%;
+  background: #76dcd0;
+}
+.logistic-coefficient-track .negative {
+  right: 50%;
+  background: #cba9ed;
+}
+@media (max-width: 600px) {
+  .trend-playlist-list li {
+    align-items: start;
+  }
+  .trend-playlist-actions .btn {
+    min-height: 42px;
+  }
+  .logistic-coefficient-row {
+    grid-template-columns: minmax(95px, 1fr) 1fr 58px;
+    gap: 6px;
+  }
+}

@@ -55,3 +55,59 @@ export function stratifiedFolds(records, requested = 5) {
   }
   return { folds, k, reduced: k !== Number(requested) };
 }
+
+/** Scores come from held-out predictions; no calibration is fitted here. */
+export function probabilityMetrics(actual, scores) {
+  if (
+    actual.length !== scores.length ||
+    actual.some((y) => ![0, 1].includes(y)) ||
+    scores.some((p) => !Number.isFinite(p) || p < 0 || p > 1)
+  )
+    throw new Error('確率評価の入力が不正です');
+  const n = actual.length,
+    positives = actual.filter(Boolean).length;
+  const bins = Array.from({ length: 10 }, (_, i) => ({
+    low: i / 10,
+    high: (i + 1) / 10,
+    n: 0,
+    sum: 0,
+    positive: 0,
+  }));
+  let loss = 0,
+    squared = 0;
+  scores.forEach((p, i) => {
+    const clipped = Math.max(1e-15, Math.min(1 - 1e-15, p));
+    loss -= actual[i] ? Math.log(clipped) : Math.log1p(-clipped);
+    squared += (p - actual[i]) ** 2;
+    const bin = bins[Math.min(9, Math.floor(p * 10))];
+    bin.n++;
+    bin.sum += p;
+    bin.positive += actual[i];
+  });
+  const ordered = scores.map((p, i) => ({ p, y: actual[i] })).sort((a, b) => a.p - b.p);
+  let ranks = 0;
+  for (let i = 0; i < ordered.length;) {
+    let j = i + 1;
+    while (j < ordered.length && ordered[j].p === ordered[i].p) j++;
+    const rank = (i + 1 + j) / 2;
+    for (let k = i; k < j; k++) if (ordered[k].y) ranks += rank;
+    i = j;
+  }
+  return {
+    logLoss: n ? loss / n : null,
+    brier: n ? squared / n : null,
+    auc:
+      positives && positives < n
+        ? (ranks - (positives * (positives + 1)) / 2) / (positives * (n - positives))
+        : null,
+    bins: bins
+      .filter((bin) => bin.n)
+      .map((bin) => ({
+        low: bin.low,
+        high: bin.high,
+        n: bin.n,
+        mean: bin.sum / bin.n,
+        actual: bin.positive / bin.n,
+      })),
+  };
+}

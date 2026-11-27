@@ -24,20 +24,32 @@ export const TREND_FACETS = Object.freeze({
   creator: '作り手・投稿者',
 });
 
-/** Put numbered playlists in numbered order, never treating favorites as a time period. */
-export function orderTrendPlaylists(playlists, { includeOther = false } = {}) {
-  const all = Array.isArray(playlists) ? playlists : [];
-  const numbered = all.filter((playlist) => /\d+$/.test(String(playlist.name || '')));
-  const chosen = numbered.length && !includeOther ? numbered : all;
-  return [...chosen].sort((a, b) => {
-    const aNumber = Number(String(a.name || '').match(/(\d+)$/)?.[1]);
-    const bNumber = Number(String(b.name || '').match(/(\d+)$/)?.[1]);
-    const aHasNumber = /\d+$/.test(String(a.name || ''));
-    const bHasNumber = /\d+$/.test(String(b.name || ''));
-    if (aHasNumber && bHasNumber && aNumber !== bNumber) return aNumber - bNumber;
-    if (aHasNumber !== bHasNumber) return aHasNumber ? -1 : 1;
-    return String(a.name).localeCompare(String(b.name), 'ja');
-  });
+/** Names are display labels only. Keep the library order until the user changes it. */
+export function orderTrendPlaylists(playlists, { playlistIds, playlistOrder = [] } = {}) {
+  const byId = new Map();
+  for (const playlist of Array.isArray(playlists) ? playlists : []) {
+    if (playlist?.id && !byId.has(playlist.id)) byId.set(playlist.id, playlist);
+  }
+  const ordered = [];
+  for (const id of Array.isArray(playlistOrder) ? playlistOrder : []) {
+    if (byId.has(id)) {
+      ordered.push(byId.get(id));
+      byId.delete(id);
+    }
+  }
+  ordered.push(...byId.values());
+  const selected = Array.isArray(playlistIds) ? new Set(playlistIds) : null;
+  return selected ? ordered.filter((playlist) => selected.has(playlist.id)) : ordered;
+}
+
+export function moveTrendPlaylist(playlists, playlistOrder, id, direction) {
+  const ids = orderTrendPlaylists(playlists, { playlistOrder }).map((p) => p.id);
+  const index = ids.indexOf(id);
+  const next = index + (direction === 'up' ? -1 : direction === 'down' ? 1 : 0);
+  if (index >= 0 && next >= 0 && next < ids.length) {
+    [ids[index], ids[next]] = [ids[next], ids[index]];
+  }
+  return ids;
 }
 
 /** Every category is counted at most once per video, even if several tags match. */
@@ -78,24 +90,28 @@ function playlistVideos(rowsById, entries, playlistId) {
 export function createTrendGroups(
   library,
   rows,
-  { axis = 'playlist', playlistId = '', includeOther = false } = {},
+  { axis = 'playlist', playlistId = '', playlistIds, playlistOrder } = {},
 ) {
   const rowById = new Map(rows.map((video) => [video.id, video]));
   const entries = liveEntries(library);
-  const playlists = orderTrendPlaylists(library.playlists, { includeOther });
+  const playlists = orderTrendPlaylists(library.playlists, { playlistOrder });
 
   if (axis === 'playlist') {
-    return playlists.map((playlist) =>
+    const names = new Map();
+    for (const p of playlists) names.set(p.name, (names.get(p.name) || 0) + 1);
+    return orderTrendPlaylists(playlists, { playlistIds }).map((playlist) =>
       makeGroup(
         `playlist:${playlist.id}`,
-        playlist.name,
+        names.get(playlist.name) > 1 ? `${playlist.name}（ID: ${playlist.id}）` : playlist.name,
         playlistVideos(rowById, entries, playlist.id),
       ),
     );
   }
 
   if (axis === 'position') {
-    const selected = playlists.find((playlist) => playlist.id === playlistId) ?? playlists[0];
+    const selected = playlistId
+      ? playlists.find((playlist) => playlist.id === playlistId)
+      : playlists[0];
     if (!selected) return [];
     const seen = new Set();
     const ordered = entries

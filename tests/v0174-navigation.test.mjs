@@ -276,3 +276,26 @@ test('上へボタンはPCの折り返したフッターとスマホの下部ナ
   assert.equal(ui.button.hidden, true);
   ui.controller.destroy();
 });
+
+test('trend selection and reordering are ID based and invalidate stale selected songs', () => {
+  const ui = createFixture();
+  ui.state.view = 'trends';
+  ui.state.library.playlists = [
+    { id: 'b', name: '同じ名前' },
+    { id: 'a', name: '同じ名前' },
+    { id: 'c', name: '曲1' },
+  ];
+  ui.state.trends.selected = { group: 'playlist:b', category: '初音ミク' };
+  ui.dispatch('change', { dataset: { trendPlaylist: 'b' }, checked: false });
+  assert.deepEqual(ui.state.trends.playlistIds, ['a', 'c']);
+  assert.equal(ui.state.trends.selected, null);
+  ui.dispatch('click', { dataset: { trendMove: 'c', trendDirection: 'up' } });
+  assert.deepEqual(ui.state.trends.playlistOrder, ['b', 'c', 'a']);
+  assert.match(ui.html(), /ID: c/);
+  ui.dispatch('click', { id: 'trend-playlists-none' });
+  assert.deepEqual(ui.state.trends.playlistIds, []);
+  ui.dispatch('change', { dataset: { trendPlaylist: 'b' }, checked: true });
+  assert.deepEqual(ui.state.trends.playlistIds, ['b']);
+  ui.dispatch('click', { id: 'trend-playlists-all' });
+  assert.equal(ui.state.trends.playlistIds, null);
+});

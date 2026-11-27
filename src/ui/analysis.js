@@ -2,6 +2,7 @@ import { esc } from '../lib.js';
 import { canonicalVoices } from '../discovery.js';
 import { ruleControls } from './analysis-rules.js';
 import { treeControls, treeFeatureBlocked, treeResult } from './analysis-tree.js';
+import { logisticControls, logisticResult } from './analysis-logistic.js';
 import { ANALYSIS_METHODS, METRICS, metricLabel } from '../app/analytics/data.js';
 import { number, percent, pointChart, dendrogram, GROUP_COLORS } from './analysis-charts.js';
 
@@ -65,6 +66,8 @@ const INTRO = {
   pca: '数値項目を標準化して少数の軸にまとめます。近い点は選択した数値上の特徴が近い曲です。',
   rules: '1曲を1つの組として、歌唱者・ジャンル・雰囲気などが一緒に現れるルールを探します。',
   tree: '自分で選んだ分類対象を、どの特徴で分けられるか調べます。分岐図と、学習に使っていない曲での評価を表示します。',
+  logistic:
+    '選んだ分類条件に当てはまる確率を、複数の特徴から推定します。正則化した係数と、学習に使っていない曲での評価を表示します。',
   clusters:
     '選択した数値項目を標準化し、特徴の近い曲をグループ化します。グループ番号に優劣はありません。',
 };
@@ -127,11 +130,20 @@ function controls(state, rows) {
       );
   if (a.method === 'rules') fields += ruleControls(state, rows, select);
   if (a.method === 'tree') fields += treeControls(state, rows, select);
-  const featureControls = ['correlation', 'multiple', 'pca', 'clusters', 'tree'].includes(a.method)
+  if (a.method === 'logistic') fields += logisticControls(state, rows, select);
+  const classifier = ['tree', 'logistic'].includes(a.method);
+  const featureControls = [
+    'correlation',
+    'multiple',
+    'pca',
+    'clusters',
+    'tree',
+    'logistic',
+  ].includes(a.method)
     ? '<fieldset class="analysis-features"><legend>' +
       (a.method === 'multiple'
         ? '説明変数（目的変数は自動除外）'
-        : a.method === 'tree'
+        : classifier
           ? '説明変数（数値・分類対象から直接分かる項目は除外）'
           : '分析する数値項目') +
       '</legend>' +
@@ -141,11 +153,10 @@ function controls(state, rows) {
             '<label><input type="checkbox" data-analysis-field="features" value="' +
             key +
             '"' +
-            (a.features.includes(key) &&
-            !(a.method === 'tree' && treeFeatureBlocked(key, a.treeTarget))
+            (a.features.includes(key) && !(classifier && treeFeatureBlocked(key, a.treeTarget))
               ? ' checked'
               : '') +
-            (a.method === 'tree' && treeFeatureBlocked(key, a.treeTarget) ? ' disabled' : '') +
+            (classifier && treeFeatureBlocked(key, a.treeTarget) ? ' disabled' : '') +
             '/><span>' +
             esc(label) +
             '</span></label>',
@@ -609,7 +620,7 @@ export function renderAnalysis({ state, rows, hero }) {
         '曲を使用し、残り' +
         r.sampled +
         '曲は今回の分析に含めていません。全曲を使う場合はk-meansを選択してください。</p>';
-    if (r.method !== 'tree' && r.dropped?.length)
+    if (!['tree', 'logistic'].includes(r.method) && r.dropped?.length)
       result +=
         '<p class="analysis-warning">値が一定のため除外した項目：' +
         esc(r.dropped.map((key) => METRICS[key].label).join('・')) +
@@ -621,6 +632,7 @@ export function renderAnalysis({ state, rows, hero }) {
     if (r.method === 'clusters') result += clusterResult(r, a.selection);
     if (r.method === 'tree')
       result += treeResult(r, { panel, table }, a.treeExpansion, a.selection);
+    if (r.method === 'logistic') result += logisticResult(r, { panel, table }, a.selection);
     result += selectedVideos(r, a.selection, rows);
   }
   return (

@@ -1,12 +1,13 @@
 import { esc } from '../lib.js';
-import { eligibleRows, METRICS } from '../app/analytics/data.js';
-import {
-  targetRecords,
-  blockedTreeFeatures,
-  TREE_CATEGORIES,
-} from '../app/analytics/classification-data.js';
+import { METRICS } from '../app/analytics/data.js';
+import { blockedTreeFeatures } from '../app/analytics/classification-data.js';
 import { percent } from './analysis-charts.js';
 import { decisionTreeDiagram } from './decision-tree-diagram.js';
+import {
+  classificationTargetControls,
+  classificationCategoryControls,
+  classificationEvaluationPanel,
+} from './analysis-classification.js';
 
 function input(field, label, value, attrs) {
   return (
@@ -32,51 +33,6 @@ function section(label, body) {
 }
 export function treeControls(state, rows, select) {
   const a = state.analysis;
-  let target = select(
-    'treeTarget',
-    '分類したい条件',
-    [
-      ['playlist', 'マイリストへの所属'],
-      ['favorite', 'アプリ内のお気に入り'],
-      ['views', '再生数の区分'],
-    ],
-    a.treeTarget,
-  );
-  if (a.treeTarget === 'playlist')
-    target += select(
-      'treePlaylist',
-      '分類対象のマイリスト',
-      [
-        ['', 'マイリストを選択してください'],
-        ...state.library.playlists.map((p) => [String(p.id), p.name]),
-      ],
-      a.treePlaylist,
-    );
-  if (a.treeTarget === 'views')
-    target += input(
-      'treeThreshold',
-      '対象とする再生数（この値以上）',
-      a.treeThreshold,
-      'min="0" max="1000000000000" step="any"',
-    );
-  try {
-    const data = targetRecords(eligibleRows(rows, a).rows, a);
-    const positive = data.records.filter((r) => r.target).length;
-    target +=
-      '<p class="analysis-description analysis-rule-wide">' +
-      esc(data.label) +
-      '：対象 ' +
-      positive +
-      '曲 ／ 対象外 ' +
-      (data.records.length - positive) +
-      '曲' +
-      (data.missingTarget ? ' ／ 分類対象の欠損 ' + data.missingTarget + '曲' : '') +
-      '。名前の意味は推測せず、保存された状態で判定します。</p>';
-  } catch {
-    /* The empty target selector is explained by its label. */
-  }
-  target +=
-    '<p class="analysis-description analysis-rule-wide">上の対象マイリストは分析する曲の範囲、ここで選ぶものは分類したい条件です。対象・対象外の両方の曲を含めてください。対象外は「嫌い」を意味しません。</p>';
   const parameters =
     select(
       'treeCriterion',
@@ -105,23 +61,10 @@ export function treeControls(state, rows, select) {
       a.treeFolds,
     ) +
     '<p class="analysis-description analysis-rule-wide">深さを小さく、最小曲数・枝刈りを大きくすると単純な木になります。評価では各曲を学習から外して1回ずつ予測します。</p>';
-  const categories =
-    '<fieldset class="analysis-features analysis-rule-fields"><legend>説明変数（分類項目）</legend>' +
-    Object.entries(TREE_CATEGORIES)
-      .map(
-        ([key, label]) =>
-          '<label><input type="checkbox" data-analysis-field="treeCategories" value="' +
-          key +
-          '"' +
-          (a.treeCategories.includes(key) ? ' checked' : '') +
-          '><span>' +
-          label +
-          '</span></label>',
-      )
-      .join('') +
-    '<p class="analysis-description">学習用の曲で3回以上観測した項目の頻度上位40個を使います。各分割の中で選び直します。タグや分類の未観測は、実際にその特徴がないことを保証しません。</p></fieldset>';
   return (
-    section('分類対象を選ぶ', target) + section('木の大きさと評価方法', parameters) + categories
+    classificationTargetControls(state, rows, select) +
+    section('木の大きさと評価方法', parameters) +
+    classificationCategoryControls(a)
   );
 }
 
@@ -130,41 +73,7 @@ export function treeFeatureBlocked(key, target) {
 }
 
 export function treeResult(r, { panel, table }, expansion = {}, selection = null) {
-  const metrics = r.metrics;
-  const pct = (value) => (value === null ? '—' : percent(value));
-  const metricCards = [
-    ['正解率', metrics.accuracy],
-    ['多数派だけで予測した正解率', r.baseline.accuracy],
-    ['バランス正解率', metrics.balancedAccuracy],
-    ['適合率（対象）', metrics.precision],
-    ['再現率（対象）', metrics.recall],
-    ['F1（対象）', metrics.f1],
-  ];
-  const evaluation = panel(
-    '学習に使っていない曲での評価',
-    '<p class="analysis-description">' +
-      r.folds +
-      '分割交差検証で全' +
-      r.n +
-      '曲を1回ずつ評価しました。学習用の曲だけで欠損補完・分類項目の選択・分岐・枝刈りを行っています。</p>' +
-      '<div class="analysis-classification-metrics">' +
-      metricCards
-        .map(
-          ([label, value]) =>
-            '<div><span>' + label + '</span><strong>' + pct(value) + '</strong></div>',
-        )
-        .join('') +
-      '</div>' +
-      table(
-        ['実際の分類', '予測：対象', '予測：対象外'],
-        [
-          ['対象', String(metrics.tp), String(metrics.fn)],
-          ['対象外', String(metrics.fp), String(metrics.tn)],
-        ],
-        '混同行列（交差検証の予測を合計）',
-      ) +
-      '<details class="analysis-help"><summary>評価の読み方と注意点</summary><p>正解率は全体で正解した割合、適合率は対象と予測した曲のうち実際も対象だった割合、再現率は実際の対象を見つけた割合です。F1は適合率と再現率の調和平均、バランス正解率は対象・対象外それぞれの正解率の平均です。計算できない値は「—」です。</p><p>多数派の基準も各分割の学習用の曲から決めています。同じ作者・シリーズなどの関連曲が学習側と評価側に分かれる可能性があります。これは現在のライブラリ内での探索的な評価で、未知の曲への性能や「好きになる確率」ではありません。条件を繰り返し選び直して最も高い評価だけを採用すると、楽観的になり得ます。</p></details>',
-  );
+  const evaluation = classificationEvaluationPanel(r, { panel, table });
   const diagram = panel(
     '分類の分岐図',
     '<p class="analysis-description">分類対象：' +

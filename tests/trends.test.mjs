@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   orderTrendPlaylists,
+  moveTrendPlaylist,
   createTrendGroups,
   calculateTrend,
   compareTrendEndpoints,
@@ -27,10 +28,10 @@ function video(id, overrides = {}) {
 
 function fixture() {
   const playlists = [
-    { id: 'fav', name: '最近のお気に入り' },
-    { id: 'three', name: 'ぼかうた3' },
     { id: 'one', name: 'ぼかうた1' },
     { id: 'two', name: 'ぼかうた2' },
+    { id: 'three', name: 'ぼかうた3' },
+    { id: 'fav', name: '最近のお気に入り' },
   ];
   const rows = [
     video('sm1', {
@@ -71,23 +72,67 @@ function fixture() {
   return { library: { playlists, entries, videos: rows, meta: [] }, rows };
 }
 
-test('numbered playlists are ordered numerically; favorites are not a chronological stage', () => {
-  const { library } = fixture();
+test('playlist names never determine inclusion or order, including trailing numbers', () => {
+  const playlists = [
+    { id: 'a', name: 'ロック10' },
+    { id: 'b', name: '最近のお気に入り' },
+    { id: 'c', name: 'ロック2' },
+    { id: 'd', name: '同じ名前' },
+    { id: 'e', name: '同じ名前' },
+  ];
   assert.deepEqual(
-    orderTrendPlaylists(library.playlists).map((p) => p.id),
-    ['one', 'two', 'three'],
+    orderTrendPlaylists(playlists).map((p) => p.id),
+    ['a', 'b', 'c', 'd', 'e'],
   );
   assert.deepEqual(
-    orderTrendPlaylists(library.playlists, { includeOther: true }).map((p) => p.id),
-    ['one', 'two', 'three', 'fav'],
+    orderTrendPlaylists(playlists, { includeOther: false }).map((p) => p.id),
+    ['a', 'b', 'c', 'd', 'e'],
+  );
+  assert.deepEqual(
+    orderTrendPlaylists(playlists, {
+      playlistIds: ['e', 'b', 'c'],
+      playlistOrder: ['c', 'e', 'b'],
+    }).map((p) => p.id),
+    ['c', 'e', 'b'],
+  );
+  assert.deepEqual(orderTrendPlaylists(playlists, { playlistIds: [] }), []);
+  assert.deepEqual(
+    orderTrendPlaylists(playlists, { playlistOrder: ['missing', 'c', 'c'] }).map((p) => p.id),
+    ['c', 'a', 'b', 'd', 'e'],
+  );
+  const renamed = playlists.map((p) => ({ ...p, name: '全部同じ' }));
+  assert.deepEqual(
+    orderTrendPlaylists(renamed, { playlistIds: ['c', 'b'], playlistOrder: ['b', 'c'] }).map(
+      (p) => p.id,
+    ),
+    ['b', 'c'],
   );
 });
 
-test('fallback retains unnumbered playlists for other users', () => {
+test('manual order moves known IDs one step and keeps new lists in library order', () => {
+  const { library } = fixture();
+  assert.deepEqual(moveTrendPlaylist(library.playlists, [], 'three', 'up'), [
+    'one',
+    'three',
+    'two',
+    'fav',
+  ]);
   assert.deepEqual(
-    orderTrendPlaylists([{ id: 'x', name: 'お気に入り' }]).map((p) => p.id),
-    ['x'],
+    moveTrendPlaylist(library.playlists, ['three', 'one', 'two', 'fav'], 'one', 'down'),
+    ['three', 'two', 'one', 'fav'],
   );
+  assert.deepEqual(moveTrendPlaylist(library.playlists, [], 'one', 'up'), [
+    'one',
+    'two',
+    'three',
+    'fav',
+  ]);
+  assert.deepEqual(moveTrendPlaylist(library.playlists, [], 'secret', 'down'), [
+    'one',
+    'two',
+    'three',
+    'fav',
+  ]);
 });
 
 test('each group deduplicates entries and ignores removed registrations', () => {
@@ -96,11 +141,11 @@ test('each group deduplicates entries and ignores removed registrations', () => 
   const groups = createTrendGroups(library, rows, { axis: 'playlist' });
   assert.deepEqual(
     groups.map((group) => group.total),
-    [4, 2, 1],
+    [4, 2, 1, 1],
   );
   assert.deepEqual(
     groups.map((group) => group.label),
-    ['ぼかうた1', 'ぼかうた2', 'ぼかうた3'],
+    ['ぼかうた1', 'ぼかうた2', 'ぼかうた3', '最近のお気に入り'],
   );
 });
 
@@ -245,4 +290,58 @@ test('trend bars have explicit block layout to prevent the v0.10 display regress
   const css = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
   assert.match(css, /\.trend-cell-fill\s*\{[^}]*display:\s*block/s);
   assert.match(css, /\.trend-scroll\s*\{[^}]*overflow-x:\s*auto/s);
+});
+
+test('playlist selection and order affect groups and endpoints while other axes stay independent', () => {
+  const { library, rows } = fixture();
+  const config = { playlistIds: ['three', 'one'], playlistOrder: ['three', 'two', 'one', 'fav'] };
+  const r = calculateTrend(library, rows, config);
+  assert.deepEqual(
+    r.cells.map((c) => c.key),
+    ['playlist:three', 'playlist:one'],
+  );
+  assert.equal(compareTrendEndpoints(r).find((x) => x.category === '音街ウナ').delta, -50);
+  assert.deepEqual(createTrendGroups(library, rows, { playlistIds: [] }), []);
+  assert.equal(
+    createTrendGroups(library, rows, { ...config, axis: 'position', playlistId: 'two' }).length,
+    2,
+  );
+  assert.deepEqual(
+    createTrendGroups(library, rows, { axis: 'position', playlistId: 'deleted' }),
+    [],
+  );
+  assert.equal(createTrendGroups(library, rows, { ...config, axis: 'published' }).length, 4);
+});
+
+test('trend settings expose real labeled controls and escape same-name lists and hostile IDs', () => {
+  const { library, rows } = fixture();
+  library.playlists[0] = { id: 'one', name: '<unsafe>' };
+  library.playlists[1] = { id: 'two', name: '<unsafe>' };
+  const state = {
+    library,
+    trends: { axis: 'playlist', facet: 'voice', playlistIds: [], playlistOrder: [] },
+  };
+  const html = renderTrends({ state, rows, cards: () => '', hero: () => '' });
+  assert.match(html, /data-trend-playlist="one"/);
+  assert.match(html, /data-trend-move="two"/);
+  assert.match(html, /ID: two/);
+  assert.match(html, /比較するマイリストを選択/);
+  assert.ok(!html.includes('<unsafe>'));
+  assert.ok(!html.includes('番号のない'));
+  assert.ok(!html.includes('trend-include-other'));
+});
+
+test('duplicate playlist display labels keep IDs visible in charts and preserve distinct contents', () => {
+  const { library, rows } = fixture();
+  library.playlists[0].name = '同じ名前';
+  library.playlists[1].name = '同じ名前';
+  const result = calculateTrend(library, rows, { playlistIds: ['one', 'two'] });
+  assert.deepEqual(
+    result.cells.map((c) => c.label),
+    ['同じ名前（ID: one）', '同じ名前（ID: two）'],
+  );
+  assert.deepEqual(
+    result.cells.map((c) => c.total),
+    [4, 2],
+  );
 });

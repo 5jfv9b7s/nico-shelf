@@ -55,7 +55,7 @@ test('6種類の結果画面が曲名をエスケープし、操作導線と有�
     const html = createViewRenderer({ state, renderDialog: () => '' }).shell();
     assert.match(html, /分析対象 32曲/);
     assert.match(html, /id="analysis-export"/);
-    assert.equal((html.match(/data-analysis-method=/g) || []).length, 7);
+    assert.equal((html.match(/data-analysis-method=/g) || []).length, 8);
     assert.doesNotMatch(html, /<script>|onerror=|onclick=|\bNaN\b|\bInfinity\b/);
     if (['regression', 'multiple', 'pca', 'clusters'].includes(method)) {
       assert.match(html, /data-scatter-video="sm1"/);

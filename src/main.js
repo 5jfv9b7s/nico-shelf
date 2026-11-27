@@ -989,6 +989,7 @@ async function start() {
       state.user = session?.user || null;
       if (before !== state.user?.id) {
         metadataController.reset();
+        state.trends = createInitialState().trends;
         state.library = { playlists: [], videos: [], entries: [], meta: [] };
         state.storageUsage = null;
         state.storageUsageError = '';

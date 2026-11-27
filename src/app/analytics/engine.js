@@ -5,6 +5,7 @@ import { pcaAnalysis } from './pca.js';
 import { mineRules } from './rules.js';
 import { clusterAnalysis } from './clusters.js';
 import { decisionTreeAnalysis } from './decision-tree.js';
+import { logisticAnalysis } from './logistic-regression.js';
 
 /** Pure dispatcher, also used by reference-data tests; no network or DB access. */
 export function runAnalysis(rows, options) {
@@ -29,6 +30,7 @@ export function runAnalysis(rows, options) {
     rules: mineRules,
     clusters: clusterAnalysis,
     tree: decisionTreeAnalysis,
+    logistic: logisticAnalysis,
   };
   const result = functions[options.method](source.rows, options);
   return {

@@ -25,9 +25,13 @@ export function renderTrends({ state, rows, cards, hero }) {
     ...config,
     limit: config.visibleCount ?? 10,
   });
-  const playlists = orderTrendPlaylists(state.library.playlists, config);
-  const selectedPlaylist =
-    playlists.find((playlist) => playlist.id === config.playlistId) ?? playlists[0];
+  const playlists = orderTrendPlaylists(state.library.playlists, {
+    playlistOrder: config.playlistOrder,
+  });
+  const selectedIds = new Set(orderTrendPlaylists(playlists, config).map((p) => p.id));
+  const selectedPlaylist = config.playlistId
+    ? playlists.find((playlist) => playlist.id === config.playlistId)
+    : playlists[0];
   const axisDescriptions = {
     playlist:
       '各マイリストの登録済み動画を比較します。同じ動画が複数のリストにあれば、それぞれに数えます。',
@@ -60,14 +64,35 @@ export function renderTrends({ state, rows, cards, hero }) {
         ${
           config.axis === 'position'
             ? `<label class="control-label">対象マイリスト<select id="trend-playlist">${optionHtml(
-                playlists.map((p) => [p.id, p.name]),
+                [
+                  ...(config.playlistId && !selectedPlaylist
+                    ? [[config.playlistId, '選択したリストは見つかりません']]
+                    : []),
+                  ...playlists.map((p) => [p.id, `${p.name}（ID: ${p.id}）`]),
+                ],
                 selectedPlaylist?.id,
               )}</select></label>`
             : ''
         }
-        ${config.axis !== 'published' ? `<label class="trend-checkbox"><input type="checkbox" id="trend-include-other" ${config.includeOther ? 'checked' : ''}/>番号のないリストも含める</label>` : ''}
+
       </div>
-      <p class="trend-notice">${esc(axisDescriptions[config.axis])} ${config.axis === 'playlist' ? '番号のない「最近のお気に入り」などは、初期状態では比較から除外します。' : ''}</p>
+      <p class="trend-notice">${esc(axisDescriptions[config.axis])} ${config.axis === 'playlist' ? 'リスト名から時系列を推測しません。選んだ表示順で比較します。' : ''}</p>
+      ${
+        config.axis === 'playlist'
+          ? `<fieldset class="trend-playlist-settings"><legend>比較するマイリストと表示順</legend>
+        <div class="trend-playlist-heading"><p class="trend-notice">${selectedIds.size} / ${playlists.length}リストを選択。上下ボタンでグラフと表の左から右への順番を変えられます。この画面の設定は再読み込みするまで保持します。</p>
+          <div class="trend-playlist-actions"><button type="button" class="btn subtle" id="trend-playlists-all">すべて選択</button><button type="button" class="btn subtle" id="trend-playlists-none">選択解除</button></div></div>
+        <ul class="trend-playlist-list">${playlists
+          .map(
+            (p, index) => `<li>
+          <label><input type="checkbox" data-trend-playlist="${esc(p.id)}" ${selectedIds.has(p.id) ? 'checked' : ''}><span>${esc(p.name)}<small>ID: ${esc(p.id)}</small></span></label>
+          <div class="trend-playlist-actions"><button type="button" class="btn subtle" data-trend-move="${esc(p.id)}" data-trend-direction="up" aria-label="${esc(p.name)}（ID: ${esc(p.id)}）を上へ" ${index ? '' : 'disabled'}>↑ 上へ</button><button type="button" class="btn subtle" data-trend-move="${esc(p.id)}" data-trend-direction="down" aria-label="${esc(p.name)}（ID: ${esc(p.id)}）を下へ" ${index < playlists.length - 1 ? '' : 'disabled'}>↓ 下へ</button></div>
+        </li>`,
+          )
+          .join('')}</ul>
+      </fieldset>`
+          : ''
+      }
       ${
         trend.groups.length
           ? `
@@ -100,7 +125,7 @@ export function renderTrends({ state, rows, cards, hero }) {
         <p class="trend-notice">色付きのセルを押すと該当動画を表示します。1曲に複数の歌唱者・タグがある場合、複数項目に計上されるため、割合の合計は100%にならないことがあります。${['genre', 'mood'].includes(config.facet) ? '分類はタグと概要欄で明示された情報からの推定であり、音声解析ではありません。' : ''}</p>
         ${
           endpoints.length
-            ? `<div class="trend-differences"><h3>最初と最後のグループの差 <small>（パーセントポイント）</small></h3>
+            ? `<div class="trend-differences"><h3>表示順の先頭と末尾のグループの差 <small>（パーセントポイント）</small></h3>
           <div class="trend-delta-list">${endpoints
             .slice(0, 5)
             .map(
@@ -113,7 +138,7 @@ export function renderTrends({ state, rows, cards, hero }) {
             : ''
         }
       `
-          : '<div class="empty-sm">比較に使える動画やマイリストがありません。</div>'
+          : `<div class="empty-sm">${config.axis === 'playlist' && !selectedIds.size && playlists.length ? '比較するマイリストを選択してください。' : '比較に使える動画やマイリストがありません。'}</div>`
       }
     </section>
     ${

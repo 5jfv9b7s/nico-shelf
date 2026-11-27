@@ -161,7 +161,7 @@ export function createViewRenderer({ state, renderDialog }) {
     const p = state.library.playlists;
     return `${hero('OVERVIEW', 'あなたの音楽の棚', '好きな曲を、探して、整理して、もっと知る。', `<div class="inline-actions"><button class="btn primary" data-action="sync">＋ マイリストを取り込む</button><button class="btn subtle" data-action="add">＋ 動画を登録</button><button class="btn subtle" data-action="import">⇩ ファイルを取り込む</button></div>`)}
     ${statsCards()}
-    <div class="trend-entry-banner"><span><strong>♫ 音楽の変遷</strong><small>マイリストの順番・投稿年から、好きな曲の傾向を比較</small></span><button class="btn subtle" data-view="trends">分析を見る →</button></div>
+    <div class="trend-entry-banner"><span><strong>♫ 音楽の変遷</strong><small>指定したマイリストの並び順・投稿年から、好きな曲の傾向を比較</small></span><button class="btn subtle" data-view="trends">分析を見る →</button></div>
     ${c.videos === 0 ? `<div class="welcome-banner"><div class="welcome-icon">♫</div><div><h2>最初のライブラリを作りましょう</h2><p>ニコニコの公開マイリストのURLを貼り付けて、内容を確認するだけ。追加するまでデータは保存されません。Googleアカウントごとに非公開で管理します。</p><div class="inline-actions"><button class="btn primary" data-action="sync">マイリストURLから取り込む</button><button class="btn subtle" data-action="import">ファイルから取り込む</button></div></div></div>` : ''}
     <div class="two-cols">
       <section class="panel"><div class="panel-title voice-rank-heading"><div><span class="section-eyebrow">VOICE RANKING</span><h2>歌唱者ランキング</h2></div><div class="voice-rank-controls"><label class="control-label compact">集計単位<select id="voice-mode"><option value="canonical" ${state.voiceMode === 'canonical' ? 'selected' : ''}>キャラクター別</option><option value="raw" ${state.voiceMode === 'raw' ? 'selected' : ''}>元の歌唱者表記</option></select></label><label class="control-label compact">表示人数<select id="voice-count">${[
