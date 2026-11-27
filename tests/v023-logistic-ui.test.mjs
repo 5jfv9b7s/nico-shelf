@@ -96,7 +96,7 @@ test('logistic UI distinguishes same-name target IDs, shows all controls and saf
   ])
     assert.ok(html.includes(text), text);
   assert.doesNotMatch(html, /<script>|<tag>|<対象>|\bNaN\b|\bInfinity\b/);
-  assert.equal((html.match(/data-analysis-method=/g) || []).length, 8);
+  assert.equal((html.match(/data-analysis-method=/g) || []).length, 9);
 });
 
 test('changing logistic settings cancels stale Worker results and group selection respects account/library changes', () => {

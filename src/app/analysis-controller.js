@@ -276,6 +276,9 @@ export function createAnalysisController({
       'logisticLambda',
       'logisticCutoff',
       'logisticIterations',
+      'factorCount',
+      'factorRotation',
+      'factorIterations',
     ];
     if (!allowed.includes(field)) return;
     synchronize();
@@ -314,6 +317,8 @@ export function createAnalysisController({
                 'logisticLambda',
                 'logisticCutoff',
                 'logisticIterations',
+                'factorCount',
+                'factorIterations',
               ].includes(field)
             ? input.value.trim() === ''
               ? NaN

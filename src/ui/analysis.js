@@ -3,6 +3,7 @@ import { canonicalVoices } from '../discovery.js';
 import { ruleControls } from './analysis-rules.js';
 import { treeControls, treeFeatureBlocked, treeResult } from './analysis-tree.js';
 import { logisticControls, logisticResult } from './analysis-logistic.js';
+import { factorControls, factorResult } from './analysis-factor.js';
 import { ANALYSIS_METHODS, METRICS, metricLabel } from '../app/analytics/data.js';
 import { number, percent, pointChart, dendrogram, GROUP_COLORS } from './analysis-charts.js';
 
@@ -64,6 +65,8 @@ const INTRO = {
   multiple:
     '複数の説明変数を同時に使い、目的変数との関連を調べます。目的変数は説明変数から自動で除きます。',
   pca: '数値項目を標準化して少数の軸にまとめます。近い点は選択した数値上の特徴が近い曲です。',
+  factor:
+    '複数の数値項目に共通する変動を、共通因子と各項目の独自分散に分けます。負荷量から因子の意味を考えます。',
   rules: '1曲を1つの組として、歌唱者・ジャンル・雰囲気などが一緒に現れるルールを探します。',
   tree: '自分で選んだ分類対象を、どの特徴で分けられるか調べます。分岐図と、学習に使っていない曲での評価を表示します。',
   logistic:
@@ -131,11 +134,13 @@ function controls(state, rows) {
   if (a.method === 'rules') fields += ruleControls(state, rows, select);
   if (a.method === 'tree') fields += treeControls(state, rows, select);
   if (a.method === 'logistic') fields += logisticControls(state, rows, select);
+  if (a.method === 'factor') fields += factorControls(a, select);
   const classifier = ['tree', 'logistic'].includes(a.method);
   const featureControls = [
     'correlation',
     'multiple',
     'pca',
+    'factor',
     'clusters',
     'tree',
     'logistic',
@@ -628,6 +633,7 @@ export function renderAnalysis({ state, rows, hero }) {
     if (r.method === 'correlation') result += correlationResult(r);
     if (r.method === 'regression' || r.method === 'multiple') result += regressionResult(r);
     if (r.method === 'pca') result += pcaResult(r);
+    if (r.method === 'factor') result += factorResult(r, { panel, table });
     if (r.method === 'rules') result += rulesResult(r);
     if (r.method === 'clusters') result += clusterResult(r, a.selection);
     if (r.method === 'tree')

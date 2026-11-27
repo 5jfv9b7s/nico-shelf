@@ -78,6 +78,76 @@ export function analysisCsv(result) {
     );
     lines.push([], ['動画ID', 'タイトル', 'PC1得点', 'PC2得点']);
     result.points.forEach((p) => lines.push([p.id, p.title, p.x, p.y]));
+  } else if (result.method === 'factor') {
+    const names = Array.from({ length: result.count }, (_, i) => 'F' + (i + 1));
+    lines.push(
+      ['抽出法', '最尤法（Gaussian common-factor model）'],
+      ['標準化', '母標準偏差（ddof=0）・全項目がそろう曲だけ使用'],
+      ['因子数', result.count],
+      [
+        '回転',
+        result.options.factorRotation === 'varimax' ? 'Varimax（直交・Kaiser正規化なし）' : 'なし',
+      ],
+      ['最大反復', result.options.factorIterations],
+      ['最尤法の収束', result.converged ? 'はい' : 'いいえ'],
+      ['反復回数', result.iterations],
+      ['回転の収束', result.rotationConverged ? 'はい' : 'いいえ'],
+      ['回転の反復回数', result.rotationIterations],
+      ['モデルの自由度', result.df],
+      ['相関の再現誤差（対角以外のRMSR）', result.rmsr],
+      ['相関行列の条件数', result.condition],
+      ['値が一定・ほぼ一定で除外した項目', result.dropped.map(label).join(' / ')],
+      ...result.warnings.map((w) => ['注意', w]),
+      [],
+      [
+        '項目',
+        ...names,
+        '共通性（負荷量二乗和）',
+        '独自分散（Ψ）',
+        '変換後の平均',
+        '変換後の母標準偏差',
+      ],
+      ...result.keys.map((key, j) => [
+        label(key),
+        ...result.loadings[j],
+        result.communalities[j],
+        result.noise[j],
+        result.means[j],
+        result.scales[j],
+      ]),
+      [],
+      ['因子', '負荷量二乗和', '二乗和／項目数'],
+      ...result.sums.map((v, i) => [names[i], v, result.shares[i]]),
+      [],
+      ['元の相関行列の固有値（共通因子の説明量ではない）', '値'],
+      ...result.eigenvalues.map((v, i) => [i + 1, v]),
+      [],
+      ['項目1', '項目2', '観測相関', 'モデルの再現共分散', '残差（観測−モデル）'],
+      ...result.keys.flatMap((key, i) =>
+        result.keys
+          .slice(i)
+          .map((other, j) => [
+            label(key),
+            label(other),
+            result.correlation[i][i + j],
+            result.reproduced[i][i + j],
+            result.residuals[i][i + j],
+          ]),
+      ),
+      [],
+      ['項目', ...names.map((name) => name + ' 得点の係数（標準化後）')],
+      ...result.keys.map((key, j) => [label(key), ...result.scoreWeights[j]]),
+      [],
+      ['動画ID', 'タイトル', ...names.map((name) => name + ' 推定因子得点')],
+      ...result.points.map((p) => [p.id, p.title, ...p.scores]),
+      [],
+      ['反復', '1曲あたり対数尤度'],
+      ...result.logLikelihood.map((v, i) => [i + 1, v]),
+      [
+        '注意',
+        '係数は因果効果ではない。因子得点はモデルによる推定で音の類似度や曲の評価ではない。p値・信頼区間は未算出',
+      ],
+    );
   } else if (result.method === 'tree') {
     lines.push(
       ['分類対象', result.target.label],

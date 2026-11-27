@@ -4470,3 +4470,58 @@ button.scatter-legend-entry:focus-visible {
     gap: 6px;
   }
 }
+
+/* Factor loading signs remain readable as numbers and text, independent of color. */
+.factor-loading {
+  display: inline-block;
+  min-width: 64px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.factor-loading.positive {
+  background: #153e42;
+  color: #b5f2e6;
+}
+.factor-loading.negative {
+  background: #3a2d50;
+  color: #e2cafa;
+}
+.factor-loading.is-strong {
+  border-color: currentColor;
+  font-weight: 700;
+}
+.factor-scree {
+  margin: 20px 0;
+}
+.factor-scree figcaption {
+  color: #b8c8db;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+.factor-scree > div {
+  display: grid;
+  grid-template-columns: 95px 1fr 65px;
+  gap: 12px;
+  align-items: center;
+  margin: 10px 0;
+  font-size: 0.85rem;
+}
+.factor-scree strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.factor-scree-track {
+  display: block;
+  height: 14px;
+  background: #0c192b;
+  border-radius: 5px;
+}
+.factor-scree-track i {
+  display: block;
+  height: 100%;
+  background: #75dcd1;
+  border-radius: inherit;
+}
